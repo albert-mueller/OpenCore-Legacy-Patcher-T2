@@ -35,8 +35,10 @@ misc
 def rmtree_handler(func, path, exc_info) -> None:
     try:
         if exc_info[0] == FileNotFoundError:
-        return
-        raise # pylint: disable=misplaced-bare-raise
+            return
+        # If it's not a FileNotFoundError, we log the failure to the GUI
+        logging.error("Critical: rmtree_handler cannot start cleanup for path!")
+        raise 
     except Exception as e:
         logging.error(f"Function Error: {e}")
 
@@ -56,7 +58,7 @@ def __init__(self, model: str, global_constants: constants.Constants) -> None:
             self.constants.device_properties = {}
 
         self._build_opencore()
-    except exception as e:
+    except Exception as e:
         logging.error(f"Function Error: {e}")
 
 
