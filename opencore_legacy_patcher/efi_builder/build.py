@@ -82,8 +82,6 @@ class BuildOpenCore:
         # We check if the current model has the T2_CHIP feature flag
         if "T2_CHIP" in self.constants.device_properties.get(self.model, {}).get("Features", []):
             logging.info("- Adding T2-specific bypass kexts (iBridged & CryptexFixup)")
-            support.BuildSupport(self.model, self.constants, self.config).enable_kext("iBridged.kext", "1.0.0", self.constants.kext_path)
-            support.BuildSupport(self.model, self.constants, self.config).enable_kext("CryptexFixup.kext", "1.1.0", self.constants.kext_path)
             # 1. Helper Kexts
             support.BuildSupport(self.model, self.constants, self.config).enable_kext("iBridged.kext", "1.1.0", self.constants.kext_path)
             support.BuildSupport(self.model, self.constants, self.config).enable_kext("CryptexFixup.kext", "1.1.0", self.constants.kext_path)
@@ -170,11 +168,14 @@ class BuildOpenCore:
     
     
     def _save_config(self) -> None:
-        """
-        Save config.plist to disk
-        """
+        try:
+            """
+            Save config.plist to disk
+            """
 
-        plistlib.dump(self.config, Path(self.constants.plist_path).open("wb"), sort_keys=True)
+            plistlib.dump(self.config, Path(self.constants.plist_path).open("wb"), sort_keys=True)
+        except Exception as e:
+            logging.error(f"Function Error: {e}")
     
     
     def _build_opencore(self) -> None:
