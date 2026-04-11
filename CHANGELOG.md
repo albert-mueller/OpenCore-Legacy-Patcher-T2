@@ -1,6 +1,7 @@
 # OpenCore Legacy Patcher changelog
 ## 3.0.0 alpha 5
 - fixes an issue that prevents from building the OpenCore into the disk - the fix is temporary and requires when building the EFI to enter the password inside the Terminal app
+- fixes a bug where on T2 Macs it puts inside the EFI 2 Lilus and CryptexFixups.
 🛡️ Security & Hardening:
 Resolved Path Injection Vulnerability (CWE-427): Hardened the application entry point by stripping the current working directory from sys.path. This prevents the execution of malicious local scripts during app startup.
 
