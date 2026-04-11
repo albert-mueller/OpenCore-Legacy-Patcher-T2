@@ -8,6 +8,7 @@ import shutil
 import logging
 import zipfile
 import plistlib
+import logging
 
 from pathlib import Path
 from datetime import date
@@ -32,25 +33,31 @@ misc
 )
 
 def rmtree_handler(func, path, exc_info) -> None:
-    if exc_info[0] == FileNotFoundError:
-    return
-    raise # pylint: disable=misplaced-bare-raise
+    try:
+        if exc_info[0] == FileNotFoundError:
+        return
+        raise # pylint: disable=misplaced-bare-raise
+    except Exception as e:
+        logging.error(f"Function Error: {e}")
 
-    class BuildOpenCore:
+class BuildOpenCore:
     """
     Core Build Library for generating and validating OpenCore EFI Configurations
     compatible with genuine Macs
     """
 
 def __init__(self, model: str, global_constants: constants.Constants) -> None:
-    self.model: str = model
-    self.config: dict = None
-    self.constants: constants.Constants = global_constants
+    try:
+        self.model: str = model
+        self.config: dict = None
+        self.constants: constants.Constants = global_constants
 
-    if not hasattr(self.constants, "device_properties"):
-        self.constants.device_properties = {}
+        if not hasattr(self.constants, "device_properties"):
+            self.constants.device_properties = {}
 
-    self._build_opencore()
+        self._build_opencore()
+    except exception as e:
+        logging.error(f"Function Error: {e}")
 
 
 def _build_efi(self) -> None:
