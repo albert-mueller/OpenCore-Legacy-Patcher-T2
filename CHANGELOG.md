@@ -1,4 +1,6 @@
 # OpenCore Legacy Patcher changelog
+## 3.0.0 alpha 4.2
+- fixes a vulnerability where in constants.py the repository to check for updates was https://github.com/p8bpg9zrw7-collab/OpenCore-Legacy-Patcher-T2 - the old link. An attacker could redirect to a malicious GitHub repository or could launch a malicious redirect to install malware, for example AtomicStealer. This vulnerability affects versions from 3.0.0 alpha 2 all the way until 3.0.0 alpha 4.1
 ## 3.0.0 alpha 4.1
 - Fixed broken files that when uploading to GitHub they broke while uploading. This increases stability of the OpenCore Legacy Patcher T2 app.
 - Changed the GitHub repository to a clean repo to clean the mess of broken files.
