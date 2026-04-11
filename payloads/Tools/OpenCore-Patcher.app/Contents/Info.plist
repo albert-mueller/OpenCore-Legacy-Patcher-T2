@@ -24,5 +24,9 @@
 	<string>Copyright © 2020-2023 Dortania</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>SMAuthorizedClients</key>
+	<array>
+		<string>identifier "com.dortania.opencore-legacy-patcher" and anchor apple generic</string>
+	</array>
 </dict>
 </plist>
