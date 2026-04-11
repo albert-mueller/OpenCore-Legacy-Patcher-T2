@@ -32,15 +32,15 @@ misc
 )
 
 def rmtree_handler(func, path, exc_info) -> None:
-if exc_info[0] == FileNotFoundError:
-return
-raise # pylint: disable=misplaced-bare-raise
+    if exc_info[0] == FileNotFoundError:
+    return
+    raise # pylint: disable=misplaced-bare-raise
 
-class BuildOpenCore:
-"""
-Core Build Library for generating and validating OpenCore EFI Configurations
-compatible with genuine Macs
-"""
+    class BuildOpenCore:
+    """
+    Core Build Library for generating and validating OpenCore EFI Configurations
+    compatible with genuine Macs
+    """
 
 def __init__(self, model: str, global_constants: constants.Constants) -> None:
     self.model: str = model
