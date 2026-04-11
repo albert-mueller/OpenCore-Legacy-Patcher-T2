@@ -24,8 +24,8 @@
 	<string>Copyright © 2020-2023 Dortania</string>
 	<key>SMPrivilegedExecutables</key>
 	<dict>
-		<key>com.dortania.opencore-legacy-patcher-helper</key>
-		<string>identifier "com.dortania.opencore-legacy-patcher-helper" and anchor apple generic</string>
+		<key>com.dortania.opencore-legacy-patcher.privileged-helper</key>
+		<string>identifier "com.dortania.opencore-legacy-patcher.privileged-helper" and anchor apple generic</string>
 	</dict>
 </dict>
 </plist>
