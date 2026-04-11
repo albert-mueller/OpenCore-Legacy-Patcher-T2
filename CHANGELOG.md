@@ -1,4 +1,9 @@
 # OpenCore Legacy Patcher changelog
+## 3.0.0 alpha 4.1
+- Fixed broken files that when uploading to GitHub they broke while uploading. This increases stability of the OpenCore Legacy Patcher T2 app.
+- Changed the GitHub repository to a clean repo to clean the mess of broken files.
+- Removed the iBridged.kext to clean broken files. I'm planning to readd these soon.
+
 ## 3.0.0 alpha 4
 - Switch KDK comments and messages from Chinese to English
 - Now iBridge's source code is no longer stored in a zip file, so you can read it at any time
@@ -11,7 +16,7 @@
 ## 3.0.0 alpha 1
 - Add partial support for unsupported T2 Macs
 
-## 3.0.0
+## 3.0.0 (initial release of the official OpenCore Legacy Patcher 3.0.0)
 - Restore support for FileVault 2 on macOS 26
 - Add USB mappings for macOS 26
 - Adopt Liquid Glass-conformant app icon
