@@ -1,0 +1,14 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Ensure these are always treated as binary so they don't corrupt
+*.kext binary
+*.dmg binary
+*.pkg binary
+*.icns binary
+*.png binary
+*.jpg binary
+
+# Ensure shell scripts always have Unix line endings so they run on macOS
+*.sh text eol=lf
+*.command text eol=lf
