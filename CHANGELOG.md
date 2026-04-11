@@ -1,7 +1,17 @@
 # OpenCore Legacy Patcher changelog
+## 3.0.0 alpha 5
+- fixes an issue that prevents from building the OpenCore into the disk - the fix is temporary and requires when building the EFI to enter the password inside the Terminal app
+🛡️ Security & Hardening:
+Resolved Path Injection Vulnerability (CWE-427): Hardened the application entry point by stripping the current working directory from sys.path. This prevents the execution of malicious local scripts during app startup.
+
+Internal Path Sanitization: Implemented generic error handling in the PyInstaller entry point to prevent leaking sensitive local system paths and usernames via Python tracebacks.
+
+Privileged Execution Refactoring: Transitioned from a fixed Privileged Helper Tool binary to a dynamic sudo-based execution model, reducing dependencies on signed external binaries while maintaining system-level task capabilities.
+
+When building the EFI, an attacker could write invalid synthax to crash the project, or worse - execute arbitary code. This is fixed by wrapping with try/except blocks.
 ## 3.0.0 alpha 4.3
 - fixes an issue where OpenCore Legacy Patcher T2 won't open
-- fixes an issue that prevents from building the OpenCore into the disk
+- fixes an issue that prevents from building the OpenCore into the disk partially
 ## 3.0.0 alpha 4.2
 - fixes a vulnerability where in constants.py the repository to check for updates was https://github.com/p8bpg9zrw7-collab/OpenCore-Legacy-Patcher-T2 - the old link. An attacker could redirect to a malicious GitHub repository or could launch a malicious redirect to install malware, for example AtomicStealer. This vulnerability affects versions from 3.0.0 alpha 2 all the way until 3.0.0 alpha 4.1
 ## 3.0.0 alpha 4.1
