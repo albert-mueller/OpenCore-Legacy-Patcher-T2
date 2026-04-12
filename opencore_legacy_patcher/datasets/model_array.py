@@ -191,7 +191,7 @@ ModernGPU = [
     "MacPro3,1", # Lacks AVX2.0
     "MacPro4,1", # Lacks AVX2.0
     "MacPro5,1", # Lacks AVX2.0
-    #"MacPro6,1", # GCN 1
+    "MacPro6,1", # GCN 1
 ]
 
 LegacyGPU = [
