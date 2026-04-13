@@ -17,4 +17,4 @@ if __name__ == '__main__':
     except Exception:
         # Avoid printing 'E' to prevent leaking internal path info
         print("The application has issues to launch. Please report this issue.")
-        sys.exit(1)
+        sys.exit(3)
