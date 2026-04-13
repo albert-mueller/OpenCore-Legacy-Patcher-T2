@@ -10,6 +10,7 @@ This release fixes the following:
 - Removes requirements for Apple certificates
 
 🛡️ Security & Hardening:
+These vulnerabilities affect both this repository and Dortania's official repository.
 Resolved Path Injection Vulnerability (CWE-427): Hardened the application entry point by stripping the current working directory from sys.path. This prevents the execution of malicious local scripts during app startup.
 
 Internal Path Sanitization: Implemented generic error handling in the PyInstaller entry point to prevent leaking sensitive local system paths and usernames via Python tracebacks.
@@ -21,7 +22,7 @@ When building the EFI, an attacker could write invalid synthax to crash the proj
 - fixes an issue where OpenCore Legacy Patcher T2 won't open
 - fixes an issue that prevents from building the OpenCore into the disk partially
 ## 3.0.0 alpha 4.2
-- fixes a vulnerability where in constants.py the repository to check for updates was https://github.com/p8bpg9zrw7-collab/OpenCore-Legacy-Patcher-T2 - the old link. An attacker could redirect to a malicious GitHub repository or could launch a malicious redirect to install malware, for example AtomicStealer. This vulnerability affects versions from 3.0.0 alpha 2 all the way until 3.0.0 alpha 4.1
+- fixes a vulnerability where in constants.py the repository to check for updates was https://github.com/p8bpg9zrw7-collab/OpenCore-Legacy-Patcher-T2 - the old link. An attacker could redirect to a malicious GitHub repository or could launch a malicious redirect to install malware, for example AtomicStealer. This vulnerability affects versions from 3.0.0 alpha 2 all the way until 3.0.0 alpha 4.1.
 ## 3.0.0 alpha 4.1
 - Fixed broken files that when uploading to GitHub they broke while uploading. This increases stability of the OpenCore Legacy Patcher T2 app.
 - Changed the GitHub repository to a clean repo to clean the mess of broken files.
@@ -31,7 +32,7 @@ When building the EFI, an attacker could write invalid synthax to crash the proj
 - Switch KDK comments and messages from Chinese to English
 - Now iBridge's source code is no longer stored in a zip file, so you can read it at any time
 ## 3.0.0 alpha 3
-- This version patches a security vulnerability in the networking library that could have allowed for insecure connections when downloading macOS assets or patches. (Updated requests to 2.32.2).
+- This version patches a security vulnerability in the networking library that could have allowed for insecure connections when downloading macOS assets or patches. (Updated requests to 2.32.2). This vulnerability affects both this repository and Dortania's official OpenCore Legacy Patcher repository. To address this vulnerability, update to the latest available release.
 ## 3.0.0 alpha 2
 - Now it will always check for updatees from our repository instead of Dortania's
 - Bug fixes in OpenCore Legacy Patcher T2 prevents from flashing the OpenCore bootloader, regardless of the Mac model.
