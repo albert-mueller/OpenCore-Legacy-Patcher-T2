@@ -1,4 +1,4 @@
-# OpenCore Legacy Patcher changelog
+# OpenCore Legacy Patcher T2 changelog
 ## 3.0.0 alpha 6
 This release fixes the following:
 - To Mac Pro 2019 users they were offered OpenCore EFIs for unsupported Macs, while the 2019 Mac Pro supports Tahoe natively
