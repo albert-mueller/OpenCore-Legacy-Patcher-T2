@@ -1,4 +1,11 @@
 # OpenCore Legacy Patcher T2 changelog
+##3.0.0 alpha 10 and 10S:
+3.0.0 alpha 10 alongside 3.0.0 alpha 10S fixes the following issues:
+- In updates.py, REPO_LATEST_RELEASE_URL was pointing to a web page. This bug affects all versions from 3.0.0 alpha 2 onwards.
+- Fixes a bug in gui_build.py that prevents OpenCore EFIs from building.
+Known issue:
+- core.py panics as soon as trying to patch and thus the app crashes
+
 ## 3.0.0 alpha 9
 This release:
 - Adds the special version of WhateverGreen that works with iBridged - but will not be injected automatically via OCLP until a future alpha release, just like the iBridged.kext. To inject these, first build the EFI via the OpenCore Legacy Patcher app as you would do noramlly, and then add those 2 kexts via OCAuxiliaryTools or ProperTree.
