@@ -5,7 +5,7 @@
 - Fixes a bug in gui_build.py that prevents OpenCore EFIs from building.
 
 Known issue:
-- core.py panics as soon as trying to patch and thus the app crashes
+- core.py panics as soon as trying to apply OpenCore EFIs and thus the app crashes
 
 ## 3.0.0 alpha 9
 This release:
