@@ -343,10 +343,6 @@ class InstallOCFrame(wx.Frame):
         finally:
             # 2. Safely remove the handler (fixes the IndexError/RuntimeError)
             if my_handler in logger.handlers:
-                logger.removeHandler(my_handler)        
-        finally:
-            # 2. Safely remove ONLY the handler we added
-            if my_handler in logger.handlers:
                 logger.removeHandler(my_handler)
 
     def on_reload_frame(self, event: wx.Event = None) -> None:
