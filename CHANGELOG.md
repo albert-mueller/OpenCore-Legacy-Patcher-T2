@@ -1,8 +1,34 @@
 # OpenCore Legacy Patcher T2 changelog
+
+## 3.0.0 alpha 12:
+This release fixes the following issues:
+GUI and Backend Improvements
+Fix Build & Install Frame Stability:
+
+Implemented finally blocks in gui_build.py and gui_install_oc.py to ensure logging handlers are properly detached.
+
+This resolves the RuntimeError: C/C++ object has been deleted when transitioning between build and installation screens.
+
+Refactor Thread Management:
+
+Replaced index-based handler removal (handlers[2]) with explicit object references.
+
+Fixes IndexError: list index out of range occurring on faster machines or when disk unmounting is delayed.
+
+Improve Installation Reliability:
+
+Restored missing backend calls in the installation thread to ensure OpenCore is actually written to the EFI partition.
+
+Fixed a logic bug where self.result wasn't being updated, which previously prevented the "Success" and "Reboot" prompts from appearing.
+
+Python 3.13/3.14 Compatibility:
+
+General code cleanup to support stricter object lifecycle management in newer Python environments.
+
 ## 3.0.0 alpha 11:
 This release:
 - Resolved RuntimeError: wrapped C/C++ object of type TextCtrl has been deleted in the Build Frame. This was achieved by implementing a finally block to ensure the ThreadHandler is explicitly removed from the global logger before the UI frame is destroyed, preventing race conditions during build-to-install transitions.
-- 
+
 ## 3.0.0 alpha 10 and 10S:
 3.0.0 alpha 10 alongside 3.0.0 alpha 10S fixes the following issues:
 - In updates.py, REPO_LATEST_RELEASE_URL was pointing to a web page. This bug affects all versions from 3.0.0 alpha 2 onwards.
