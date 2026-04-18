@@ -1,5 +1,9 @@
 # OpenCore Legacy Patcher T2 changelog
-##3.0.0 alpha 10 and 10S:
+## 3.0.0 alpha 11:
+This release:
+- Resolved RuntimeError: wrapped C/C++ object of type TextCtrl has been deleted in the Build Frame. This was achieved by implementing a finally block to ensure the ThreadHandler is explicitly removed from the global logger before the UI frame is destroyed, preventing race conditions during build-to-install transitions.
+- 
+## 3.0.0 alpha 10 and 10S:
 3.0.0 alpha 10 alongside 3.0.0 alpha 10S fixes the following issues:
 - In updates.py, REPO_LATEST_RELEASE_URL was pointing to a web page. This bug affects all versions from 3.0.0 alpha 2 onwards.
 - Fixes a bug in gui_build.py that prevents OpenCore EFIs from building.
@@ -14,10 +18,12 @@ This release:
 - Now, when the OpenCore Legacy Patcher app crashes, it will show the error just like pre-alpha 5, so for example attackers can't unknowingly exploit vulnerabilities, for example - to crash the app and unknowingly to the user they execute malicious code. This bug affects this repository only. It's both a bug and a vulnerability.
 
 To fix this vulnerability, update to the latest version available.
+
 ## 3.0.0 alpha 8:
 This release will start enabling WhateverGreen.kext for unsupported T2 Macs to allow patching GPUs in the future - but only partially. And this release also fixes a vulnerability where when trying to build OpenCore EFI on unsupported T2 Macs, an attacker can prevent from building the EFI and execute arbitary code in the background unknowingly while to the user it shows an error only. This vulnerability affects this project only. This vulnerability was present since 3.0.0 alpha 1.
 
 To fix this vulnerability, update to the latest version available.
+
 ## 3.0.0 alpha 7
 This release adds:
 - a very experimental version of iBridged to add T2 spoofing capabilities. This will allow booting into macOS 15 Sequoia and macOS 26 Tahoe, but for 26 Tahoe, at the release of iBridged 1.1.0b1 support is incomplete. The kext overall will see improvements in future alpha versions. It may have some bugs still pending to be fixed. The kext will not be automatically injected into OpenCore automatically yet, as it may be not fully stable yet. But for this to work, you need an SMBIOS of a unsupported or supported T2 Mac. On unsupported T2 Macs, you generally may not need SMBIOS spoofing to get it to work.
@@ -28,6 +34,7 @@ This release also fixes the following vulnerabilities:
 - Updated follow-redirects dependency to resolve a security vulnerability (CVE-2024-28849). This prevents potential credential leakage during documentation build processes. This affects both this and Dortania's own repository.
 
 To fix these vulnerabilities, update to the latest version available.
+
 ## 3.0.0 alpha 6
 This release fixes the following:
 - To Mac Pro 2019 users they were offered OpenCore EFIs for unsupported Macs, while the 2019 Mac Pro supports Tahoe natively
@@ -47,9 +54,11 @@ Internal Path Sanitization: Implemented generic error handling in the PyInstalle
 Privileged Execution Refactoring: Transitioned from a fixed Privileged Helper Tool binary to a dynamic sudo-based execution model, reducing dependencies on signed external binaries while maintaining system-level task capabilities.
 
 When building the EFI, an attacker could write invalid synthax to crash the project, or worse - execute arbitary code. This is fixed by wrapping with try/except blocks.
+
 ## 3.0.0 alpha 4.3
 - fixes an issue where OpenCore Legacy Patcher T2 won't open
 - fixes an issue that prevents from building the OpenCore into the disk partially
+
 ## 3.0.0 alpha 4.2
 - fixes a vulnerability where in constants.py the repository to check for updates was https://github.com/p8bpg9zrw7-collab/OpenCore-Legacy-Patcher-T2 - the old link. An attacker could redirect to a malicious GitHub repository or could launch a malicious redirect to install malware, for example AtomicStealer. This vulnerability affects versions from 3.0.0 alpha 2 all the way until 3.0.0 alpha 4.1.
 ## 3.0.0 alpha 4.1
@@ -60,12 +69,15 @@ When building the EFI, an attacker could write invalid synthax to crash the proj
 ## 3.0.0 alpha 4
 - Switch KDK comments and messages from Chinese to English
 - Now iBridge's source code is no longer stored in a zip file, so you can read it at any time
+
 ## 3.0.0 alpha 3
 - This version patches a security vulnerability in the networking library that could have allowed for insecure connections when downloading macOS assets or patches. (Updated requests to 2.32.2). This vulnerability affects both this repository and Dortania's official OpenCore Legacy Patcher repository. To address this vulnerability, update to the latest available release.
+
 ## 3.0.0 alpha 2
 - Now it will always check for updatees from our repository instead of Dortania's
 - Bug fixes in OpenCore Legacy Patcher T2 prevents from flashing the OpenCore bootloader, regardless of the Mac model.
 - Add the original source code of iBridged.kext, which requires some work to fix its vulnerabilities.
+
 ## 3.0.0 alpha 1
 - Add partial support for unsupported T2 Macs
 
