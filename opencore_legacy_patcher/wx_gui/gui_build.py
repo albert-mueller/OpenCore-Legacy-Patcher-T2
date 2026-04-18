@@ -151,7 +151,8 @@ class BuildFrame(wx.Frame):
                 logging.error("If you continue to see this error, delete the following file and restart the application:")
                 logging.error("Path: /Users/Shared/.com.dortania.opencore-legacy-patcher.plist")
 
-        logger.removeHandler(logger.handlers[2])
+        if len(logger.handlers) > 2:
+            logger.removeHandler(logger.handlers[2])
 
 
     def on_return_to_main_menu(self, event: wx.Event = None) -> None:
