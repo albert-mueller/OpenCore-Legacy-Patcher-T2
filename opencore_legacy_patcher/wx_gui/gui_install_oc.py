@@ -302,7 +302,7 @@ class InstallOCFrame(wx.Frame):
                 return
 
             elif not self.constants.custom_model:
-                gui_support.RestartHost(self).restart(message="OpenCore has finished installing to disk.\n\nYou will need to reboot and hold the Option key and select OpenCore/Boot EFI's option.\n\nWould you like to reboot?")
+                gui_support.RestartHost(self).restart(message="OpenCore has finished installing to disk.\n\nYou will need to reboot and hold the Option key and select OpenCore/Boot EFI's option.\n\nWould you like to reboot?\n\nIn some cases, instead of OpenCore it is labeled as Windows on T2 Macs if you\n\nare running Boot Camp on your Mac.")
             else:
                 popup_message = wx.MessageDialog(
                     self,
@@ -322,17 +322,28 @@ class InstallOCFrame(wx.Frame):
         logging.info(f"Installing OpenCore to {partition}")
 
         logger = logging.getLogger()
-        # 1. Create and store the handler in a variable
+        # 1. Create and store the handler
         my_handler = gui_support.ThreadHandler(self.text_box)
         logger.addHandler(my_handler)
 
         try:
-            # ... (your existing installation code) ...
+            # --- THE MISSING LINK ---
+            # This triggers the actual backend disk operations
+            install.tui_disk_installation(self.constants).install_opencore(partition)
+            
+            # Flip the success switch so the UI knows to show the Reboot popup
+            self.result = True
             logging.info("OpenCore transfer complete")
         
         except Exception as e:
+            self.result = False
             logging.error(f"Installation failed: {e}")
+            logging.error(traceback.format_exc())
         
+        finally:
+            # 2. Safely remove the handler (fixes the IndexError/RuntimeError)
+            if my_handler in logger.handlers:
+                logger.removeHandler(my_handler)        
         finally:
             # 2. Safely remove ONLY the handler we added
             if my_handler in logger.handlers:
