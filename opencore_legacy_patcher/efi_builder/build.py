@@ -81,20 +81,25 @@ class BuildOpenCore:
         # Patches for unsupported T2 Macs
         # We check if the current model has the T2_CHIP feature flag
         if "T2_CHIP" in self.constants.device_properties.get(self.model, {}).get("Features", []):
-            logging.info("- Adding T2-specific bypass kexts (iBridged & CryptexFixup)")
-            # 1. Helper Kexts
-            support.BuildSupport(self.model, self.constants, self.config).enable_kext("iBridged.kext", "1.1.0", self.constants.kext_path)
-            support.BuildSupport(self.model, self.constants, self.config).enable_kext("CryptexFixup.kext", "1.1.0", self.constants.kext_path)
-        
-            # AMFIPass is critical for root patching (GPU drivers) on Tahoe
-            support.BuildSupport(self.model, self.constants, self.config).enable_kext("AMFIPass.kext", "1.4.1", self.constants.kext_path)
-        
-            # Append T2-specific boot args to the existing boot-args string
-            t2_args = " -ibtcompatbeta -amfipassbeta"
-            self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += t2_args
-        
-            # Ensure VT-d is exposed for iBridged
-            self.config["Kernel"]["Quirks"]["DisableIoMapper"] = False
+            try:
+                logging.info("- Adding T2-specific bypass kexts (iBridged & CryptexFixup)")
+                # 1. Helper Kexts
+                support.BuildSupport(self.model, self.constants, self.config).enable_kext("iBridged.kext", "1.1.0", self.constants.kext_path)
+                support.BuildSupport(self.model, self.constants, self.config).enable_kext("CryptexFixup.kext", "1.1.0", self.constants.kext_path)
+                support.BuildSupport(self.model, self.constants, self.config).enable_kext("WhateverGreen.kext", "1.6.9", self.constants.kext_path)
+            
+                # AMFIPass is critical for root patching (GPU drivers) on Tahoe
+                support.BuildSupport(self.model, self.constants, self.config).enable_kext("AMFIPass.kext", "1.4.1", self.constants.kext_path)
+            
+                # Append T2-specific boot args to the existing boot-args string
+                t2_args = " -ibtcompatbeta -amfipassbeta"
+                self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += t2_args
+            
+                # Ensure VT-d is exposed for iBridged
+                self.config["Kernel"]["Quirks"]["DisableIoMapper"] = False
+            except Exception as e:
+                logging.error("Whoops, the app failed to inject the required kexts because of the following error:")
+                logging.exception("Stack Trace:") # This prints the full technical error
 
         # macOS Sequoia support for Lilu plugins
         self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += " -lilubetaall"
