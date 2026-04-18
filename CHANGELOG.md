@@ -1,8 +1,10 @@
 # OpenCore Legacy Patcher T2 changelog
+This release:
+- Adds the special version of WhateverGreen that works with iBridged - but will not be injected automatically via OCLP until a future alpha release, just like the iBridged.kext
+- Fixes a bug in logging_handler.py that makes the application less stable or outright to crash
+- Now, when the OpenCore Legacy Patcher app crashes, it will show the error just like pre-alpha 5, so for example attackers can't unknowingly exploit vulnerabilities, for example - to crash the app and unknowingly to the user they execute malicious code. This bug affects this repository only. It's both a bug and a vulnerability.
 ## 3.0.0 alpha 8:
-This release enables WhateverGreen.kext for unsupported T2 Macs to allow patching GPUs in the future. And this release also fixes a vulnerability where when trying to build OpenCore EFI on unsupported T2 Macs, an attacker can prevent from building the EFI and execute arbitary code in the background unknowingly while to the user it shows an error only. This vulnerability affects this project only. This vulnerability was present since 3.0.0 alpha 1.
-Known issue:
-- WhateverGreen still doesn't appear in the EFI yet
+This release will start enabling WhateverGreen.kext for unsupported T2 Macs to allow patching GPUs in the future - but only partially. And this release also fixes a vulnerability where when trying to build OpenCore EFI on unsupported T2 Macs, an attacker can prevent from building the EFI and execute arbitary code in the background unknowingly while to the user it shows an error only. This vulnerability affects this project only. This vulnerability was present since 3.0.0 alpha 1.
 
 To fix this vulnerability, update to the latest version available.
 ## 3.0.0 alpha 7
