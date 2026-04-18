@@ -3,6 +3,7 @@
 3.0.0 alpha 10 alongside 3.0.0 alpha 10S fixes the following issues:
 - In updates.py, REPO_LATEST_RELEASE_URL was pointing to a web page. This bug affects all versions from 3.0.0 alpha 2 onwards.
 - Fixes a bug in gui_build.py that prevents OpenCore EFIs from building.
+
 Known issue:
 - core.py panics as soon as trying to patch and thus the app crashes
 
