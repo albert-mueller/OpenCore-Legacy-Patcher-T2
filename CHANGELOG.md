@@ -7,6 +7,7 @@ This release adds:
 This release also fixes the following vulnerabilities:
 - sys.exit at OpenCore-Patcher-GUI.command was set 1 instead of 3. This allows attackers to crash the project to execute arbitary code and take advantage of other vulnerabilities without a human to realize. This vulnerability affects this repository only. Dortania's own is not affected by this.
 - Updated follow-redirects dependency to resolve a security vulnerability (CVE-2024-28849). This prevents potential credential leakage during documentation build processes. This affects both this and Dortania's own repository.
+
 To fix these vulnerabilities, update to the latest version available.
 ## 3.0.0 alpha 6
 This release fixes the following:
