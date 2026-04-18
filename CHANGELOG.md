@@ -1,6 +1,8 @@
 # OpenCore Legacy Patcher T2 changelog
 ## 3.0.0 alpha 8:
 This release enables WhateverGreen.kext for unsupported T2 Macs to allow patching GPUs in the future. And this release also fixes a vulnerability where when trying to build OpenCore EFI on unsupported T2 Macs, an attacker can prevent from building the EFI and execute arbitary code in the background unknowingly while to the user it shows an error only. This vulnerability affects this project only. This vulnerability was present since 3.0.0 alpha 1.
+Known issue:
+- WhateverGreen still doesn't appear in the EFI yet
 
 To fix this vulnerability, update to the latest version available.
 ## 3.0.0 alpha 7
