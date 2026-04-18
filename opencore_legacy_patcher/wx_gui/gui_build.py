@@ -138,13 +138,17 @@ class BuildFrame(wx.Frame):
         Calls build function and redirects stdout to the text box
         """
         logger = logging.getLogger()
-        logger.addHandler(gui_support.ThreadHandler(self.text_box))
+        handler = gui_support.ThreadHandler(self.text_box) # Keep a reference
+        logger.addHandler(handler)
         try:
             build.BuildOpenCore(self.constants.custom_model or self.constants.computer.real_model, self.constants)
             self.build_successful = True
         except Exception as e:
             logging.error("An internal error occurred while building:\n")
             logging.error(traceback.format_exc())
+        finally:
+            # Ensure we ALWAYS remove the handler before the thread exits
+            logger.removeHandler(handler)
 
             # Handle bug from 2.1.0 where None type was stored in config.plist from global settings
             if "TypeError: unsupported type: <class 'NoneType'>" in traceback.format_exc():
@@ -175,6 +179,13 @@ class BuildFrame(wx.Frame):
         """
         Launch install frame
         """
+        # Stop any pending UI updates
+        logger = logging.getLogger()
+        for handler in logger.handlers[:]:
+            if isinstance(handler, gui_support.ThreadHandler):
+                logger.removeHandler(handler)
+        
+        self.frame_modal.Hide() # Hide first to feel responsive
         self.frame_modal.Destroy()
         self.Destroy()
         install_oc_frame = gui_install_oc.InstallOCFrame(
