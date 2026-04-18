@@ -141,10 +141,18 @@ class InitializeLoggingSupport:
                 logging.FileHandler(self.log_filepath) if log_to_file is True else logging.NullHandler()
             ],
         )
-        logging.getLogger().setLevel(logging.INFO)
-        logging.getLogger().handlers[0].setFormatter(logging.Formatter("%(message)s"))
-        logging.getLogger().handlers[1].maxBytes = self.max_file_size
-
+        
+        logger = logging.getLogger()
+        logger.setLevel(logging.INFO)
+        
+        # FIX: Check if handlers exist before accessing by index
+        if len(logger.handlers) > 0:
+            logger.handlers[0].setFormatter(logging.Formatter("%(message)s"))
+            
+        if len(logger.handlers) > 1:
+            # Only set maxBytes if it's actually a FileHandler (NullHandler doesn't have it)
+            if hasattr(logger.handlers[1], 'maxBytes'):
+                logger.handlers[1].maxBytes = self.max_file_size
 
     def _attempt_initialize_logging_configuration(self) -> None:
         """
