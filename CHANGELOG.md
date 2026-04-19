@@ -1,4 +1,6 @@
 # OpenCore Legacy Patcher T2 changelog
+## 3.0.0 alpha 13:
+This version removes the broken WhateverGreen.kext from the code. When there is a new fully functional file, I'll add it again.
 
 ## 3.0.0 alpha 12:
 This release fixes the following issues:
