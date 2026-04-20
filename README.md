@@ -68,8 +68,8 @@ To run the project from source, see here: [Build and run from source](./SOURCE.m
 * [laobamac and all other OCLP-Mod developers](https://github.com/laobamac/OCLP-Mod/tree/main)
 All OCLP-Mod developers for KDK and application requirements, including laobamac
 * [vit9696](https://github.com/vit9696)
-* [Helene Hackintoshburger][https://github.com/p8bpg9zrw7-collab]
-  * Helene Hackintoshburger for adding support for unsupported T2 Macs and the main author of this fork
+* [ALbert Müller](https://github.com/p8bpg9zrw7-collab)
+  * Adding support for unsupported T2 Macs and the main author of this fork
   * Endless amount of help troubleshooting, determining fixes and writing patches
 * [EduCovas](https://github.com/covasedu)
   * [non-Metal patch set](https://github.com/moraea/non-metal-frameworks) for nVidia Tesla/Fermi/Maxwell/Pascal, AMD TeraScale 1/2, and Intel Core 1st/2nd Generation GPUs
