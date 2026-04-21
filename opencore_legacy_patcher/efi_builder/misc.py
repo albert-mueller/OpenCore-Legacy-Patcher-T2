@@ -406,17 +406,22 @@ xw
         """
         T2 Security Chip Handler
 
-        MacBookAir8,1 and MacBookAir8,2 panic when booted through OpenCorePkg
-        because AppleKeyStore times out waiting for the T2 SEP to respond:
-          "AppleSEPManager panic for AppleKeyStore: sks request timeout"
-        Replacing the affected kexts with the T1-compatible (13.6) versions
-        prevents the timeout because those versions do not wait for a live SEP.
+        MacBookAir8,1/8,2 natively support macOS Sequoia, so their built-in
+        T2 kexts (AppleSSE, AppleKeyStore, AppleCredentialManager) must NOT
+        be blocked or replaced.  T1 kexts communicate via USB/SPI and cannot
+        talk to the T2's PCIe/iBridge SEP; injecting them causes a silent hang
+        at the Apple logo.  The only OCLP-side change needed for T2 Macs is the
+        EFI/BOOT/BOOTx64.efi layout in install.py (handled there).
         """
-        if self.model not in ["MacBookAir8,1", "MacBookAir8,2", "Macmini8,1","MacBookAir9,2","MacBookPro15,2","MacBookPro15,1", "MacBookPro15,3", "MacBookPro15,4", "MacBookPro16,3", "iMacPro1,1"]:
+        if self.model not in ["MacBookAir8,1", "MacBookAir8,2"]:
             return
 
-        logging.info("- Enabling T2 Security Chip support")
+        logging.info("- Enabling T2 BridgeOS coprocessor version injection")
+        support.BuildSupport(self.model, self.constants, self.config).enable_kext("iBridged.kext", self.constants.ibridged_version, self.constants.ibridged_path)
 
-        support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", "com.apple.driver.AppleSSE")["Enabled"] = True
-        support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", "com.apple.driver.AppleKeyStore")["Enabled"] = True
-        support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", "com.apple.driver.AppleCredentialManager")["Enabled"] = True
+        # WhateverGreen is normally only injected with Moderate/Advanced SMBIOS spoof,
+        # but T2 Macs need it for proper Intel iGPU rendering even with serial_settings="None".
+        # Without it the installer UI partially renders (language chooser shows) but
+        # interactive elements like the Next button don't respond.
+        logging.info("- Enabling WhateverGreen for T2 Mac iGPU rendering")
+        if not support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("WhateverGreen.kext")["Enabled"] is True:
