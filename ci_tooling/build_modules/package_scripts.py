@@ -219,7 +219,7 @@ class ZSHFunctions:
         _script += "    fi\n\n"
 
         _script += "    echo \"Prewarming Gatekeeper for application: $appPath\"\n"
-        _script += "    /usr/bin/gktool scan $appPath\n"
+        _script += "    /usr/bin/gktool scan $appPath || true\n"
         _script += "}\n"
 
         return _script
