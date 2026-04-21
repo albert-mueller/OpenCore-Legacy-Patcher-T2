@@ -1,0 +1,112 @@
+name: CI - Build wxPython
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - '*'
+    paths-ignore:
+      - 'docs/**'
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    name: Build wxPython
+    runs-on: macos-13
+    timeout-minutes: 120
+    permissions:
+      contents: write
+
+    env:
+      branch: ${{ github.ref }}
+      commiturl: ${{ github.event.head_commit.url }}${{ github.event.release.html_url }}
+      commitdate: ${{ github.event.head_commit.timestamp }}${{ github.event.release.published_at }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Universal Python 3.14
+        run: |
+          curl -fsSL -o python-installer.pkg https://www.python.org/ftp/python/3.14.0/python-3.14.0-macos11.pkg
+          sudo installer -pkg python-installer.pkg -target /
+          echo "/Library/Frameworks/Python.framework/Versions/3.14/bin" >> $GITHUB_PATH
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install Dependencies
+        run: /Library/Frameworks/Python.framework/Versions/3.14/bin/python3 -m pip install -r requirements.txt
+
+      - name: Force Universal2 charset for Python
+        run: |
+          /Library/Frameworks/Python.framework/Versions/3.14/bin/python3 -m pip uninstall -y charset_normalizer || true
+          /Library/Frameworks/Python.framework/Versions/3.14/bin/python3 -m pip download --platform macosx_10_9_universal2 --only-binary=:all: --dest ./charset_tmp charset-normalizer
+          /Library/Frameworks/Python.framework/Versions/3.14/bin/python3 -m pip install ./charset_tmp/charset_normalizer-*.whl
+          rm -rf ./charset_tmp
+
+      - name: Recompile Privileged Helper (debug, no team ID check)
+        run: make -C ci_tooling/privileged_helper_tool debug
+
+      - name: Prepare Assets (--prepare-assets)
+        run: >
+          /Library/Frameworks/Python.framework/Versions/3.14/bin/python3 Build-Project.command
+          --run-as-individual-steps --reset-dmg-cache
+          --prepare-assets
+
+      - name: Prepare Application (--prepare-application)
+        run: >
+          /Library/Frameworks/Python.framework/Versions/3.14/bin/python3 Build-Project.command
+          --git-branch "${{ env.branch }}"
+          --git-commit-url "${{ env.commiturl }}"
+          --git-commit-date "${{ env.commitdate }}"
+          --reset-pyinstaller-cache
+          --run-as-individual-steps
+          --prepare-application
+
+      - name: Prepare Package (--prepare-package)
+        run: >
+          /Library/Frameworks/Python.framework/Versions/3.14/bin/python3 Build-Project.command
+          --run-as-individual-steps
+          --prepare-package
+
+      - name: Upload AutoPkg Package to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoPkg-Assets.pkg
+          path: ./dist/AutoPkg-Assets.pkg
+
+      - name: Upload Installation Package to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenCore-Patcher.pkg
+          path: ./dist/OpenCore-Patcher.pkg
+
+      - name: Upload Uninstaller Package to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenCore-Patcher-Uninstaller.pkg
+          path: ./dist/OpenCore-Patcher-Uninstaller.pkg
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./dist/AutoPkg-Assets.pkg
+            ./dist/OpenCore-Patcher.pkg
+            ./dist/OpenCore-Patcher-Uninstaller.pkg
+          generate_release_notes: false
+          body: |
+            ## OpenCore Legacy Patcher ${{ github.ref_name }}
+
+            ### Changes
+            - Added T2 Mac support
+            - Fixes USB boot entry not appearing in T2 Mac Startup Manager (adds EFI/BOOT/BOOTx64.efi)
