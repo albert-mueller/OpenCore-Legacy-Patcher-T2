@@ -55,6 +55,7 @@ xw
         self._cpu_friend_handling()
         self._general_oc_handling()
         self._t1_handling()
+        self._t2_handling()
 
 
     def _feature_unlock_handling(self) -> None:
@@ -400,3 +401,22 @@ xw
         support.BuildSupport(self.model, self.constants, self.config).enable_kext("AppleKeyStore.kext", self.constants.t1_key_store_version, self.constants.t1_key_store_path)
         support.BuildSupport(self.model, self.constants, self.config).enable_kext("AppleCredentialManager.kext", self.constants.t1_credential_version, self.constants.t1_credential_path)
         support.BuildSupport(self.model, self.constants, self.config).enable_kext("KernelRelayHost.kext", self.constants.kernel_relay_version, self.constants.kernel_relay_path)
+
+    def _t2_handling(self) -> None:
+        """
+        T2 Security Chip Handler
+
+        MacBookAir8,1 and MacBookAir8,2 panic when booted through OpenCorePkg
+        because AppleKeyStore times out waiting for the T2 SEP to respond:
+          "AppleSEPManager panic for AppleKeyStore: sks request timeout"
+        Replacing the affected kexts with the T1-compatible (13.6) versions
+        prevents the timeout because those versions do not wait for a live SEP.
+        """
+        if self.model not in ["MacBookAir8,1", "MacBookAir8,2", "Macmini8,1","MacBookAir9,2","MacBookPro15,2","MacBookPro15,1", "MacBookPro15,3", "MacBookPro15,4", "MacBookPro16,3", "iMacPro1,1"]:
+            return
+
+        logging.info("- Enabling T2 Security Chip support")
+
+        support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", "com.apple.driver.AppleSSE")["Enabled"] = True
+        support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", "com.apple.driver.AppleKeyStore")["Enabled"] = True
+        support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", "com.apple.driver.AppleCredentialManager")["Enabled"] = True
