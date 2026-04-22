@@ -5,7 +5,7 @@
 
 A Python-based project revolving around [Acidanthera's OpenCorePkg](https://github.com/acidanthera/OpenCorePkg) and [Lilu](https://github.com/acidanthera/Lilu) for both running and unlocking features in macOS on supported and unsupported Macs.
 
-> **⚠️ EXPERIMENTAL FORK** — Adds **macOS 15 Sequoia and macOS 26 Tahoe support for T2 Macs**. T2 Macs as of now are unsupported by the official OpenCore Legacy Patcher. Use it at your own risk. It's still in alpha stage, so I highly recommend to backup all your data and do it only on a spare T2 Mac to experiment.
+> **⚠️ EXPERIMENTAL FORK** — Adds **macOS 15 Sequoia and macOS 26 Tahoe support for T2 Macs**. T2 Macs as of now are unsupported by the official OpenCore Legacy Patcher from Dortania. Use it at your own risk. It's still in alpha stage, so I highly recommend to backup all your data and do it only on a spare T2 Mac to experiment.
 ## T2 Mac Support
 
 > **🚧 Not ready for general use** — the installer may not boot fully.
