@@ -5,7 +5,7 @@
 
 A Python-based project revolving around [Acidanthera's OpenCorePkg](https://github.com/acidanthera/OpenCorePkg) and [Lilu](https://github.com/acidanthera/Lilu) for both running and unlocking features in macOS on supported and unsupported Macs.
 
-Our project's main goal is to breathe new life into Macs no longer supported by Apple, allowing for the installation and usage of macOS Big Sur and newer on machines as old as 2007 (but our focus is on T2 Macs like 2018-2020).
+Our goal of this project is to add support for T2 Macs so unsupported T2 Macs can boot into Sequoia and Tahoe. This project may run on non-T2 Macs, but support is limited for those and that's not the focus of this project,
 
 ----------
 
