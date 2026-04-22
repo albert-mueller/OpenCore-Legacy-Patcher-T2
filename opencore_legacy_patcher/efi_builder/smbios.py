@@ -48,9 +48,13 @@ class BuildSMBIOS:
 
         if self.constants.allow_oc_everywhere is False or self.constants.allow_native_spoofs is True:
             if self.constants.serial_settings == "None":
-                # Credit to Parrotgeek1 for boot.efi and hv_vmm_present patch sets
-                logging.info("- Enabling Board ID exemption patch")
-                support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Booter"]["Patch"], "Comment", "Skip Board ID check")["Enabled"] = True
+                logging.info("Board ID exemption patches will be enabled only on non-T2 Macs to prevent kernel panics.")
+                # T2 Macs validate the bootloader via T2 hardware; patching the binary
+                # causes the T2 to reject the boot.efi and results in a black screen.
+                if self.model not in ["MacBookAir8,1", "MacBookAir8,2", "MacBookAir9,1", "Macmini8,1", "MacBookPro15,2", "MacBookPro15,1", "MacBookPro15,3", "MacBookPro16,3", "iMacPro1,1"]:
+                    # Credit to Parrotgeek1 for boot.efi and hv_vmm_present patch sets
+                    logging.info("- Your Mac is a non-T2 one. Enabling Board ID exemption patch...")
+                    support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Booter"]["Patch"], "Comment", "Skip Board ID check")["Enabled"] = True
 
             else:
                 logging.info("- Enabling SMC exemption patch")
