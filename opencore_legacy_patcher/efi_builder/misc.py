@@ -416,7 +416,7 @@ xw
         if self.model not in ["MacBookAir8,1", "MacBookAir8,2", "Macmini8,1", "iMacPro1,1", "MacBookPro15,2", "MacBookPro15,1", "MacBookPro15,1", "MacBookPro15,3", "MacBookPro15,4", "MacBookPro16,3"]:
             return
 
-        logging.info("- Enabling T2 BridgeOS coprocessor version injection")
+        logging.info("- Enabling T2 BridgeOS coprocessor version injection to trick macOS into believing that the bridgeOS version is new enough to run Sequoia and Tahoe")
         support.BuildSupport(self.model, self.constants, self.config).enable_kext("iBridged.kext", self.constants.ibridged_version, self.constants.ibridged_path)
 
         # WhateverGreen is normally only injected with Moderate/Advanced SMBIOS spoof,
