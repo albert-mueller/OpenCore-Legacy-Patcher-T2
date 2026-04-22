@@ -12,7 +12,7 @@ A Python-based project revolving around [Acidanthera's OpenCorePkg](https://gith
 
 **Progress:**
 - [x] USB installer drive is detected
-- [x] Installer boots to the setup screen - with caveats: it goes until there but you can't click anything yet as of now on MacBooks. https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/8 . This issue may not affect the 2018 Mac mini, but remains to be tested yet.
+- [x] Installer boots to the setup screen - with caveats: it goes until there but you can't click anything yet as of now on MacBooks. https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/8 . This issue may not affect the 2018 Mac mini and the 2017 iMac Pro, but remains to be tested. 
 - [ ] macOS installs and runs normally
 
 Our goal of this project is to add support for T2 Macs so unsupported T2 Macs can boot into Sequoia and Tahoe. This project may run on non-T2 Macs, but support is limited for those and that's not the focus of this project.
