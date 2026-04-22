@@ -406,7 +406,7 @@ xw
         """
         T2 Security Chip Handler
 
-        MacBookAir8,1/8,2 natively support macOS Sequoia, so their built-in
+        MacBookAir8,1/8,2 support macOS Sequoia with OpenCore Legacy Patcher almost completely out of the box, so their built-in
         T2 kexts (AppleSSE, AppleKeyStore, AppleCredentialManager) must NOT
         be blocked or replaced.  T1 kexts communicate via USB/SPI and cannot
         talk to the T2's PCIe/iBridge SEP; injecting them causes a silent hang
