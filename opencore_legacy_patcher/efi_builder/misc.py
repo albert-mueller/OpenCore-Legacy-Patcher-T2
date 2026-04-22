@@ -413,7 +413,7 @@ xw
         at the Apple logo.  The only OCLP-side change needed for T2 Macs is the
         EFI/BOOT/BOOTx64.efi layout in install.py (handled there).
         """
-        if self.model not in ["MacBookAir8,1", "MacBookAir8,2", "Macmini8,1", "iMacPro1,1", "MacBookPro15,2", "MacBookPro15,1", "MacBookPro15,1", "MacBookPro15,3", "MacBookPro15,4", "MacBookPro16,3"]:
+        if self.model not in ["MacBookAir8,1", "MacBookAir8,2", "Macmini8,1", "iMacPro1,1", "MacBookPro15,2", "MacBookPro15,1", "MacBookPro15,3", "MacBookPro15,4", "MacBookPro16,3"]:
             return
 
         logging.info("- Enabling T2 BridgeOS coprocessor version injection to trick macOS into believing that the bridgeOS version is new enough to run Sequoia and Tahoe")
