@@ -13,7 +13,7 @@ A Python-based project revolving around [Acidanthera's OpenCorePkg](https://gith
 **Progress:**
 - [x] USB installer drive is detected
 - [] Installer boots to the setup screen - there are confirmed initialization issues on T2 MacBooks; Mac mini 2018 and iMac Pro may not exhibit these issues
-- [] macOS boots properly
+- [🛑]macOS boots properly - maybe except Mac mini 2018 and iMac Pro
 - [🛑] all devices (including USB, GPU etc) is working - not everything is working yet; GPU uses VESA mode for now, USB is working on Mac mini 2018 - this issue affects T2 Macs only
 
 Our goal of this project is to add support for T2 Macs so unsupported T2 Macs can boot into Sequoia and Tahoe. This project may run on non-T2 Macs, but support is limited for those and that's not the focus of this project.
