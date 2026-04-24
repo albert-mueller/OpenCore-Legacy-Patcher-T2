@@ -6524,7 +6524,7 @@
 				<key>kUSBWakePortCurrentLimit</key>
 				<integer>2100</integer>
 				<key>kUSBWakePowerSupply</key>
-				<integer>3200</integer>
+				<integer>2100</integer>
 			</dict>
 			<key>model</key>
 			<string>XacBookAir8,1</string>
@@ -6616,7 +6616,7 @@
 				<key>kUSBWakePortCurrentLimit</key>
 				<integer>2100</integer>
 				<key>kUSBWakePowerSupply</key>
-				<integer>3200</integer>
+				<integer>2100</integer>
 			</dict>
 			<key>model</key>
 			<string>XacBookAir8,2</string>
