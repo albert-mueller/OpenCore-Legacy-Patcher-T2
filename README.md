@@ -83,7 +83,10 @@ All OCLP-Mod developers for KDK and application requirements, including laobamac
 * [Albert Müller](https://github.com/albert-mueller/)
   * Adding support for unsupported T2 Macs and the main author of this fork
   * Help troubleshooting, determining fixes and writing patches
-* [EduCovas](https://github.com/covasedu)
+  * [vytska69](https://github.com/vytska69)
+  * developing patches for the T2 chip
+  * adding USB port mapping for MacBook Air 2018-2019
+  * [EduCovas](https://github.com/covasedu)
   * [non-Metal patch set](https://github.com/moraea/non-metal-frameworks) for nVidia Tesla/Fermi/Maxwell/Pascal, AMD TeraScale 1/2, and Intel Core 1st/2nd Generation GPUs
   * [3802 Metal patch set](https://github.com/moraea/misc-patches/tree/main/3802-Metal-15) and [MetallibSupportPkg](https://github.com/dortania/MetallibSupportPkg) for nVidia Kepler and Intel Core 3rd/4th Generation GPUs
   * Metal bundle patches and shims for [nVidia Kepler](https://github.com/moraea/misc-patches/tree/main/Kepler%2013%2B), [AMD GCN 1 - 4](https://github.com/moraea/misc-patches/tree/main/GCN%2013%2B), and [AMD GCN 5 (Vega)](https://github.com/moraea/misc-patches/tree/main/vega%2013%2B)
