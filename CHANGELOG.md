@@ -4,6 +4,7 @@
 This release adds the following fixes:
 - fixes port mapping logic bugs and connector bugs for the USB ports on MacBook6,1 and 6,2
 - Partial iBridged patching logic (not fully done yet, so it may not add iBridged into the kexts automatically yet)
+
 Adding the following from https://github.com/vytska69/OpenCore-Legacy-Patcher that are made by vytska69 into this repository:
 - Added .github/workflows (imported from the repository above)
 - Adding the following patches:
@@ -14,6 +15,7 @@ Adding the following from https://github.com/vytska69/OpenCore-Legacy-Patcher th
 - Disabling Boot Logo patches to prevent kernel panics and boot loops from occuring
 - Enable WhateverGreen on unsupported T2 Macs if necessary
 - fix: make gktool scan non-fatal in PKG postinstall script
+
 The only thing that remains to be tested is whether T2 Macs can now properly boot into macOS 15 and 26's installers and finish the implementation of the patches for iBridged.kext.
 ## 3.0.0 alpha 14:
 This release adds a stable version of WhateverGreen.kext directly from Dortania. But how good it works with iBridged remains to be tested.
