@@ -12,7 +12,7 @@ A Python-based project revolving around [Acidanthera's OpenCorePkg](https://gith
 
 **Progress:**
 - [x] USB installer drive is detected
-- [] Installer boots to the setup screen - remains to be tested
+- [] Installer boots to the setup screen - there are confirmed initialization issues on T2 MacBooks; Mac mini 2018 and iMac Pro may not exhibit these issues
 - [] macOS boots properly
 - [🛑] all devices (including USB, GPU etc) is working - not everything is working yet; GPU uses VESA mode for now, USB is working on Mac mini 2018 - this issue affects T2 Macs only
 
