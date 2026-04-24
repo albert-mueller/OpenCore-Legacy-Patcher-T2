@@ -12,7 +12,9 @@ A Python-based project revolving around [Acidanthera's OpenCorePkg](https://gith
 
 **Progress:**
 - [x] USB installer drive is detected
-- [x] Installer boots to the setup screen - remains to be tested
+- [] Installer boots to the setup screen - remains to be tested
+- [] macOS boots properly
+- [] all devices (including USB, GPU etc) is working
 
 Our goal of this project is to add support for T2 Macs so unsupported T2 Macs can boot into Sequoia and Tahoe. This project may run on non-T2 Macs, but support is limited for those and that's not the focus of this project.
 
