@@ -1175,6 +1175,20 @@
 						<key>port</key>
 						<data>AQAAAA==</data>
 					</dict>
+					<key>PRT2</key>
+           			<dict>
+                		<key>UsbConnector</key>
+                		<integer>0</integer>
+                		<key>port</key>
+                		<data>AgAAAA==</data>
+            		</dict>
+					<key>PRT3</key>
+            		<dict>
+                		<key>UsbConnector</key>
+                		<integer>0</integer>
+                		<key>port</key>
+                		<data>AwAAAA==</data>
+            		</dict>
 					<key>PRT4</key>
 					<dict>
 						<key>UsbConnector</key>
@@ -1182,6 +1196,13 @@
 						<key>port</key>
 						<data>BAAAAA==</data>
 					</dict>
+					<key>PRT5</key>
+            		<dict>
+                		<key>UsbConnector</key>
+                		<integer>0</integer>
+                		<key>port</key>
+                		<data>BQAAAA==</data>
+            		</dict>
 					<key>PRT6</key>
 					<dict>
 						<key>UsbConnector</key>
@@ -1196,38 +1217,36 @@
 		</dict>
 		<key>MacBook6,1-EHC2</key>
 		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBHostMergeProperties</string>
-			<key>IOClass</key>
-			<string>AppleUSBHostMergeProperties</string>
-			<key>IONameMatch</key>
-			<string>EH02</string>
-			<key>IOProviderClass</key>
-			<string>AppleUSBEHCIPCI</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>port-count</key>
-				<data>AgAAAA==</data>
-				<key>ports</key>
-				<dict>
-					<key>PRT1</key>
-					<dict>
-						<key>UsbConnector</key>
-						<integer>255</integer>
-						<key>port</key>
-						<data>AQAAAA==</data>
-					</dict>
-					<key>PRT2</key>
-					<dict>
-						<key>UsbConnector</key>
-						<integer>0</integer>
-						<key>port</key>
-						<data>AgAAAA==</data>
-					</dict>
-				</dict>
-			</dict>
-			<key>model</key>
-			<string>XacBookNormal6,1</string>
+    		<key>CFBundleIdentifier</key>
+    		<string>com.apple.driver.AppleUSBHostMergeProperties</string>
+    		<key>IOClass</key>
+    		<string>AppleUSBHostMergeProperties</string>
+    		<key>IONameMatch</key>
+    		<string>EH02</string>
+    		<key>IOProviderClass</key>
+    		<string>AppleUSBEHCIPCI</string>
+    		<key>IOProviderMergeProperties</key>
+    		<dict>
+        		<key>port-count</key>
+        		<data>AgAAAA==</data>
+        		<key>ports</key>
+        		<dict>
+            		<key>PRT1</key>
+            		<dict>
+                		<key>UsbConnector</key>
+                		<integer>255</integer> <key>port</key>
+                		<data>AQAAAA==</data>
+            		</dict>
+            		<key>PRT2</key>
+            		<dict>
+                		<key>UsbConnector</key>
+                		<integer>255</integer> <key>port</key>
+                		<data>AgAAAA==</data>
+            		</dict>
+        		</dict>
+    		</dict>
+    		<key>model</key>
+    		<string>XacBookNormal6,1</string>
 		</dict>
 		<key>MacBook7,1-EHC1</key>
 		<dict>
@@ -1236,73 +1255,108 @@
 			<key>IOClass</key>
 			<string>AppleUSBHostMergeProperties</string>
 			<key>IONameMatch</key>
-			<string>EH01</string>
-			<key>IOProviderClass</key>
-			<string>AppleUSBEHCIPCI</string>
-			<key>IOProviderMergeProperties</key>
+			<key>MacBook7,1-EHC1</key>
 			<dict>
-				<key>port-count</key>
-				<data>BgAAAA==</data>
-				<key>ports</key>
+    			<key>CFBundleIdentifier</key>
+    			<string>com.apple.driver.AppleUSBHostMergeProperties</string>
+    			<key>IOClass</key>
+    			<string>AppleUSBHostMergeProperties</string>
+    			<key>IONameMatch</key>
+    			<string>EH01</string>
+    			<key>IOProviderClass</key>
+    			<string>AppleUSBEHCIPCI</string>
+    			<key>IOProviderMergeProperties</key>
+    			<dict>
+        			<key>port-count</key>
+        			<data>BgAAAA==</data>
+        			<key>ports</key>
+        			<dict>
+            			<key>PRT1</key>
+            			<dict>
+                			<key>UsbConnector</key>
+                			<integer>0</integer>
+                			<key>port</key>
+                			<data>AQAAAA==</data>
+            			</dict>
+            			<key>PRT2</key>
+            			<dict>
+                			<key>UsbConnector</key>
+                			<integer>0</integer>
+                			<key>port</key>
+                			<data>AgAAAA==</data>
+            			</dict>
+            			<key>PRT3</key>
+            			<dict>
+                			<key>UsbConnector</key>
+                			<integer>0</integer>
+                			<key>port</key>
+                			<data>AwAAAA==</data>
+            			</dict>
+            			<key>PRT4</key>
+            			<dict>
+                			<key>UsbConnector</key>
+                			<integer>0</integer>
+                			<key>port</key>
+                			<data>BAAAAA==</data>
+            			</dict>
+            			<key>PRT5</key>
+            			<dict>
+                			<key>UsbConnector</key>
+                			<integer>0</integer>
+                			<key>port</key>
+                			<data>BQAAAA==</data>
+            			</dict>
+            			<key>PRT6</key>
+            			<dict>
+                			<key>UsbConnector</key>
+                			<integer>255</integer>
+                			<key>port</key>
+                			<data>BgAAAA==</data>
+            			</dict>
+        			</dict>
+    			</dict>
+    			<key>model</key>
+    			<string>XacBookNormal7,1</string>
+			</dict>
+			<key>MacBook7,1-EHC2</key>
+			<dict>
+				<key>CFBundleIdentifier</key>
+				<string>com.apple.driver.AppleUSBHostMergeProperties</string>
+				<key>IOClass</key>
+				<string>AppleUSBHostMergeProperties</string>
+				<key>IONameMatch</key>
+				<string>EH02</string>
+				<key>IOProviderClass</key>
+				<string>AppleUSBEHCIPCI</string>
+				<key>IOProviderMergeProperties</key>
 				<dict>
-					<key>PRT1</key>
+					<key>port-count</key>
+					<data>BgAAAA==</data>
+					<key>ports</key>
 					<dict>
-						<key>UsbConnector</key>
-						<integer>0</integer>
-						<key>port</key>
-						<data>AQAAAA==</data>
-					</dict>
-					<key>PRT6</key>
-					<dict>
-						<key>UsbConnector</key>
-						<integer>255</integer>
-						<key>port</key>
-						<data>BgAAAA==</data>
+						<key>PRT3</key>
+						<dict>
+							<key>UsbConnector</key>
+							<integer>255</integer>
+							<key>port</key>
+							<data>AwAAAA==</data>
+						</dict>
+						<key>PRT4</key>
+						<dict>
+							<key>UsbConnector</key>
+							<integer>0</integer>
+							<key>port</key>
+							<data>BAAAAA==</data>
+						</dict>
+						<key>PRT6</key>
+						<dict>
+							<key>UsbConnector</key>
+							<integer>255</integer>
+							<key>port</key>
+							<data>BgAAAA==</data>
+						</dict>
 					</dict>
 				</dict>
-			</dict>
-			<key>model</key>
-			<string>XacBookNormal7,1</string>
-		</dict>
-		<key>MacBook7,1-EHC2</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBHostMergeProperties</string>
-			<key>IOClass</key>
-			<string>AppleUSBHostMergeProperties</string>
-			<key>IONameMatch</key>
-			<string>EH02</string>
-			<key>IOProviderClass</key>
-			<string>AppleUSBEHCIPCI</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>port-count</key>
-				<data>BgAAAA==</data>
-				<key>ports</key>
-				<dict>
-					<key>PRT3</key>
-					<dict>
-						<key>UsbConnector</key>
-						<integer>255</integer>
-						<key>port</key>
-						<data>AwAAAA==</data>
-					</dict>
-					<key>PRT4</key>
-					<dict>
-						<key>UsbConnector</key>
-						<integer>0</integer>
-						<key>port</key>
-						<data>BAAAAA==</data>
-					</dict>
-					<key>PRT6</key>
-					<dict>
-						<key>UsbConnector</key>
-						<integer>255</integer>
-						<key>port</key>
-						<data>BgAAAA==</data>
-					</dict>
-				</dict>
-			</dict>
 			<key>model</key>
 			<string>XacBookNormal7,1</string>
 		</dict>
