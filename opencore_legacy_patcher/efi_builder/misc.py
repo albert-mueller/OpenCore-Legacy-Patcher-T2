@@ -433,6 +433,10 @@ xw
         self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += " -no_compat_check"
         self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += " -no_compat_check"
 
+        # T2 Support: Enable disk access (AMFI bypass), graphics fixes, and boot delay
+        logging.info("- Adding T2-specific boot arguments for macOS 15/16")
+        self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += " -v rddelay=5 amfi_get_out_of_my_way=0x1 igfxfw=2 igfxonln=1"
+
         # After ~20 SEP mailbox timeouts AppleSEPManagerIntel panics with:
         # "AppleSEPManager panic for 'AppleKeyStore': sks request timeout"
         # Patch converts the panic call to an early return (MinKernel=24.0.0 scopes it to Sequoia only).
