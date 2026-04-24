@@ -83,7 +83,7 @@ All OCLP-Mod developers for KDK and application requirements, including laobamac
 * [Albert Müller](https://github.com/albert-mueller/)
   * Adding support for unsupported T2 Macs and the main author of this fork
   * Help troubleshooting, determining fixes and writing patches
-  * [vytska69](https://github.com/vytska69)
+* [vytska69](https://github.com/vytska69)
   * developing patches for the T2 chip
   * adding USB port mapping for MacBook Air 2018-2019
   * both stem from https://github.com/vytska69/OpenCore-Legacy-Patcher
@@ -97,8 +97,10 @@ All OCLP-Mod developers for KDK and application requirements, including laobamac
   * AppleGVA downgrade for accelerated video decoding on 2012 - 2016 models
   * OpenCL and OpenGL downgrade for AMD GCN
   * [USB 1 patch](https://github.com/moraea/misc-patches/tree/main/IOUSBHostFamily-14.4)
+
 * [ASentientHedgehog](https://github.com/moosethegoose2213)
   * [non-Metal patch set](https://github.com/moraea/non-metal-frameworks) for nVidia Tesla/Fermi/Maxwell/Pascal, AMD TeraScale 1/2, and Intel Core 1st/2nd Generation GPUs
+
 * [ASentientBot](https://github.com/ASentientBot)
   * [non-Metal patch set](https://github.com/moraea/non-metal-frameworks) for nVidia Tesla/Fermi/Maxwell/Pascal, AMD TeraScale 1/2, and Intel Core 1st/2nd Generation GPUs
   * [Metal bundle interposer](https://github.com/moraea/misc-patches/tree/main/sequoia%2031001%20interposer) for AMD GCN 1 - 5 and Intel Core 5th/6th Generation GPUs
