@@ -31,7 +31,7 @@ class AboutFrame(wx.Frame):
     def _generate_elements(self, frame: wx.Frame) -> None:
 
         # Set title
-        title = wx.StaticText(frame, label="OpenCore Legacy Patcher for T2 Macs Insiders for alpha testers", pos=(-1, 5))
+        title = wx.StaticText(frame, label="OpenCore Legacy Patcher", pos=(-1, 5))
         title.SetFont(gui_support.font_factory(19, wx.FONTWEIGHT_BOLD))
         title.Centre(wx.HORIZONTAL)
 
