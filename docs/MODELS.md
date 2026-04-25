@@ -50,9 +50,9 @@ The below tables can be used to reference issues with a particular model, and se
 | MacBook Air (13-inch, Mid 2013)<br>MacBook Air (13-inch, Early 2014) | `MacBookAir6,2` | ^^ |
 | MacBook Air (11-inch, Early 2015) | `MacBookAir7,1` | ^^ |
 | MacBook Air (13-inch, Early 2015)<br>MacBook Air (13-inch, 2017) | `MacBookAir7,2` | ^^ |
-| MacBook Air (Retina, 13-inch, 2018) | `MacBookAir8,1` | - Supported natively up to Sonoma<br>- [Currently not supported with OpenCore due to T2 issues](https://github.com/dortania/OpenCore-Legacy-Patcher/issues/1136)<br> |
-| MacBook Air (Retina, 13-inch, 2019) | `MacBookAir8,2` | ^^ |
-| MacBook Air (Retina, 13-inch, 2020) | `MacBookAir9,1` | Supported by Apple |
+| MacBook Air (Retina, 13-inch, 2018) | `MacBookAir8,1` | Natively supported all the way until macOS 14 Sonoma. Currently trying to add support for this model for Sequoia and Tahoe. |
+| MacBook Air (Retina, 13-inch, 2019) | `MacBookAir8,2` | Natively supported all the way until macOS 14 Sonoma. Currently trying to add support for this model for Sequoia and Tahoe. |
+| MacBook Air (Retina, 13-inch, 2020) | `MacBookAir9,1` | Natively supported all the way until macOS 15 Sequoia. Currently trying to add support for this model for Tahoe. |
 
 ### MacBook Pro
 
@@ -83,12 +83,12 @@ The below tables can be used to reference issues with a particular model, and se
 | MacBook Pro (13-inch, 2017, 2 Thunderbolt 3 ports) | `MacBookPro14,1` | - Native graphics support |
 | MacBook Pro (13-inch, 2017, 4 Thunderbolt 3 ports) | `MacBookPro14,2` | ^^ |
 | MacBook Pro (15-inch, 2017) | `MacBookPro14,3` | - [Legacy Metal (macOS 14+)](https://github.com/dortania/OpenCore-Legacy-Patcher/issues/1008) |
-| MacBook Pro (13-inch, 2018, 4 Thunderbolt 3 ports)<br>MacBook Pro (13-inch, 2019, 4 Thunderbolt 3 ports) | `MacBookPro15,2` | - Supported by Apple |
+| MacBook Pro (13-inch, 2018, 4 Thunderbolt 3 ports)<br>MacBook Pro (13-inch, 2019, 4 Thunderbolt 3 ports) | `MacBookPro15,2` | Natively supported all the way until macOS 15 Sequoia. Currently trying to add support for this model for Tahoe. |
 | MacBook Pro (15-inch, 2018)<br>MacBook Pro (15-inch, 2019) | `MacBookPro15,1`<br>`MacBookPro15,3` | ^^ |
 | MacBook Pro (13-inch, 2019, 2 Thunderbolt 3 ports) | `MacBookPro15,4` | ^^ |
 | MacBook Pro (16-inch, 2019) | `MacBookPro16,1`<br>`MacBookPro16,4` | ^^ |
-| MacBook Pro (13-inch, 2020, 4 Thunderbolt 3 ports) | `MacBookPro16,2` | ^^ |
 | MacBook Pro (13-inch, 2020, 2 Thunderbolt 3 ports) | `MacBookPro16,3` | ^^ |
+| MacBook Pro (13-inch, 2020, 4 Thunderbolt 3 ports) | `MacBookPro16,2` | Supported by Apple |
 
 ### Mac mini
 
@@ -99,7 +99,7 @@ The below tables can be used to reference issues with a particular model, and se
 | Mac mini (Mid 2011) | `Macmini5,1`<br>`Macmini5,2`<br>`Macmini5,3` | - [non-Metal GPU (macOS 11+)](https://github.com/dortania/OpenCore-Legacy-Patcher/issues/108) |
 | Mac mini (Late 2012) | `Macmini6,1`<br>`Macmini6,2` | - [Legacy Metal (macOS 13+)](https://github.com/dortania/OpenCore-Legacy-Patcher/issues/1008) |
 | Mac mini (Late 2014) | `Macmini7,1` | ^^ |
-| Mac mini (Late 2018) | `Macmini8,1` | - Supported by Apple |
+| Mac mini (Late 2018) | `Macmini8,1` | Natively supported all the way until macOS 15 Sequoia. Currently trying to add support for this model for Tahoe. |
 
 ### iMac
 | Model Name | Identifier | Additional info |
@@ -126,9 +126,9 @@ The below tables can be used to reference issues with a particular model, and se
 | iMac (21.5-inch, 2017) | `iMac18,1` | - Native graphics support |
 | iMac (Retina 4K, 21.5-inch, 2017) | `iMac18,2` | ^^ |
 | iMac (Retina 5K, 27-inch, 2017) | `iMac18,3` | ^^ |
-| iMac (Retina 5K, 27-inch, 2019) | `iMac19,1` | - Supported by Apple |
-| iMac (Retina 4K, 21.5-inch, 2019) | `iMac19,2` | ^^ |
-| iMac (Retina 5K, 27-inch, 2020) | `iMac20,1`<br>`iMac20,2` | ^^ |
+| iMac (Retina 5K, 27-inch, 2019) | `iMac19,1` | Supported natively all the way until macOS 15 Sequoia; macOS 26 Tahoe support is uncertain as no one has tested non-T2 Macs yet. |
+| iMac (Retina 4K, 21.5-inch, 2019) | `iMac19,2` | Supported natively all the way until macOS 15 Sequoia; macOS 26 Tahoe support is uncertain as no one has tested non-T2 Macs yet. |
+| iMac (Retina 5K, 27-inch, 2020) | `iMac20,1`<br>`iMac20,2` | Supported by Apple |
 | iMac Pro (2017) | `iMacPro1,1` | ^^ |
 
 ### Mac Pro
