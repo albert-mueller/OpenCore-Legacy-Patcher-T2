@@ -1,5 +1,8 @@
 # OpenCore Legacy Patcher T2 changelog
 
+## 3.1.0 alpha 1:
+This release removes iBridged.kext in favor of SSDT patching that automated patch via the OpenCore Legacy Patcher app is not written yet - so you need after building the EFI to add the file via OCAT. And from this release onwards, PatcherSupportPkg files will be downloaded from OCLP-Mod's fork rather than directly from Dortania as they have better macOS 26 support. If you come across a bug where something doesn't download properly, make sure to report this issue and eventually suggest a fix as this project has just started transitioning from Dortania's PatcherSupportPkg to the one used by OCLP-Mod.
+
 ## 3.0.0 alpha 15:
 This release adds the following fixes:
 - fixes port mapping logic bugs and connector bugs for the USB ports on MacBook6,1 and 6,2
