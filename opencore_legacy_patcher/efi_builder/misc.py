@@ -466,8 +466,7 @@ xw
                     "WhateverGreen.kext", self.constants.whatevergreen_version, self.constants.whatevergreen_path
                 )        # Sequoia installer checks hardware compatibility and refuses to proceed
         # silently (gray screen hang) on unsupported T2 Macs. This bypasses it.
-        logging.info("- Adding -no_compat_check for T2 Mac Sequoia installer")
-        self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += " -no_compat_check"
+        logging.info("- Adding -no_compat_check for T2 Macs running unsupported macOS versions")
         self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += " -no_compat_check"
 
         # T2 Support: Enable disk access (AMFI bypass), graphics fixes, and boot delay
