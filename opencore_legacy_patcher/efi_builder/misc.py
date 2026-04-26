@@ -473,14 +473,44 @@ xw
         logging.info("- Adding T2-specific boot arguments for macOS 15/16")
         self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += " -v rddelay=5 amfi_get_out_of_my_way=0x1 igfxfw=2 igfxonln=1"
 
-        # After ~20 SEP mailbox timeouts AppleSEPManagerIntel panics with:
-        # "AppleSEPManager panic for 'AppleKeyStore': sks request timeout"
-        # Patch converts the panic call to an early return (MinKernel=24.0.0 scopes it to Sequoia only).
+        # After ~20 SEP mailbox timeouts AppleSEPManagerIntel panics.
+        # Patch converts the panic call to an early return.
         logging.info("- Enabling AppleSEPManager SEP timeout panic patch for T2 Macs")
+        
+        kernel_patches = self.config.get("Kernel", {}).get("Patch", [])
+        
         sep_patch = support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(
-            self.config["Kernel"]["Patch"],
+            kernel_patches,
             "Comment",
             "Prevent AppleSEPManager SEP timeout panic on T2 Macs (Sequoia)"
+        )
+
+        if sep_patch:
+            sep_patch["Enabled"] = True
+        else:
+            logging.info("- Patch not found in template; injecting manually...")
+            new_patch = {
+                "Arch": "x86_64",
+                "Base": "",
+                "Comment": "Prevent AppleSEPManager SEP timeout panic on T2 Macs (Sequoia)",
+                "Count": 0,
+                "Enabled": True,
+                "Find": b"\x48\x83\xBF\xB0\x03\x00\x00\x00\x75\x4F",
+                "Identifier": "com.apple.driver.AppleSEPManagerIntel",
+                "Limit": 0,
+                "Mask": b"",
+                "MaxKernel": "",
+                "MinKernel": "24.0.0",
+                "Replace": b"\x48\x83\xBF\xB0\x03\x00\x00\x00\xEB\x4F",
+                "ReplaceMask": b"",
+                "Skip": 0
+            }
+            if "Kernel" not in self.config:
+                self.config["Kernel"] = {"Patch": []}
+            if "Patch" not in self.config["Kernel"]:
+                self.config["Kernel"]["Patch"] = []
+                
+            self.config["Kernel"]["Patch"].append(new_patch)
         )
 
         if sep_patch:
