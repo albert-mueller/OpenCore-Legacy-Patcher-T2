@@ -92,7 +92,14 @@ class BuildOpenCore:
             
                 # Append T2-specific boot args to the existing boot-args string
                 t2_args = " -ibtcompatbeta -amfipassbeta"
-                self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += t2_args
+                if "NVRAM" not in self.config:
+                    self.config["NVRAM"] = {"Add": {}}
+                    if "7C436110-AB2A-4BBB-A880-FE41995C9F82" not in self.config["NVRAM"]["Add"]:
+                        self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"] = {"boot-args": ""}
+
+                # Now safely append
+                current_args = self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"].get("boot-args", "")
+                self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = current_args + t2_args
             
                 # Ensure VT-d is exposed for iBridged
                 self.config["Kernel"]["Quirks"]["DisableIoMapper"] = False
@@ -120,7 +127,9 @@ class BuildOpenCore:
         # Work-around ocvalidate
         if self.constants.validate is False:
             logging.info("- Adding bootmgfw.efi BlessOverride")
-            self.config["Misc"]["BlessOverride"] += ["\\EFI\\Microsoft\\Boot\\bootmgfw.efi"]
+            if "BlessOverride" not in self.config["Misc"]:
+                self.config["Misc"]["BlessOverride"] = []
+                self.config["Misc"]["BlessOverride"].append("\\EFI\\Microsoft\\Boot\\bootmgfw.efi")
     
     
     def _generate_base(self) -> None:
