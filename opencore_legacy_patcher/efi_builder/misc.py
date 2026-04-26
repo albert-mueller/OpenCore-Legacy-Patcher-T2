@@ -383,7 +383,7 @@ xw
             logging.info("- Setting Vault configuration")
             self.config["Misc"]["Security"]["Vault"] = "Secure"
 
-        def _t1_handling(self) -> None:
+    def _t1_handling(self) -> None:
             """
             T1 Security Chip Handler with Crash Protection
             """
