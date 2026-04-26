@@ -416,38 +416,30 @@ xw
         if self.model not in ["MacBookAir8,1", "MacBookAir8,2", "Macmini8,1", "iMacPro1,1", "MacBookPro15,2", "MacBookPro15,1", "MacBookPro15,3", "MacBookPro15,4", "MacBookPro16,3"]:
             return
 
-        # Check for specific MacBook Air models (8,1 and 8,2)
+        # Check for MacBookAir8,1 and 8,2
         if self.model in ["MacBookAir8,1", "MacBookAir8,2"]:
-            import wx
-            # We use a popup because a terminal prompt (input) will freeze the GUI app
-            dlg = wx.SingleChoiceDialog(
-                None, 
-                f"Model {self.model} detected.\nWhich OS are you targeting?", 
-                "OS Selection", 
-                ["macOS 15 Sequoia or older", "macOS 26 Tahoe"]
-            )
+            # We check the 'target_os' in constants or a custom config if you added one.
+            # Since we can't pop up a UI here without crashing the build thread, 
+            # we will look at the 'os_version' the patcher is currently targeting.
             
-            if dlg.ShowModal() == wx.ID_OK:
-                selection = dlg.GetStringSelection()
-                if selection == "macOS 15 Sequoia or older":
-                    logging.info("- Sequoia or older selected: Disabling WhateverGreen for MacBookAir8,x")
-                    # Set the 'Enabled' key to False for WEG
-                    support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("WhateverGreen.kext")["Enabled"] = False
-                else:
-                    logging.info("- Tahoe selected: Enabling WhateverGreen for MacBookAir8,x")
-                    support.BuildSupport(self.model, self.constants, self.config).enable_kext(
-                        "WhateverGreen.kext", self.constants.whatevergreen_version, self.constants.whatevergreen_path
-                    )
-            dlg.Destroy()
-
-        # Handle all other models (default T2 behavior)
+            target_os = self.constants.detected_os  # Default detection
+            
+            # Logic: If targeting Sequoia (macOS 15), disable WEG. Otherwise enable.
+            if target_os == 15: 
+                logging.info(f"- Model {self.model} on OS {target_os}: Disabling WhateverGreen")
+                support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("WhateverGreen.kext")["Enabled"] = False
+            else:
+                logging.info(f"- Model {self.model} on OS {target_os}: Enabling WhateverGreen")
+                support.BuildSupport(self.model, self.constants, self.config).enable_kext(
+                    "WhateverGreen.kext", self.constants.whatevergreen_version, self.constants.whatevergreen_path
+                )
         else:
+            # Rest of the models (Standard T2 behavior)
             logging.info("- Enabling WhateverGreen for T2 Mac iGPU rendering")
             if not support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("WhateverGreen.kext")["Enabled"] is True:
                 support.BuildSupport(self.model, self.constants, self.config).enable_kext(
                     "WhateverGreen.kext", self.constants.whatevergreen_version, self.constants.whatevergreen_path
-                )
-        # Sequoia installer checks hardware compatibility and refuses to proceed
+                )        # Sequoia installer checks hardware compatibility and refuses to proceed
         # silently (gray screen hang) on unsupported T2 Macs. This bypasses it.
         logging.info("- Adding -no_compat_check for T2 Mac Sequoia installer")
         self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += " -no_compat_check"
