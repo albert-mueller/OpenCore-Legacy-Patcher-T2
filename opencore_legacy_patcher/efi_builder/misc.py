@@ -416,14 +416,34 @@ xw
         if self.model not in ["MacBookAir8,1", "MacBookAir8,2", "Macmini8,1", "iMacPro1,1", "MacBookPro15,2", "MacBookPro15,1", "MacBookPro15,3", "MacBookPro15,4", "MacBookPro16,3"]:
             return
 
-        # WhateverGreen is normally only injected with Moderate/Advanced SMBIOS spoof,
-        # but T2 Macs need it for proper Intel iGPU rendering even with serial_settings="None".
-        # Without it the installer UI partially renders (language chooser shows) but
-        # interactive elements like the Next button don't respond.
-        logging.info("- Enabling WhateverGreen for T2 Mac iGPU rendering")
-        if not support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("WhateverGreen.kext")["Enabled"] is True:
-            support.BuildSupport(self.model, self.constants, self.config).enable_kext("WhateverGreen.kext", self.constants.whatevergreen_version, self.constants.whatevergreen_path)
+        # Check for specific MacBook Air models (8,1 and 8,2)
+        if self.model in ["MacBookAir8,1", "MacBookAir8,2"]:
+            print(f"\n- Model {self.model} detected.")
+            print("One more question regarding your MacBook Air 2018/2019: which version of macOS are you targeting?")
+            print("The options are the following:")
+            print("1. macOS 15 Sequoia or older")
+            print("2. macOS Tahoe")
+    
+            user_choice = input("Enter choice (1 or 2): ").strip()
 
+            if user_choice == "1":
+                # Disable WhateverGreen for Sequoia
+                logging.info("- Sequoia selected for MacBookAir8,x: Disabling WhateverGreen")
+                support.BuildSupport(self.model, self.constants, self.config).disable_kext("WhateverGreen.kext")
+            else:
+                # Enable WhateverGreen for Tahoe (or anything else)
+                logging.info("- Tahoe selected for MacBookAir8,x: Enabling WhateverGreen")
+                support.BuildSupport(self.model, self.constants, self.config).enable_kext(
+                "WhateverGreen.kext", self.constants.whatevergreen_version, self.constants.whatevergreen_path
+                )
+
+        # Logic for all other T2 models and general cases
+        else:
+            logging.info("- Enabling WhateverGreen for all other T2 Macs for iGPU rendering (Standard Model)")
+            if not support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("WhateverGreen.kext")["Enabled"]:
+            support.BuildSupport(self.model, self.constants, self.config).enable_kext(
+            "WhateverGreen.kext", self.constants.whatevergreen_version, self.constants.whatevergreen_path
+            )
         # Sequoia installer checks hardware compatibility and refuses to proceed
         # silently (gray screen hang) on unsupported T2 Macs. This bypasses it.
         logging.info("- Adding -no_compat_check for T2 Mac Sequoia installer")
