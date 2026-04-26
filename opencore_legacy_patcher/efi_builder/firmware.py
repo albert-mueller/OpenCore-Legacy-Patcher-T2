@@ -61,7 +61,7 @@ class BuildFirmware:
         if not self.model in smbios_data.smbios_dictionary:
             return
 
-        if smbios_data.smbios_dictionary[self.model]["Max OS Supported"] >= os_data.os_data.monterey and self.model not in ["MacPro6,1", "Macmini7,1", "MacBookAir8,1", "MacBookAir8,2", "MacBookAir9,1", "MacBookPro15,1", "MacBookPro15,2", "MacBookPro15,3", "MacBookPro16,3", "Macmini8,1"]:
+        if smbios_data.smbios_dictionary[self.model]["Max OS Supported"] >= os_data.os_data.monterey and self.model not in ["MacPro6,1", "Macmini7,1", "MacBookAir8,1", "MacBookAir8,2", "MacBookAir9,1", "MacBookPro15,1", "MacBookPro15,2", "MacBookPro15,3", "MacBookPro16,3", "Macmini8,1", "iMacPro1,1"]:
             logging.info("- Enabling Boot Logo patch")
             support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Booter"]["Patch"], "Comment", "Patch SkipLogo")["Enabled"] = True
 
