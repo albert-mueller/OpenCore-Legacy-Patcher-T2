@@ -84,9 +84,8 @@ class BuildOpenCore:
             try:
                 logging.info("- Adding T2-specific bypass kexts (iBridged & CryptexFixup)")
                 # 1. Helper Kexts
-                support.BuildSupport(self.model, self.constants, self.config).enable_kext("iBridged.kext", "1.1.0", self.constants.kext_path)
                 support.BuildSupport(self.model, self.constants, self.config).enable_kext("CryptexFixup.kext", "1.1.0", self.constants.kext_path)
-                support.BuildSupport(self.model, self.constants, self.config).enable_kext("WhateverGreen-special.kext", "1.6.9", self.constants.kext_path)
+                support.BuildSupport(self.model, self.constants, self.config).enable_kext("WhateverGreen.kext", "1.6.9", self.constants.kext_path)
             
                 # AMFIPass is critical for root patching (GPU drivers) on Tahoe
                 support.BuildSupport(self.model, self.constants, self.config).enable_kext("AMFIPass.kext", "1.4.1", self.constants.kext_path)
