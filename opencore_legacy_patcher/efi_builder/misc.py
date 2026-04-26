@@ -383,25 +383,50 @@ xw
             logging.info("- Setting Vault configuration")
             self.config["Misc"]["Security"]["Vault"] = "Secure"
 
-    def _t1_handling(self) -> None:
+        def _t1_handling(self) -> None:
         """
-        T1 Security Chip Handler
+        T1 Security Chip Handler with Crash Protection
         """
         if self.model not in ["MacBookPro13,2", "MacBookPro13,3", "MacBookPro14,2", "MacBookPro14,3"]:
             return
-
+    
         logging.info("- Enabling T1 Security Chip support")
-
-        support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", "com.apple.driver.AppleSSE")["Enabled"] = True
-        support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", "com.apple.driver.AppleKeyStore")["Enabled"] = True
-        support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", "com.apple.driver.AppleCredentialManager")["Enabled"] = True
-
-        support.BuildSupport(self.model, self.constants, self.config).enable_kext("corecrypto_T1.kext", self.constants.t1_corecrypto_version, self.constants.t1_corecrypto_path)
-        support.BuildSupport(self.model, self.constants, self.config).enable_kext("AppleSSE.kext", self.constants.t1_sse_version, self.constants.t1_sse_path)
-        support.BuildSupport(self.model, self.constants, self.config).enable_kext("AppleKeyStore.kext", self.constants.t1_key_store_version, self.constants.t1_key_store_path)
-        support.BuildSupport(self.model, self.constants, self.config).enable_kext("AppleCredentialManager.kext", self.constants.t1_credential_version, self.constants.t1_credential_path)
-        support.BuildSupport(self.model, self.constants, self.config).enable_kext("KernelRelayHost.kext", self.constants.kernel_relay_version, self.constants.kernel_relay_path)
-
+    
+        try:
+            # Initialize the helper once to avoid repeated overhead and potential race conditions
+            builder = support.BuildSupport(self.model, self.constants, self.config)
+    
+            # 1. Unblock Kernel Drivers
+            # We use a helper list to iterate; this makes it easier to catch specific failures
+            identifiers = ["com.apple.driver.AppleSSE", "com.apple.driver.AppleKeyStore", "com.apple.driver.AppleCredentialManager"]
+            
+            for identifier in identifiers:
+                item = builder.get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", identifier)
+                if item:
+                    item["Enabled"] = True
+                else:
+                    logging.warning(f"  - Could not find block entry for {identifier}")
+    
+            # 2. Enable Kexts
+            # Using a list of tuples to keep the logic clean and dry (DRY principle)
+            kexts_to_enable = [
+                ("corecrypto_T1.kext", self.constants.t1_corecrypto_version, self.constants.t1_corecrypto_path),
+                ("AppleSSE.kext", self.constants.t1_sse_version, self.constants.t1_sse_path),
+                ("AppleKeyStore.kext", self.constants.t1_key_store_version, self.constants.t1_key_store_path),
+                ("AppleCredentialManager.kext", self.constants.t1_credential_version, self.constants.t1_credential_path),
+                ("KernelRelayHost.kext", self.constants.kernel_relay_version, self.constants.kernel_relay_path),
+            ]
+    
+            for name, version, path in kexts_to_enable:
+                builder.enable_kext(name, version, path)
+    
+        except (KeyError, TypeError, AttributeError) as e:
+            logging.error(f"CRITICAL: Failed to configure T1 Security Chip due to data structure mismatch: {e}")
+            # In a security-sensitive context, you might want to raise a custom error 
+            # or exit gracefully rather than continuing in an undefined state.
+        except Exception as e:
+            logging.error(f"UNEXPECTED ERROR in T1 handling: {e}")
+        
     def _t2_handling(self) -> None:
         """
         T2 Security Chip Handler
