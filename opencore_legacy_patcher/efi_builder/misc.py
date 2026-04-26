@@ -511,7 +511,6 @@ xw
                 self.config["Kernel"]["Patch"] = []
                 
             self.config["Kernel"]["Patch"].append(new_patch)
-        )
 
         if sep_patch:
             sep_patch["Enabled"] = True
