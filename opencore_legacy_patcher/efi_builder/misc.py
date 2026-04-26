@@ -477,8 +477,13 @@ xw
         # "AppleSEPManager panic for 'AppleKeyStore': sks request timeout"
         # Patch converts the panic call to an early return (MinKernel=24.0.0 scopes it to Sequoia only).
         logging.info("- Enabling AppleSEPManager SEP timeout panic patch for T2 Macs")
-        support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(
+        sep_patch = support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(
             self.config["Kernel"]["Patch"],
             "Comment",
             "Prevent AppleSEPManager SEP timeout panic on T2 Macs (Sequoia)"
-        )["Enabled"] = True
+        )
+
+        if sep_patch:
+            sep_patch["Enabled"] = True
+        else:
+            logging.warning("!!! Could not find AppleSEPManager patch in template, skipping enable...")
