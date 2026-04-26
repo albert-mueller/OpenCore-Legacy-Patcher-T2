@@ -1,5 +1,14 @@
 # OpenCore Legacy Patcher T2 changelog
-
+## 3.1.0 alpha 2:
+This release:
+- fixes duplicate NVRAM arguments for T2 Macs, which in some cases can cause T2 Macs to stall at the Apple logo or attackers to abuse this via Buffer Overflow vulnerabilities
+- Switching back to Dortania's own PatcherSupportPkg, this time using the latest version that is available
+- On MacBook Air 2018 and 2019, if you download the macOS 15 Sequoia via the OpenCore Legacy Patcher T2 app, now it will disable WhateverGreen. However, if you use an existing installer or just build OpenCore using macOS 14 Sonoma, then it will still enable WhateverGreen.
+- Fix Function Error: 'NoneType' object does not support item assignment
+- Exclude MacBookPro15,4 from the Board ID exemption patches
+- Fix a bug where a missing comma prevented Mac mini 2018 and MacBook Pro 2020 2 thunderbolt 3 ports from getting excluded from the Boot Logo patches
+- exclude the iMac Pro from Boot Logo patches
+- Fix a vulnerability where when patching T1 Macs, attackers can launch State of Confusion attacks, Denial of Service attacks or malformed imputs - this vulnerability affects all versions of this repository until 3.1.0 alpha 1 and also affects the official OpenCore Legacy Patcher by Dortania repo too
 ## 3.1.0 alpha 1:
 This release removes iBridged.kext in favor of SSDT patching that automated patch via the OpenCore Legacy Patcher app is not written yet - so you need after building the EFI to add the file via OCAT. And from this release onwards, PatcherSupportPkg files will be downloaded from OCLP-Mod's fork rather than directly from Dortania as they have better macOS 26 support. If you come across a bug where something doesn't download properly, make sure to report this issue and eventually suggest a fix as this project has just started transitioning from Dortania's PatcherSupportPkg to the one used by OCLP-Mod.
 
