@@ -24,8 +24,8 @@ SupportedSMBIOS = [
     "MacBookAir6,2",
     "MacBookAir7,1",
     "MacBookAir7,2",
-    "MacBookAir8,1",
-    "MacBookAir8,2",
+    # "MacBookAir8,1",
+    # "MacBookAir8,2",
     "MacBookAir9,1",
     # MacBook Pro
     "MacBookPro4,1",
