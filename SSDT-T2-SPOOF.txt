@@ -1,0 +1,21 @@
+DefinitionBlock ("", "SSDT", 2, "T2FIX", "TAHOE", 0x00001000)
+{
+    // Pfad zu deinem T2-Controller (muss via IORegistryExplorer/gfxutil geprüft werden)
+    External (_SB.PCI0.LPCB.SMC, DeviceObj) 
+
+    Scope (_SB.PCI0.LPCB.SMC)
+    {
+        Method (_DSM, 4, NotSerialized) // Device Specific Method
+        {
+            if (LEqual (Arg2, Zero)) { Return (Buffer() { 0x03 }) }
+            Return (Package ()
+            {
+                // Hier gaukeln wir das 2020er Modell (J132) vor
+                "bridgeos-model", Buffer () { "J132" }, 
+                "target-type", Buffer () { "J132" },
+                // Tahoe prüft oft dieses Feld für die Board-ID Kompatibilität
+                "board-id", Buffer () { "Mac-5F11029324519851" } 
+            })
+        }
+    }
+}
