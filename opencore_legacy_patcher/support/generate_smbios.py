@@ -13,12 +13,33 @@ from ..datasets import (
 )
 
 
+# Keep the T2 mobile spoof targets explicit. These models are especially
+# sensitive to a ProductType/SecureBootModel mismatch during macOS installation.
+# In particular, MacBookAir8,1/8,2 must not regress to MacBookPro16,4 (J215AP).
+TAHOE_T2_MOBILE_SPOOF_TARGETS = {
+    "MacBookAir8,1": "MacBookPro16,2",
+    "MacBookAir8,2": "MacBookPro16,2",
+    "MacBookAir9,1": "MacBookPro16,2",
+    "MacBookPro15,2": "MacBookPro16,2",
+    "MacBookPro15,4": "MacBookPro16,2",
+    "MacBookPro16,3": "MacBookPro16,2",
+    "MacBookPro15,1": "MacBookPro16,1",
+    "MacBookPro15,3": "MacBookPro16,1",
+    "MacBookPro16,4": "MacBookPro16,1",
+}
+
+
 def set_smbios_model_spoof(model):
+    # Handle unsupported T2 notebooks before the generic size-based routing.
+    # This makes the intended Tahoe target deterministic and testable.
+    if model in TAHOE_T2_MOBILE_SPOOF_TARGETS:
+        return TAHOE_T2_MOBILE_SPOOF_TARGETS[model]
+
     try:
         smbios_data.smbios_dictionary[model]["Screen Size"]
         # Found mobile SMBIOS
         if model.startswith("MacBookAir") or model.startswith("MacBook"):
-            # FIX: No Intel MacBook Airs or MacBooks are supported in Tahoe.
+            # No Intel MacBook Airs or MacBooks are supported in Tahoe.
             # Route them to the 13" Intel MacBookPro16,2 which is still native.
             return "MacBookPro16,2"
         elif model.startswith("MacBookPro"):
@@ -100,6 +121,7 @@ def find_model_off_board(board):
             return key
     return None
 
+
 def find_board_off_model(model):
     if model in smbios_data.smbios_dictionary:
         return smbios_data.smbios_dictionary[model]["Board ID"]
@@ -119,6 +141,7 @@ def check_firewire(model):
         return False
     else:
         return True
+
 
 def determine_best_board_id_for_sandy(current_board_id, gpus):
     # This function is mainly for users who are either spoofing or using hackintoshes
@@ -145,7 +168,7 @@ def determine_best_board_id_for_sandy(current_board_id, gpus):
                 try:
                     size = int(smbios_data.smbios_dictionary[model]["Screen Size"])
                 except KeyError:
-                    size = 13 # Assume 13 if it's missing
+                    size = 13  # Assume 13 if it's missing
                 if model.startswith("MacBookPro"):
                     if size >= 17:
                         return find_board_off_model("MacBookPro8,3")
@@ -153,7 +176,7 @@ def determine_best_board_id_for_sandy(current_board_id, gpus):
                         return find_board_off_model("MacBookPro8,2")
                     else:
                         return find_board_off_model("MacBookPro8,1")
-                else: # MacBook and MacBookAir
+                else:  # MacBook and MacBookAir
                     if size >= 13:
                         return find_board_off_model("MacBookAir4,2")
                     else:
@@ -168,4 +191,4 @@ def determine_best_board_id_for_sandy(current_board_id, gpus):
                         return find_board_off_model("iMac12,2")
                 else:
                     return find_board_off_model("Macmini5,1")
-    return find_board_off_model("Macmini5,1") # Safest bet if we somehow don't know the model
+    return find_board_off_model("Macmini5,1")  # Safest bet if we somehow don't know the model
