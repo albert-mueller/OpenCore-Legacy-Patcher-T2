@@ -1,0 +1,31 @@
+name: T2 SMBIOS validation
+
+on:
+  push:
+    paths:
+      - "opencore_legacy_patcher/support/generate_smbios.py"
+      - "ci_tooling/check_t2_spoof_targets.py"
+      - ".github/workflows/t2-smbios-validation.yml"
+  pull_request:
+    paths:
+      - "opencore_legacy_patcher/support/generate_smbios.py"
+      - "ci_tooling/check_t2_spoof_targets.py"
+      - ".github/workflows/t2-smbios-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-t2-spoof-targets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate T2 Tahoe SMBIOS routing
+        run: python3 ci_tooling/check_t2_spoof_targets.py
