@@ -44,8 +44,8 @@ CORRECTED_T2_BLOCK = '''        if is_t2:
                 nvram = self.config.setdefault("NVRAM", {})
                 nvram_add = nvram.setdefault("Add", {})
                 nvram_delete = nvram.setdefault("Delete", {})
-                apple_add = nvram_add.setdefault(APPLE_NVRAM_GUID, {"boot-args": ""})
-                apple_delete = nvram_delete.setdefault(APPLE_NVRAM_GUID, [])
+                apple_add = nvram_add.setdefault("7C436110-AB2A-4BBB-A880-FE41995C9F82", {"boot-args": ""})
+                apple_delete = nvram_delete.setdefault("7C436110-AB2A-4BBB-A880-FE41995C9F82", [])
 
                 for target_arg in ["boot-args", "csr-active-config", "amfi-allow-arguments"]:
                     if target_arg not in apple_delete:
