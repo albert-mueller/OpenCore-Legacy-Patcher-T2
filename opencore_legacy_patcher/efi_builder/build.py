@@ -477,11 +477,25 @@ class BuildOpenCore:
                 if "cryptex=0" not in current_boot_args:
                     self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = f"{current_boot_args} cryptex=0".strip()
 
+            # TEST-B / TEST-D GPU Profile Enhancements
+            if self.constants.build_profile in ["test_b", "test_d"]:
+                current_boot_args = self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"].get("boot-args", "")
+                if any(self.model.startswith(prefix) for prefix in ["MacBookPro11,", "MacBookPro12,", "iMac14,", "iMac15,", "Macmini7,"]):
+                    logging.info(f"Profile {self.constants.build_profile.upper()}: Injecting Haswell/Broadwell GPU boot-args (-disablegfxfirmware igfxmetal=1 watchdog=0 ipc_control_port_options=0).")
+                    haswell_args = ["-disablegfxfirmware", "igfxmetal=1", "watchdog=0", "ipc_control_port_options=0", "-amfipassbeta"]
+                    for arg in haswell_args:
+                        prefix = arg.split('=')[0]
+                        if prefix not in current_boot_args:
+                            current_boot_args = f"{current_boot_args} {arg}".strip()
+                    self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = current_boot_args
+
             # TEST-D ALL-IN-ONE Boot-args and Kext injection
             if self.constants.build_profile == "test_d":
                 logging.info("Profile TEST-D: Injecting Wi-Fi, Audio & System boot-args (ipc_control_port_options=0 -amfipassbeta alcid=13).")
-                current_boot_args = self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"]
-                test_d_args = ["ipc_control_port_options=0", "-amfipassbeta", "alcid=13", "-lilubetaall"]
+
+                test_d_args = ["ipc_control_port_options=0", "-amfipassbeta", "-lilubetaall"]
+                if self.model in ["MacBookPro13,2", "MacBookPro13,3", "MacBookPro14,2", "MacBookPro14,3"]:
+                    test_d_args.append("alcid=13")
                 for arg in test_d_args:
                     prefix = arg.split('=')[0]
                     if prefix not in current_boot_args:
@@ -588,7 +602,10 @@ class BuildOpenCore:
             support.BuildSupport(self.model, self.constants, self.config).sign_files()
             support.BuildSupport(self.model, self.constants, self.config).validate_pathing()
             
-            if self.model == "MacBookPro14,3" or (self.constants.computer is not None and getattr(self.constants.computer, "real_model", None) == "MacBookPro14,3"):
+            is_test_profile = getattr(self.constants, "build_profile", "standard") != "standard"
+            is_mbp143 = self.model == "MacBookPro14,3" or (self.constants.computer is not None and getattr(self.constants.computer, "real_model", None) == "MacBookPro14,3")
+
+            if is_test_profile or is_mbp143:
                 if self.constants.build_profile == "test_b":
                     profile_name = "TEST-B GPU"
                 elif self.constants.build_profile == "test_c":
@@ -606,7 +623,9 @@ class BuildOpenCore:
                 logging.info("=========================================")
                 logging.info(f"Model: {self.model}")
                 logging.info(f"Profile: {profile_name}")
-                logging.info("T1 Auth: NATIVE SOFTWARE KEYSTORE (TAHOE COMPATIBLE)")
+                is_t1_model = self.model in ["MacBookPro13,2", "MacBookPro13,3", "MacBookPro14,2", "MacBookPro14,3"]
+                t1_info = "NATIVE SOFTWARE KEYSTORE (TAHOE COMPATIBLE)" if is_t1_model else "NOT APPLICABLE (Non-T1 Hardware)"
+                logging.info(f"T1 Auth: {t1_info}")
                 
                 wifi_id = "14E4:43BA"
                 if getattr(self.constants, "computer", None) is not None and self.constants.computer.wifi:
@@ -642,17 +661,22 @@ class BuildOpenCore:
                 logging.info("=========================================")
 
             # Create profile-specific output directory
-            if self.model == "MacBookPro14,3" or (self.constants.computer is not None and getattr(self.constants.computer, "real_model", None) == "MacBookPro14,3"):
+            if is_test_profile or is_mbp143:
                 if self.constants.build_profile == "test_b":
-                    profile_dir_name = "TEST-B-Build"
+                    profile_dir_base = "TEST-B-Build"
                 elif self.constants.build_profile == "test_c":
-                    profile_dir_name = "TEST-C-TAHOE-ALBERT"
+                    profile_dir_base = "TEST-C-TAHOE-ALBERT"
                 elif self.constants.build_profile == "test_c_spoofed":
-                    profile_dir_name = "TEST-C-SPOOFED"
+                    profile_dir_base = "TEST-C-SPOOFED"
                 elif self.constants.build_profile == "test_d":
-                    profile_dir_name = "TEST-D-ALL-IN-ONE"
+                    profile_dir_base = "TEST-D-ALL-IN-ONE"
                 else:
-                    profile_dir_name = "Standard-Build"
+                    profile_dir_base = "Standard-Build"
+                
+                if self.model == "MacBookPro14,3":
+                    profile_dir_name = profile_dir_base
+                else:
+                    profile_dir_name = f"{profile_dir_base}-{self.model}"
                 
                 profile_output = Path(self.constants.build_path) / profile_dir_name
                 if profile_output.exists():
