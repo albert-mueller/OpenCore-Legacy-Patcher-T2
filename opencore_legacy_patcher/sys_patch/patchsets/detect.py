@@ -99,6 +99,39 @@ class HardwarePatchsetValidation(StrEnum):
     UNPATCHING_NOT_POSSIBLE       = "Validation: Unpatching not possible"
 
 
+# Patchsets installed during the network-only first stage of root patching.
+#
+# When no network connection is available, '_handle_missing_network_connection()'
+# strips the patchset down to the wireless patches so the machine has Wi-Fi after
+# the reboot. The remaining patches are then installed by a second run, which finds
+# the manifest of the first stage already sitting on the root volume. A manifest
+# recording nothing but these patchsets must therefore NOT block patching again.
+#
+# Keep in sync with the patchset names in 'patchsets/hardware/networking/'.
+# 'Modern Wireless Common' is Dortania's name for the same base patchset and is
+# listed so manifests written by upstream builds are recognised as well.
+WIRELESS_PATCHSET_KEYS: set = {
+    "Legacy Wireless",
+    "Legacy Wireless Extended",
+    "Modern Wireless",
+    "Modern Wireless Common",
+    "Modern Wireless Extended",
+}
+
+# Metadata keys written alongside the patchsets.
+# Keep in sync with 'SysPatchHelpers.generate_patchset_plist()'.
+MANIFEST_METADATA_KEYS: set = {
+    "OpenCore Legacy Patcher",
+    "PatcherSupportPkg",
+    "Time Patched",
+    "Commit URL",
+    "Kernel Debug Kit Used",
+    "Metal Library Used",
+    "OS Version",
+    "Custom Signature",
+}
+
+
 class HardwarePatchsetDetection:
 
     def __init__(self, constants: constants.Constants,
@@ -291,14 +324,68 @@ class HardwarePatchsetDetection:
         return True
 
 
-    def _is_root_volume_dirty(self, manifest_path: Path = None) -> bool:
+    def _is_root_volume_dirty(self) -> bool:
         """
-        Determine if root volume is dirty
+        Determine if the booted system volume was modified.
+
+        Only reports the seal of the volume we are actually booted from: a stray
+        'Snapshot Sealed: Yes' from another APFS container (external disk, second
+        internal drive) must not decide this for us, and an unsealed-but-unmodified
+        volume ('Sealed: No', ie. authenticated-root disabled without any patches
+        applied yet) is not dirty either. Only a broken seal means the contents of
+        the volume were actually changed.
         """
-        if utilities.check_seal() is False:
+        # macOS 11.0 introduced sealed system volumes
+        if self._xnu_major < os_data.big_sur.value:
+            return False
+
+        try:
+            content = plistlib.loads(subprocess.run(["/usr/sbin/diskutil", "info", "-plist", "/"], capture_output=True).stdout)
+        except plistlib.InvalidFileException:
+            logging.error("Failed to parse diskutil output, falling back to global seal check")
+            return utilities.check_seal() is False
+
+        if "Sealed" not in content:
+            # Not an APFS snapshot (ie. HFS+ install), nothing to seal
+            return False
+
+        if "Broken" in content["Sealed"]:
+            logging.error("System volume is tainted, unpatching is required")
             return True
-        if manifest_path is not None:
+
+        return False
+
+
+    def _manifest_requires_revert(self, manifest_path: Path) -> bool:
+        """
+        Determine whether the patches recorded in an existing root volume manifest
+        require a revert before the volume can be patched again.
+
+        Note that the mere presence of a manifest is not enough: root patching is
+        deliberately split into two runs when no network connection is available
+        (wireless patches first, reboot, everything else afterwards), so the second
+        run always starts with the manifest of the first one already present. Only
+        a manifest recording patches beyond that first stage requires a revert.
+        """
+        try:
+            manifest = plistlib.loads(manifest_path.read_bytes())
+        except Exception as e:
+            logging.error(f"Failed to read root patch manifest ({manifest_path}): {e}")
+            # Contents unknown, so assume the worst and require a revert
             return True
+
+        if not isinstance(manifest, dict):
+            logging.error(f"Root patch manifest is malformed ({manifest_path}), unpatching is required")
+            return True
+
+        installed_patches = set(manifest) - WIRELESS_PATCHSET_KEYS - MANIFEST_METADATA_KEYS
+        if installed_patches:
+            logging.error(f"Patch(es) already installed: {', '.join(sorted(installed_patches))}, unpatching is required")
+            return True
+
+        if set(manifest) & WIRELESS_PATCHSET_KEYS:
+            logging.info("Only network patches are installed, patching can continue")
+
         return False
 
 
@@ -306,7 +393,9 @@ class HardwarePatchsetDetection:
         """
         Determine if root volume is dirty
         """
-        return self._is_root_volume_dirty(manifest_path)
+        if manifest_path is not None:
+            return self._manifest_requires_revert(manifest_path)
+        return self._is_root_volume_dirty()
 
 
     @cache
