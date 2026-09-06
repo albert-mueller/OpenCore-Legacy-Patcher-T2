@@ -557,4 +557,7 @@ class MacosConfigFrame(wx.Frame):
     
 
     def _find_parent_for_key(self, key: str) -> str:
-       
+        for parent in self.settings:
+            if key in self.settings[parent]:
+                return parent
+        return ""

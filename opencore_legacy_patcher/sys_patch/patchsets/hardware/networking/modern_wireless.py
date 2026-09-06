@@ -55,17 +55,18 @@ class ModernWireless(BaseHardware):
         """
         Base patches for Modern Wireless
         """
+        source = f"13.7.2-{self._xnu_major}" if self._xnu_major < os_data.tahoe.value else "13.7.2-24"
         return {
             "Modern Wireless": {
                 PatchType.OVERWRITE_SYSTEM_VOLUME: {
                     "/usr/libexec": {
-                        "wifip2pd": f"13.7.2-{self._xnu_major}",
+                        "wifip2pd": source,
                     },
                 },
                 PatchType.MERGE_SYSTEM_VOLUME: {
                     "/System/Library/PrivateFrameworks": {
-                        "IO80211.framework":        f"13.7.2-{self._xnu_major}",
-                        "WiFiPeerToPeer.framework": f"13.7.2-{self._xnu_major}",
+                        "IO80211.framework":        source,
+                        "WiFiPeerToPeer.framework": source,
                     },
                 }
             },

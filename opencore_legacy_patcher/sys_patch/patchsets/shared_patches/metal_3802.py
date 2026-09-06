@@ -483,11 +483,15 @@ class LegacyMetal3802(BaseSharedPatchSet):
         Dictionary of patches
         """
         if self._xnu_major >= os_data.tahoe.value:
-            # Metal 3802 patches currently cause kernel panics on macOS 26, Tahoe.
-            # Safety guard: skip this patchset entirely until a working fix is found.
-            # Unrelated patchsets (eg. Legacy Wireless) are unaffected, as they come
-            # from separate hardware/shared patch classes and are not gated here.
-            return {}
+            # Metal 3802 patches on macOS 26 Tahoe are experimental.
+            # Safety guard: only allow if Developer Mode is enabled (~/.dortania_developer or OCLP_DEV_MODE=1)
+            # to protect ordinary users while enabling testing for Haswell/Kepler/Ivy Bridge.
+            from pathlib import Path
+            import os
+            is_dev = Path("~/.dortania_developer").expanduser().exists() or os.environ.get("OCLP_DEV_MODE") == "1"
+            if not is_dev:
+                return {}
+
 
         return {
             **self._patches_metal_3802_common(),

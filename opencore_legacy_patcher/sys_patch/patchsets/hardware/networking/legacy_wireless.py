@@ -114,22 +114,24 @@ class LegacyWireless(BaseHardware):
         if self._xnu_major < os_data.ventura:
             return {}
 
+        source = "12.7.2" if self._xnu_major < os_data.sequoia else ("12.7.2-24" if self._xnu_major >= os_data.tahoe else f"12.7.2-{self._xnu_major}")
+
         return {
             "Legacy Wireless Extended": {
                 PatchType.OVERWRITE_SYSTEM_VOLUME: {
                     "/usr/libexec": {
-                        "wps":      "12.7.2" if self._xnu_major < os_data.sequoia else f"12.7.2-{self._xnu_major}",
-                        "wifip2pd": "12.7.2" if self._xnu_major < os_data.sequoia else f"12.7.2-{self._xnu_major}",
+                        "wps":      source,
+                        "wifip2pd": source,
                     },
                 },
                 PatchType.MERGE_SYSTEM_VOLUME: {
                     "/System/Library/Frameworks": {
-                        "CoreWLAN.framework": "12.7.2" if self._xnu_major < os_data.sequoia else f"12.7.2-{self._xnu_major}",
+                        "CoreWLAN.framework": source,
                     },
                     "/System/Library/PrivateFrameworks": {
-                        "CoreWiFi.framework":       "12.7.2" if self._xnu_major < os_data.sequoia else f"12.7.2-{self._xnu_major}",
-                        "IO80211.framework":        "12.7.2" if self._xnu_major < os_data.sequoia else f"12.7.2-{self._xnu_major}",
-                        "WiFiPeerToPeer.framework": "12.7.2" if self._xnu_major < os_data.sequoia else f"12.7.2-{self._xnu_major}",
+                        "CoreWiFi.framework":       source,
+                        "IO80211.framework":        source,
+                        "WiFiPeerToPeer.framework": source,
                     },
                 }
             },

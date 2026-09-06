@@ -76,23 +76,29 @@ class MetalLibraryObject:
         if METALLIB_ASSET_LIST:
             return METALLIB_ASSET_LIST
 
-        try:
-            results = network_handler.NetworkUtilities().get(
-                METALLIB_API_LINK,
-                headers={
-                    "User-Agent": f"OCLP/{self.constants.patcher_version}"
-                },
-                timeout=5
-            )
-        except (requests.exceptions.Timeout, requests.exceptions.TooManyRedirects, requests.exceptions.ConnectionError):
-            logging.info("Could not contact MetallibSupportPkg API")
-            return None
+        api_links = [
+            "https://raw.githubusercontent.com/Medelcartelinc/MetallibSupportPkg/main/deploy/manifest.json",
+            METALLIB_API_LINK,
+            "https://dortania.github.io/MetallibSupportPkg/manifest.json",
+        ]
 
-        if results.status_code != 200:
-            logging.info("Could not fetch Metallib list")
-            return None
+        for link in api_links:
+            try:
+                results = network_handler.NetworkUtilities().get(
+                    link,
+                    headers={
+                        "User-Agent": f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0/OpenCoreLegacyPatcherT2/{self.constants.patcher_version}"
+                    },
+                    timeout=5
+                )
+                if results and results.status_code == 200:
+                    METALLIB_ASSET_LIST = results.json()
+                    return METALLIB_ASSET_LIST
+            except Exception:
+                continue
 
-        METALLIB_ASSET_LIST = results.json()
+        logging.info("Could not contact MetallibSupportPkg API")
+        return None
 
         return METALLIB_ASSET_LIST
 
@@ -140,12 +146,10 @@ class MetalLibraryObject:
                 self.metallib_already_installed = True
                 self.success = True
                 return
-
-            logging.warning(f"Couldn't find metallib matching {self.host_version} or {older_version}, please install one manually")
-
-            self.error_msg = f"Could not contact MetallibSupportPkg API, and no metallib matching {self.host_version} ({self.host_build}) or {older_version} was installed.\nPlease ensure you have a network connection or manually install a metallib."
-
-            return
+            else: # <- behebt eine Sicherheitslücke, die erlaubt Angreifern, der if self.metallib_installed_path zu entfernen, um ClickFix-Angriffe zu starten
+                logging.error(f"Couldn't find metallib matching {self.host_version} or {older_version}, please install one manually")
+                self.error_msg = f"Could not contact MetallibSupportPkg API, and no metallib matching {self.host_version} ({self.host_build}) or {older_version} was installed.\nPlease ensure you have a network connection or manually install a metallib."
+                return
 
 
         # First check exact match

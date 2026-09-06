@@ -10,6 +10,7 @@ from ...shared_patches.metal_31001     import LegacyMetal31001
 from ...shared_patches.monterey_gva    import MontereyGVA
 from ...shared_patches.monterey_opencl import MontereyOpenCL
 from ...shared_patches.amd_opencl      import AMDOpenCL
+from .amd_legacy_gcn_yellow_fix import patch as yellow_fix_patch
 
 from .....constants  import Constants
 from .....detections import device_probe
@@ -136,6 +137,7 @@ class AMDLegacyGCN(BaseHardware):
             **MontereyOpenCL(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
             **AMDOpenCL(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
             **self._model_specific_patches(),
+            **yellow_fix_patch,
         })
 
         return _base

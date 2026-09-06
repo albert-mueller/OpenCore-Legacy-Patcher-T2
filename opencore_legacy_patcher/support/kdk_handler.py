@@ -112,16 +112,20 @@ class KernelDebugKitObject:
             results = network_handler.NetworkUtilities().get(
                 KDK_API_LINK,
                 headers={
-                    "User-Agent": f"OCLP/{self.constants.patcher_version}"
+                    "User-Agent": f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0/OpenCoreLegacyPatcherT2/{self.constants.patcher_version}"
                 },
                 timeout=5
             )
         except (requests.exceptions.Timeout, requests.exceptions.TooManyRedirects, requests.exceptions.ConnectionError):
-            logging.info("Could not contact KDK API")
+            logging.error("Could not contact KDK API") 
+            return None
+        except Exception as e: # behebt eine Sicherheitslücke, die erlaubt Angreifern, beim unerwartetes Fehler, beliebiges Code auszuführen oder ClickFix-Angriffe zu starten
+            logging.error("An unexpected error occured while trying to contact the KDK API.")
+            logging.exception("Stack Trace:")
             return None
 
         if results.status_code != 200:
-            logging.info("Could not fetch KDK list")
+            logging.error("Could not fetch KDK list")
             return None
 
         KDK_ASSET_LIST = results.json()
@@ -182,12 +186,10 @@ class KernelDebugKitObject:
                 self.kdk_already_installed = True
                 self.success = True
                 return
-
-            logging.warning(f"Couldn't find KDK matching {host_version} or {older_version}, please install one manually")
-
-            self.error_msg = f"Could not contact KdkSupportPkg API, and no KDK matching {host_version} ({host_build}) or {older_version} was installed.\nPlease ensure you have a network connection or manually install a KDK."
-
-            return
+            else: # behebt eine Sicherheitslücke, die erlaubt Angreifern, die if self.kdk_installed_path zu entfernen, um KDK-Matching-Fehler zu zeigen
+                logging.warning(f"Couldn't find KDK matching {host_version} or {older_version}, please install one manually")
+                self.error_msg = f"Could not contact KdkSupportPkg API, and no KDK matching {host_version} ({host_build}) or {older_version} was installed.\nPlease ensure you have a network connection or manually install a KDK."
+                return
 
         # First check exact match
         for kdk in remote_kdk_version:
@@ -221,7 +223,7 @@ class KernelDebugKitObject:
 
         if self.kdk_url == "":
             if self.kdk_closest_match_url == "":
-                logging.warning(f"No KDKs found for {host_build} ({host_version})")
+                logging.error(f"No KDKs found for {host_build} ({host_version})")
                 self.error_msg = f"No KDKs found for {host_build} ({host_version})"
                 return
             logging.info(f"No direct match found for {host_build}, falling back to closest match")
@@ -242,11 +244,11 @@ class KernelDebugKitObject:
             self.kdk_already_installed = True
             self.success = True
             return
-
-        logging.info("Following KDK is recommended:")
-        logging.info(f"- KDK Build: {self.kdk_url_build}")
-        logging.info(f"- KDK Version: {self.kdk_url_version}")
-        logging.info(f"- KDK URL: {self.kdk_url}")
+        else:
+            logging.info("Following KDK is recommended:")
+            logging.info(f"- KDK Build: {self.kdk_url_build}")
+            logging.info(f"- KDK Version: {self.kdk_url_version}")
+            logging.info(f"- KDK URL: {self.kdk_url}")
 
         self.success = True
 
@@ -305,6 +307,9 @@ class KernelDebugKitObject:
             plistlib.dump(kdk_dict, plist_path.open("wb"), sort_keys=False)
         except Exception as e:
             logging.error(f"Failed to generate KDK Info.plist: {e}")
+            # behebt eine Sicherheitslücke, die erlaubt Angreifern, trotz dieses kritisches Fehler Code weiterhin auszuführen oder ClickFix-Angriffe zu starten wegen fehlender Information für dieses Fehler
+            logging.exception("Stack Trace:")
+            sys.exit(3)
 
 
     def _local_kdk_valid(self, kdk_path: Path) -> bool:

@@ -52,13 +52,16 @@ class BuildWirelessNetworking:
 
         if isinstance(self.computer.wifi, device_probe.Broadcom):
             if self.computer.wifi.chipset in [device_probe.Broadcom.Chipsets.AirportBrcmNIC, device_probe.Broadcom.Chipsets.AirPortBrcm4360]:
+                support.BuildSupport(self.model, self.constants, self.config).enable_kext("IOSkywalkFamily.kext", self.constants.ioskywalk_version, self.constants.ioskywalk_path)
+                support.BuildSupport(self.model, self.constants, self.config).enable_kext("IO80211FamilyLegacy.kext", self.constants.io80211legacy_version, self.constants.io80211legacy_path)
+                support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("IO80211FamilyLegacy.kext/Contents/PlugIns/AirPortBrcmNIC.kext")["Enabled"] = True
+                support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", "com.apple.iokit.IOSkywalkFamily")["Enabled"] = True
                 if self.constants.detected_os >= 15:
-                    logging.info("- Skipping legacy Wi-Fi kexts (IOSkywalkFamily) for macOS 15 to avoid early boot panics")
-                else:
-                    support.BuildSupport(self.model, self.constants, self.config).enable_kext("IOSkywalkFamily.kext", self.constants.ioskywalk_version, self.constants.ioskywalk_path)
-                    support.BuildSupport(self.model, self.constants, self.config).enable_kext("IO80211FamilyLegacy.kext", self.constants.io80211legacy_version, self.constants.io80211legacy_path)
-                    support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("IO80211FamilyLegacy.kext/Contents/PlugIns/AirPortBrcmNIC.kext")["Enabled"] = True
-                    support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", "com.apple.iokit.IOSkywalkFamily")["Enabled"] = True
+                    current_boot_args = self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"].get("boot-args", "")
+                    for arg in ["ipc_control_port_options=0", "-amfipassbeta"]:
+                        if arg.split("=")[0] not in current_boot_args:
+                            current_boot_args = f"{current_boot_args} {arg}".strip()
+                    self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = current_boot_args
             # This works around OCLP spoofing the Wifi card and therefore unable to actually detect the correct device
             if self.computer.wifi.chipset == device_probe.Broadcom.Chipsets.AirportBrcmNIC and self.constants.validate is False and self.computer.wifi.country_code:
                 support.BuildSupport(self.model, self.constants, self.config).enable_kext("AirportBrcmFixup.kext", self.constants.airportbcrmfixup_version, self.constants.airportbcrmfixup_path)
@@ -119,13 +122,16 @@ class BuildWirelessNetworking:
             support.BuildSupport(self.model, self.constants, self.config).enable_kext("AirportBrcmFixup.kext", self.constants.airportbcrmfixup_version, self.constants.airportbcrmfixup_path)
 
         if smbios_data.smbios_dictionary[self.model]["Wireless Model"] in [device_probe.Broadcom.Chipsets.AirportBrcmNIC, device_probe.Broadcom.Chipsets.AirPortBrcm4360]:
+            support.BuildSupport(self.model, self.constants, self.config).enable_kext("IOSkywalkFamily.kext", self.constants.ioskywalk_version, self.constants.ioskywalk_path)
+            support.BuildSupport(self.model, self.constants, self.config).enable_kext("IO80211FamilyLegacy.kext", self.constants.io80211legacy_version, self.constants.io80211legacy_path)
+            support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("IO80211FamilyLegacy.kext/Contents/PlugIns/AirPortBrcmNIC.kext")["Enabled"] = True
+            support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", "com.apple.iokit.IOSkywalkFamily")["Enabled"] = True
             if self.constants.detected_os >= 15:
-                logging.info("- Skipping legacy Wi-Fi kexts (IOSkywalkFamily) for macOS 15 to avoid early boot panics")
-            else:
-                support.BuildSupport(self.model, self.constants, self.config).enable_kext("IOSkywalkFamily.kext", self.constants.ioskywalk_version, self.constants.ioskywalk_path)
-                support.BuildSupport(self.model, self.constants, self.config).enable_kext("IO80211FamilyLegacy.kext", self.constants.io80211legacy_version, self.constants.io80211legacy_path)
-                support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("IO80211FamilyLegacy.kext/Contents/PlugIns/AirPortBrcmNIC.kext")["Enabled"] = True
-                support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", "com.apple.iokit.IOSkywalkFamily")["Enabled"] = True
+                current_boot_args = self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"].get("boot-args", "")
+                for arg in ["ipc_control_port_options=0", "-amfipassbeta"]:
+                    if arg.split("=")[0] not in current_boot_args:
+                        current_boot_args = f"{current_boot_args} {arg}".strip()
+                self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = current_boot_args
 
 
     def _wowl_handling(self) -> None:
