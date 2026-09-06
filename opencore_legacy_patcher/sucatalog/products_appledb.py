@@ -40,7 +40,7 @@ class AppleDBProducts:
         try:
             response = network_handler.NetworkUtilities().get(
                 api_url, 
-                headers={"User-Agent": f"OCLP/{self.constants.patcher_version}"}
+                headers={"User-Agent": f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.2 Safari/605.1.15/OpenCoreLegacyPatcherT2/{self.constants.patcher_version}"}
             )
             if response and hasattr(response, "json"):
                 self.data = response.json()
