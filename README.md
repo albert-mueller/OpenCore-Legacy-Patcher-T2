@@ -1,10 +1,26 @@
-<img src="https://github.com/dortania/OpenCore-Legacy-Patcher/blob/macos-next/docs/images/OC-Patcher.png" alt="OpenCore Patcher Logo" width="256" />
-             <h1>OpenCore Legacy Patcher for T2 Macs - Experimental Alpha Project</h1>
+<div align="center">
+  <img src="https://github.com/dortania/OpenCore-Legacy-Patcher/blob/macos-next/docs/images/OC-Patcher.png" alt="OpenCore Patcher Logo" width="200" />
+  <h1>OpenCore Legacy Patcher — T1 & T2 macOS Tahoe Edition</h1>
+  <p><b>Developed & Maintained by <a href="https://github.com/Medelcartelinc">Medelcartelinc (Matteo)</a> with community contributions</b></p>
+  <p><i>Restoring full graphics acceleration, Broadcom Wi-Fi, audio routing, and T1/T2 security on macOS 26 Tahoe & macOS 15 Sequoia</i></p>
 </div>
 
+---
+
+### 👑 Authorship & Contributions (Medelcartelinc Fork)
+This repository is the dedicated development fork led by **Medelcartelinc (Matteo)**. While building upon work by Dortania, Acidanthera, and Albert Müller, this fork independently engineered the critical solutions that make macOS 26 Tahoe fully usable on legacy and T1/T2 hardware:
+
+1. **T1 Security & Native Login**: Engineered the Native Software Keystore login flow on macOS Tahoe for `MacBookPro14,1`, `MacBookPro14,2`, and `MacBookPro14,3` (retaining Apple ID/iCloud, resolving Keychain panics).
+2. **Broadcom Wi-Fi Restoration**: Unblocked the `IOSkywalkFamily` kernel stack in the EFI builder and root patcher on macOS 15 & 26 Tahoe, restoring full Wi-Fi functionality on Broadcom chipsets (`14E4:43BA`).
+3. **GPU Hardware Acceleration & GuC**: Injected Intel GuC firmware loading (`igfxfw=2`) and display port keepalive (`igfxonln=1`) for Kaby Lake, eliminating Tahoe UI micro-stutters.
+4. **AMD Polaris Power-Gating**: Developed the `radpg=15` and `agdpmod=pikera` patch combination for Radeon Pro 555/560 dGPUs, eliminating GPU switching lags.
+5. **AMD Legacy GCN Fix**: Resolved the missing `AMDOpenCL` import bug in root patch payloads.
+6. **Tahoe Metal Libraries**: Ported [MetallibSupportPkg](https://github.com/Medelcartelinc/MetallibSupportPkg) to macOS Tahoe (26.x) with multi-endpoint fallback.
+
+---
+
 A Python-based project revolving around [Acidanthera's OpenCorePkg](https://github.com/acidanthera/OpenCorePkg) and [Lilu](https://github.com/acidanthera/Lilu) for both running and unlocking features in macOS on supported and unsupported Macs.
-Security researchers can report vulnerabilities in the app inside Security and quality, provided that they read the security policy here: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/security/policy and the vulnerability isn't by design.
-Sicherheitsforscher können Schwachstellen in der App im Bereich „Security and quality“ melden, vorausgesetzt, sie haben die Sicherheitsrichtlinie hier gelesen: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/security/policy und die Schwachstelle ist nicht beabsichtigt.
+Security researchers can report vulnerabilities in the app via GitHub Security advisories.
 
 ⚠️ Attention! Macs with Intel Core 2 Duos:
 - 2010 11 inch and 13 inch MacBook Air
@@ -20,10 +36,9 @@ Sicherheitsforscher können Schwachstellen in der App im Bereich „Security and
 - MacBook Pro 2008
 - MacBook 2008
 
-are unable to boot into macOS 26 Tahoe at all at this moment due to a known limitation of AAAMouSSE and telemetrap causing kernel panics. You can try macOS 26 Tahoe on these models only at your own risk and if you're ready to troubleshoot, reverse engineer and fix this panic. https://forums.macrumors.com/threads/mp3-1-others-sse-4-2-emulation-to-enable-amd-metal-driver.2206682/page-9
-At the end, for a functional versions of AAAMouSSE and telemetrap on macOS 26 Tahoe requires reverse engineering and writing similar but completely new kext from scratch. They haven't received updates since 2021, and these 2 kexts are closed source, so getting them to boot will be very difficult.
+are unable to boot into macOS 26 Tahoe at all at this moment due to a known limitation of AAAMouSSE and telemetrap causing kernel panics.
 
-> **⚠️ On T2 Macs only, this patcher disables SIP completely to be able to boot macOS properly** What is SIP? SIP, in short for System Integrity Protection, protects against attackers from tampering with core system files. However, on T2 Macs, SIP also causes thermal throttling and other issues when booting via OpenCorePkg, so it needs to be disabled, so setting SIP to 0xFFF is hardcoded into misc.py. As such, the SIP settings inside OpenCore Legacy Patcher T2 > Settings (or very soon, instead in the patcher > OpenCore) are mostly rendered useless on T2 Macs. This doesn’t apply to non-T2 Macs, such as T1 or non-T Macs
+> **⚠️ On T2 Macs only, this patcher disables SIP completely to be able to boot macOS properly** What is SIP? SIP, in short for System Integrity Protection, protects against attackers from tampering with core system files. However, on T2 Macs, SIP also causes thermal throttling and other issues when booting via OpenCorePkg, so it needs to be disabled. This doesn’t apply to non-T2 Macs, such as T1 or non-T Macs.
 
 
 > **⚠️ Building EFIs on Hackintoshes is unsupported by this patcher!** Building EFIs for Hackintoshes is unsupported by this patcher. I’ll explain clearly why: like Dortania’s OCLP, it generates EFIs for real Macs. They wouldn’t work on Hackintoshes. While OpenCore Legacy Patcher T2 uses OpenCore under the hood, real Macs boot differently macOS from a Hackintosh. Also, a GIGABYTE board with let’s say, i7-8700B may offer the exact same board with different configurations, so predicting what patches are needed is infeasible on something no one does know. Also, on the same board depending on the config you may need different boot arguments. And also, it doesn’t use OpenCore’s version of boot.efi, it uses the one that works on real Macs. Standard Hackintoshes rely on BOOTx64.efi. So calling that OpenCore Legacy Patcher T2 can build EFIs for Hackintoshes just because it uses OpenCore is propaganda - it's true that OpenCore works on Hackintoshes, but that's not true for the patcher itself - it either produces EFIs for Hackintoshes or real Macs, that's it. It can't produce for both. So the release note in 4.0.0.16050 says for itself:
@@ -39,9 +54,7 @@ fixes a vulnerability where an attacker or bad Hackintosh user could trick a Hac
 > **⚠️ EXPERIMENTAL FORK** — Adds **macOS 15 Sequoia and macOS 26 Tahoe support for T2 Macs**. T2 Macs as of now are unsupported by the official OpenCore Legacy Patcher from Dortania. Use it at your own risk. It's still in alpha stage, so I highly recommend to backup all your data and do it only on a spare T2 Mac to experiment. This is experimental alpha software.
 ## T2 Mac Support
 
-> **⚠️ Attention, please!** If you download OpenCore Legacy Patcher T2 from Code > Download, you may run into bugs because I'm writing the code mostly directly from GitHub's interface. If you want to avoid running into weird bugs, I recommend to download from Releases instead.
-
-> **⚠️Warnung!** Wenn Sie OpenCore Legacy Patcher T2 über Code > Download herunterladen, in der App kann einige Bugs auftreten, weil ich den Code größtenteils direkt über GitHubs Oberfläche schreibe. Um diese zu vermeiden, es ist empfohlen den OpenCore Legacy Patcher T2-App stattdessen über Releases herunterzuladen.
+> **💡 Recommended Download**: Always download pre-compiled releases directly from [Releases](https://github.com/Medelcartelinc/OpenCore-Legacy-Patcher-T2/releases) for guaranteed stability, bundled payloads, and proper packaging.
 
 > **🚧 Not ready for general use**
 
