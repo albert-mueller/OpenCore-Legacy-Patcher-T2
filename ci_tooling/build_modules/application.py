@@ -11,7 +11,7 @@ from opencore_legacy_patcher.support import subprocess_wrapper
 
 class GenerateApplication:
     """
-    Generate OpenCore-Patcher.app
+    Generate OpenCore-Patcher-T2.app
     """
 
     def __init__(self, reset_pyinstaller_cache: bool = False, git_branch: str = None, 
@@ -250,7 +250,7 @@ class GenerateApplication:
 
     def generate(self) -> None:
         """
-        Generate OpenCore-Patcher.app
+        Generate OpenCore-Patcher-T2.app
         """
         try:
             self._embed_analytics_key()

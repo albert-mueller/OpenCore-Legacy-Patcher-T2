@@ -24,7 +24,7 @@ cd ~/Developer
 # Clone project
 git clone https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2
 # Move into Project directory
-cd ./OpenCore-Legacy-Patcher
+cd ./OpenCore-Legacy-Patcher-T2
 # Install Python dependencies used by the project
 pip3 install -r requirements.txt
 ```
@@ -61,14 +61,14 @@ The main goal of generating prebuilt binaries is to strip the requirement of a l
 # Install PyInstaller
 pip3 install pyinstaller
 # Move into project directory
-cd ~/Developer/OpenCore-Legacy-Patcher/
+cd ~/Developer/OpenCore-Legacy-Patcher-T2/
 # Create the pyinstaller based Application
 python3 Build-Project.command
 # Open build folder
 open ./dist/
 ```
 
-Once done, you'll find the application generated at `./dist/OpenCore-Patcher.app` , alongside with the pkg installers:
+Once done, you'll find the application generated at `./dist/OpenCore-Patcher-T2.app` , alongside with the pkg installers:
 
 <img width="1032" height="548" alt="Bildschirmfoto 2026-08-11 um 11 21 14" src="https://github.com/user-attachments/assets/6a00237a-d215-454e-8f08-8b28ede347b8" />
 

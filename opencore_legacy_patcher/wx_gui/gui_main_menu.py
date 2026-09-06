@@ -135,7 +135,7 @@ class MainFrame(wx.Frame):
                 },
                 "Help": {
                     "function": self.on_help,
-                    "description": ["Resources for OpenCore Legacy", "Patcher."],
+                    "description": ["Resources for OpenCore Legacy", "Patcher-T2."],
                     "icon": str(self.constants.icns_resource_path / "OC-Support.icns"),
                 }
         }
