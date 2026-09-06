@@ -112,7 +112,7 @@ class KernelDebugKitObject:
             results = network_handler.NetworkUtilities().get(
                 KDK_API_LINK,
                 headers={
-                    "User-Agent": f"OCLP/{self.constants.patcher_version}"
+                    "User-Agent": f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0/OpenCoreLegacyPatcherT2/{self.constants.patcher_version}"
                 },
                 timeout=5
             )
