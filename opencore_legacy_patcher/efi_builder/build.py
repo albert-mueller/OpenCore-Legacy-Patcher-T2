@@ -477,17 +477,16 @@ class BuildOpenCore:
                 if "cryptex=0" not in current_boot_args:
                     self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = f"{current_boot_args} cryptex=0".strip()
 
-            # TEST-B / TEST-D GPU Profile Enhancements
-            if self.constants.build_profile in ["test_b", "test_d"]:
+            # Haswell / Broadwell GPU Boot-args
+            if any(self.model.startswith(prefix) for prefix in ["MacBookPro11,", "MacBookPro12,", "iMac14,", "iMac15,", "Macmini7,"]):
                 current_boot_args = self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"].get("boot-args", "")
-                if any(self.model.startswith(prefix) for prefix in ["MacBookPro11,", "MacBookPro12,", "iMac14,", "iMac15,", "Macmini7,"]):
-                    logging.info(f"Profile {self.constants.build_profile.upper()}: Injecting Haswell/Broadwell GPU boot-args (-disablegfxfirmware igfxmetal=1 watchdog=0 ipc_control_port_options=0).")
-                    haswell_args = ["-disablegfxfirmware", "igfxmetal=1", "watchdog=0", "ipc_control_port_options=0", "-amfipassbeta"]
-                    for arg in haswell_args:
-                        prefix = arg.split('=')[0]
-                        if prefix not in current_boot_args:
-                            current_boot_args = f"{current_boot_args} {arg}".strip()
-                    self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = current_boot_args
+                logging.info("Injecting Haswell/Broadwell GPU boot-args (-disablegfxfirmware igfxmetal=1 watchdog=0 ipc_control_port_options=0 -amfipassbeta).")
+                haswell_args = ["-disablegfxfirmware", "igfxmetal=1", "watchdog=0", "ipc_control_port_options=0", "-amfipassbeta"]
+                for arg in haswell_args:
+                    prefix = arg.split('=')[0]
+                    if prefix not in current_boot_args:
+                        current_boot_args = f"{current_boot_args} {arg}".strip()
+                self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = current_boot_args
 
             # TEST-D ALL-IN-ONE Boot-args and Kext injection
             if self.constants.build_profile == "test_d":
