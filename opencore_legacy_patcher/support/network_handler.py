@@ -276,6 +276,7 @@ class DownloadObject:
         retrying.
         """
         logging.info("Netzwerkstream wird geöffnet...")
+        logging.info("Opening network stream...")
         logging.debug("Opening network stream...")
 
         headers = {}
