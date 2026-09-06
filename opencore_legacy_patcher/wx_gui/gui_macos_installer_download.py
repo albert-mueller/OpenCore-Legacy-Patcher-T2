@@ -120,29 +120,66 @@ class macOSInstallerDownloadFrame(wx.Frame):
 
         def _fetch_installers():
             logging.info(f"Fetching AppleDB products")
-            self.catalog_products = sucatalog.AppleDBProducts(self.constants)
-            
+
+            # AppleDBProducts() reaches out over the network. Anything from a dead
+            # route to a malformed payload can raise here; an uncaught exception in
+            # a worker thread kills the fetch silently and leaves the pulse spinning
+            # forever, so funnel every failure into _on_fetch_failed().
+            try:
+                self.catalog_products = sucatalog.AppleDBProducts(self.constants)
+            except Exception as error:
+                logging.error(f"Failed to fetch installers from AppleDB: {error}")
+                self._safe_call_after(self._on_fetch_failed)
+                return
+
             if self.catalog_products.data is None:
                 logging.error("Failed to fetch installers from AppleDB")
-                wx.CallAfter(self._on_fetch_failed)
+                self._safe_call_after(self._on_fetch_failed)
                 return
 
             self.available_installers = self.catalog_products.products
             self.available_installers_latest = self.catalog_products.latest_products
-            
-            # Sicherer Rückruf in den Haupt-Thread nach Beendigung des Netzwerkvorgangs
-            wx.CallAfter(self._on_fetch_success)
 
-        thread = threading.Thread(target=_fetch_installers)
+            # A non-None but unusable payload (network error swallowed further down,
+            # schema change, empty list) leaves us with no products at all. Previously
+            # this still took the success path and handed an empty catalog to the UI.
+            if not self.available_installers and not self.available_installers_latest:
+                logging.error("No installers returned from AppleDB")
+                self._safe_call_after(self._on_fetch_failed)
+                return
+
+            # Sicherer Rückruf in den Haupt-Thread nach Beendigung des Netzwerkvorgangs
+            self._safe_call_after(self._on_fetch_success)
+
+        thread = threading.Thread(target=_fetch_installers, daemon=True)
         thread.start()
 
+    def _safe_call_after(self, target, *args, **kwargs) -> None:
+        """
+        wx.CallAfter() asserts ("No wx.App created yet") once the wx.App has been
+        torn down - which is exactly what happens when the user quits while a worker
+        thread is still in flight. There is no UI left to update at that point, so
+        drop the callback instead of letting the thread die on an AssertionError.
+        """
+        if wx.GetApp() is None:
+            logging.info("wx.App no longer running, dropping UI callback")
+            return
+        try:
+            wx.CallAfter(target, *args, **kwargs)
+        except (AssertionError, RuntimeError) as error:
+            logging.info(f"wx.App torn down mid-dispatch, dropping UI callback: {error}")
+
     def _on_fetch_failed(self):
+        if not self:
+            return
         self.progress_bar_animation.stop_pulse()
         self.progress_bar.Hide()
         wx.MessageBox("Failed to fetch installers from AppleDB", "Error", wx.OK | wx.ICON_ERROR, self)
         self.on_return_to_main_menu()
 
     def _on_fetch_success(self):
+        if not self:
+            return
         self.progress_bar_animation.stop_pulse()
         self.progress_bar.Hide()
         self._display_available_installers()
@@ -349,12 +386,14 @@ class macOSInstallerDownloadFrame(wx.Frame):
 
         def extract_installer():
             result = macos_installer_handler.InstallerCreation().install_macOS_installer(self.constants.payload_path)
-            wx.CallAfter(self._on_extraction_complete, result)
+            self._safe_call_after(self._on_extraction_complete, result)
 
-        thread = threading.Thread(target=extract_installer)
+        thread = threading.Thread(target=extract_installer, daemon=True)
         thread.start()
 
     def _on_extraction_complete(self, result: bool):
+        if not self:
+            return
         self.extract_animation.stop_pulse()
         self.extract_progress_bar.Hide()
         
