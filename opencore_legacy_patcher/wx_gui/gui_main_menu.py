@@ -90,7 +90,7 @@ class MainFrame(wx.Frame):
         # Model label
         try:
             if self.constants.Experimental_Features:
-                dev_label = wx.StaticText(self, label="Developer Mode is ON", pos=(-1, version_label.GetPosition()[1] + 20))
+                dev_label = wx.StaticText(self, label="Experimental Mode is ON", pos=(-1, version_label.GetPosition()[1] + 20))
                 dev_label.SetFont(gui_support.font_factory(13, wx.FONTWEIGHT_NORMAL))
                 dev_label.Centre(wx.HORIZONTAL)
                 dev_label.SetForegroundColour(wx.Colour(100, 196, 102))
@@ -99,10 +99,10 @@ class MainFrame(wx.Frame):
             else:
                 model_Button = wx.Button(self, label=f"Model: {self.constants.custom_model or self.constants.computer.real_model}", pos=(-1, version_label.GetPosition()[1] + 30))
         except Exception as e:
-            logging.error("We couldn't verify whether Developer Mode is on or off due to a critical bug.")
+            logging.error("We couldn't verify whether Experimental Mode is on or off due to a critical bug.")
             logging.info("Please, report this bug.")
             logging.exception("The error is the following:")
-            logging.info("Since we couldn't verify this, we'll assume Developer Mode is disabled.")
+            logging.info("Since we couldn't verify this, we'll assume Experimental Mode is disabled.")
             model_Button = wx.Button(self, label=f"Model: {self.constants.custom_model or self.constants.computer.real_model}", pos=(-1, version_label.GetPosition()[1] + 30))
 
         model_Button.SetFont(gui_support.font_factory(13, wx.FONTWEIGHT_NORMAL))
