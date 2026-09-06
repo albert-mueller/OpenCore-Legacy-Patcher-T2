@@ -9,6 +9,7 @@ from ...base import PatchType
 from ...shared_patches.metal_31001     import LegacyMetal31001
 from ...shared_patches.monterey_gva    import MontereyGVA
 from ...shared_patches.monterey_opencl import MontereyOpenCL
+from ...shared_patches.amd_opencl      import AMDOpenCL
 from .amd_legacy_gcn_yellow_fix import patch as yellow_fix_patch
 
 from .....constants  import Constants
