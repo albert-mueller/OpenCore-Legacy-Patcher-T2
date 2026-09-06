@@ -379,6 +379,26 @@ class HardwarePatchsetDetection:
             return True
 
         installed_patches = set(manifest) - WIRELESS_PATCHSET_KEYS - MANIFEST_METADATA_KEYS
+        # If any detected hardware patches for this machine are NOT yet in the manifest,
+        # repatching must be permitted so the user can complete system patching (e.g. stage 2
+        # after wireless or applying remaining graphics/audio/camera patches).
+        present_hardware_names = {
+            item.name().split(": ")[1] if ": " in item.name() else item.name()
+            for item in self._strip_incompatible_hardware([
+                hw(
+                    xnu_major        = self._xnu_major,
+                    xnu_minor        = self._xnu_minor,
+                    os_build         = self._os_build,
+                    global_constants = self._constants
+                )
+                for hw in self._hardware_variants
+            ])
+            if (item.present() and not item.native_os())
+        }
+        uninstalled_hardware_patches = present_hardware_names - set(manifest)
+        if uninstalled_hardware_patches:
+            logging.info(f"Uninstalled patches detected ({', '.join(sorted(uninstalled_hardware_patches))}), repatching is permitted")
+            return False
         if installed_patches:
             logging.error(f"Patch(es) already installed: {', '.join(sorted(installed_patches))}, unpatching is required")
             return True

@@ -439,8 +439,13 @@ class BuildMiscellaneous:
 
     def _validate_patch(self, patch_dict):
         try:
-            find_bytes = patch_dict.get("Find")
-            replace_bytes = patch_dict.get("Replace")
+            find_bytes = patch_dict.get("Find", b"")
+            replace_bytes = patch_dict.get("Replace", b"")
+            base_sym = patch_dict.get("Base", "")
+            
+            # When Base symbol is specified with empty Find, OpenCore writes Replace at Base entry
+            if base_sym and len(find_bytes) == 0 and len(replace_bytes) > 0:
+                return True
             
             # Längenvergleich
             if len(find_bytes) != len(replace_bytes):
@@ -449,7 +454,6 @@ class BuildMiscellaneous:
                 logging.error(f"LENGTH ISSUE in '{patch_dict.get('Comment')}': "
                               f"Find={len(find_bytes)} Bytes, Replace={len(replace_bytes)} Bytes.")
                 return False
-                sys.exit(3)
             return True
         except Exception as e:
             logging.error("Wir haben einen Problem, die Bytes-Länge zu vergleichen")
@@ -534,7 +538,13 @@ class BuildMiscellaneous:
     
             try:
                 logging.info("- Adding T2-specific boot arguments for macOS 15/26")
-                self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args", "-v rddelay=5 igfxfw=2 igfxonln=1 -disable_ext_panics -no_compat_check")
+                # agdpmod=pikera is required for models with a discrete Polaris/Navi dGPU to prevent
+                # the Tahoe AGDP display-policy check from deadlocking WindowServer (black screen).
+                # iGPU-only models use agdpmod=vit9696 instead.
+                _agdpmod = "pikera" if self.computer.dgpu else "vit9696"
+                self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args",
+                    f"-v rddelay=10 igfxfw=2 igfxonln=1 -disable_ext_panics -no_compat_check -revbeta "
+                    f"agdpmod={_agdpmod} forceRenderStandby=0 revpatch=sbvmm ipc_control_port_options=0 AMFIPass=0x1")
             except Exception as e:
                 logging.error("Injecting T2 specific boot arguments failed due to the following error:")
                 logging.exception("Stack Trace:")
@@ -549,10 +559,10 @@ class BuildMiscellaneous:
                 self.config["NVRAM"]["Delete"][APPLE_NVRAM_UUID].append("boot-args")
     
             try:
-                logging.info("- Set SIP to 0xfff - crucial to be able to boot properly on T2 Macs")
-                self._set_nvram_value(APPLE_NVRAM_UUID, "csr-active-config", binascii.unhexlify("FF0F0000"), overwrite=True)
+                logging.info("- Set SIP to allow Root Volume patching on T2 Macs (03080000)")
+                self._set_nvram_value(APPLE_NVRAM_UUID, "csr-active-config", binascii.unhexlify("03080000"), overwrite=True)
             except Exception as e:
-                logging.error("Setting SIP to 0xfff failed due to the following error:")
+                logging.error("Setting SIP to 03080000 failed due to the following error:")
                 logging.exception("Stack Trace:")
                 logging.info("Please try again later.")
                 sys.exit(3)
@@ -662,7 +672,6 @@ class BuildMiscellaneous:
             try:
                 logging.info("- Disabling UEFI updates for T2 Macs to prevent errors after 29 minutes remaining")
                 logging.info("This patch will block UEFI updates on T2 Macs. To update the UEFI on T2 Macs while running unsupported macOS versions, if you care about your UEFI being up to date, you'll need to update it via exiting OpenCore and entering DFU mode using another Mac.")
-                self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args", "-oas_skip_attestation")
                 self._set_nvram_value(APPLE_NVRAM_UUID, "run-efi-updater", "No", overwrite=True)
             except Exception as e:
                 logging.error("Failed to disable UEFI updates for T2 Macs after 29 minutes remaining due to an error:")

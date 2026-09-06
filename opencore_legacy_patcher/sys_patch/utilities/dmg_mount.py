@@ -58,9 +58,6 @@ class PatcherSupportPkgMount:
             dmg_path,
             Path(self.constants.payload_path / "Universal-Binaries"),
             shadow_path=Path(self.constants.payload_path / "Universal-Binaries_overlay"),
-            password="password",
-            # Fixed, known-correct password: "Authentication error" here can only mean
-            # the privilege gate/quarantine issue, never a wrong password (see mount_dmg)
             retry_on_auth_error=True
         )
 
