@@ -70,8 +70,37 @@ Thanks to recent testing and optimizations, the following models are fully opera
   * **Networking & Audio**: Broadcom Wi-Fi & AppleHDA / AppleALC audio (`alcid=13`).
 * **MacBook Pro (13-inch, 2017, Four TB3 Ports) — `MacBookPro14,2`**:
   * Intel Iris Plus 650 graphics acceleration, T1 chip support, Broadcom Wi-Fi and audio.
-* **MacBook Pro (Retina, 15-inch, Mid 2015) — `MacBookPro11,4 / MacBookPro11,5`**:
-  * Integrated GPU optimizations (`-disablegfxfirmware igfxmetal=1 watchdog=0 ipc_control_port_options=0 -amfipassbeta`), Modern Wireless root patching.
+
+### 🧪 Work in Progress / Experimental Testing
+* **MacBook Pro (15-inch, Mid 2015) — `MacBookPro11,4 / MacBookPro11,5` (Haswell/Broadwell)**:
+  * Haswell graphics and Wi-Fi drivers are currently in active testing/development. Do not consider fully validated yet.
+
+---
+
+### ❓ Frequently Asked Questions (FAQ) & Community Feedback
+
+Here are solutions and verified reports from our community threads:
+
+#### Q: Does macOS 26 Tahoe work smoothly on MacBook Pro 2017 models?
+* **Yes!** Both `MacBookPro14,1` (13" Function Keys) and `MacBookPro14,3` (15" Touch Bar & T1) are confirmed fully functional on macOS 26 Tahoe with full hardware graphics acceleration, audio, and Broadcom Wi-Fi.
+* **Community Report**: See [@azeeproject's test report in Discussion #281](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/discussions/281#discussioncomment-18310692) and the [Wi-Fi fix confirmation in #18311204](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/discussions/281#discussioncomment-18311204).
+
+#### Q: How is the Dual GPU and T1 chip handled on MacBook Pro 15" 2017 (`MacBookPro14,3`)?
+* **Dual GPU**: Automatic GPU switching works smoothly between Intel HD 630 and AMD Radeon Pro 555/560 using `agdpmod=pikera` and the `radpg=15` power-gating fix to prevent stuttering.
+* **T1 Chip & Security**: Retains native password login and Apple Account / iCloud syncing. Headphone jack and speakers work with `alcid=13`.
+
+#### Q: I got `NameError: name 'AMDOpenCL' is not defined` during Root Patching. How do I fix it?
+* **Resolution**: This bug in legacy AMD GCN root patching was resolved in release `4.0.0.18002.8` and newer.
+* **Community Reference**: See discussion with [@WhiteLighter78 in Issue #194](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/194#issuecomment-5555940904).
+
+#### Q: Are MacBook Pro 2016 Touch Bar & T1 models (`MacBookPro13,2` / `MacBookPro13,3`) supported on Tahoe?
+* **Resolution**: Yes, Touch Bar and keyboard/trackpad control operate natively; login authentication is handled via the Native Software Keystore pipeline.
+* **Community Reference**: See discussion with [@TheRaddish1313 in Issue #284](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/284#issuecomment-5556099892).
+
+#### Q: Why did Wi-Fi not turn on after updating to Tahoe?
+* **Resolution**: Ensure you are running **4.0.0.18002.9** or newer. Rebuild and install OpenCore EFI to your disk, reboot, and run the **Post-Install Root Patch** ("Networking: Modern Wireless"). The new release unblocks `IOSkywalkFamily` drivers on macOS 15/26.
+
+---
 
 Noteworthy features of OpenCore Legacy Patcher:
 
