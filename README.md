@@ -51,10 +51,10 @@ fixes a vulnerability where an attacker or bad Hackintosh user could trick a Hac
 
 > **⚠️⚠️⚠️⚠️⚠️ Warnung** macOS 27 Golden Gate und neuere macOS-Versionen sind nicht unterstützt, weil diese sind nur für Apple Silicon/arm64 Macs. Also die Antwort ist klar. macOS 26 Tahoe ist die letzte Version, die von dieser Projekt unterstützt wird.
 
-> **⚠️ EXPERIMENTAL FORK** — Adds **macOS 15 Sequoia and macOS 26 Tahoe support for T2 Macs**. T2 Macs as of now are unsupported by the official OpenCore Legacy Patcher from Dortania. Use it at your own risk. It's still in alpha stage, so I highly recommend to backup all your data and do it only on a spare T2 Mac to experiment. This is experimental alpha software.
+> **⚠️ EXPERIMENTAL FORK** — Adds **macOS 15 Sequoia and macOS 26 Tahoe support for all unsupported Macs**. T2 Macs as of now are unsupported by the official OpenCore Legacy Patcher from Dortania. Use it at your own risk. It's still in alpha stage, so I highly recommend to backup all your data and do it only on a spare T2 Mac to experiment. This is experimental alpha software.
 ## T2 Mac Support
 
-> **💡 Recommended Download**: Always download pre-compiled releases directly from [Releases](https://github.com/Medelcartelinc/OpenCore-Legacy-Patcher-T2/releases) for guaranteed stability, bundled payloads, and proper packaging.
+> **💡 Recommended Download**: Always download pre-compiled releases directly from [Releases](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/releases) for guaranteed stability, bundled payloads, and proper packaging.
 
 > **🚧 Not ready for general use**
 
@@ -62,7 +62,7 @@ fixes a vulnerability where an attacker or bad Hackintosh user could trick a Hac
 
 - [X] Installer boots
 - [ ] MacBookAir8,1 and MacBookAir8,2 can boot the installer
-- [ ] Internal hard drive mounts properly on T2 Macs - https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/69
+- [X] Internal hard drive mounts properly on T2 Macs
 - [ ] ability to reach the desktop
 - [ ] Post install - issues with second stage
 - [ ] GPU accelaration/WiFi - most T2 Macs will have GPU accelaration out of the box, and on certain T2 Macs, also WiFi
@@ -87,6 +87,9 @@ Thanks to recent testing and optimizations, the following models are fully opera
 ### 🧪 Work in Progress / Experimental Testing
 * **MacBook Pro (15-inch, Mid 2015) — `MacBookPro11,4 / MacBookPro11,5` (Haswell/Broadwell)**:
   * Haswell graphics and Wi-Fi drivers are currently in active testing/development. Do not consider fully validated yet.
+ 
+* **Unsupported T2 Macs, such as 2018 Mac mini**
+  * requires some testing and work to get reliably to the desktop
 
 ---
 
