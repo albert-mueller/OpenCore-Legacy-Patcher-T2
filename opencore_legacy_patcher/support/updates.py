@@ -35,6 +35,7 @@ class CheckBinaryUpdates:
             self.binary_version = version.parse("0.0.0")
 
         self.latest_details = None
+        self.last_error: Optional[str] = None
 
     def _ensure_privileged_helper_permissions(self) -> None:
         """
@@ -117,9 +118,12 @@ class CheckBinaryUpdates:
         # network-related below. No-op (no prompt) unless a repair is actually needed.
         self._ensure_privileged_helper_permissions()
 
+        self.last_error = None
+
         if self.constants.special_build is True:
             # Special builds do not get updates through the updater
             logging.info("You are using a special version")
+            self.last_error = "This is a special build - automatic updates are disabled."
             return None
 
         if self.latest_details:
@@ -136,6 +140,7 @@ class CheckBinaryUpdates:
             logging.info("Please check if your computer is connected to the internet.")
             logging.exception("Stack Trace:")
             logging.info("If so, report this issue immediately")
+            self.last_error = "Could not reach GitHub. Please check your internet connection."
             return None
             
         response = network_handler.NetworkUtilities().get(repo_latest_release_url)
@@ -165,6 +170,7 @@ class CheckBinaryUpdates:
         if not highest_release:
             logging.error("Could not find any valid versions in the repository releases.")
             logging.info("Please check for updates in GitHub manually.")
+            self.last_error = "No valid release versions were found in the repository."
             return None
 
         data_set = highest_release

@@ -8,36 +8,36 @@ echo "=================================================="
 
 # Elevate privileges
 if [ "$EUID" -ne 0 ]; then
-  echo "Richiesta privilegi amministrativi in corso..."
+  echo "Requesting administrator privileges..."
   sudo "$0" "$@"
   exit $?
 fi
 
-echo "Verifica target OCLP-MBP143 in corso..."
+echo "Checking for the OCLP-MBP143 target..."
 
 # Find the external USB drive named OCLP-MBP143
 TARGET_DISK=$(diskutil list -plist | grep -A 10 "OCLP-MBP143" | grep "DeviceIdentifier" -A 1 | tail -n 1 | sed -e 's/.*<string>//' -e 's/<\/string>.*//')
 if [ -z "$TARGET_DISK" ]; then
-    echo "ERRORE: Impossibile trovare un volume chiamato OCLP-MBP143."
+    echo "ERROR: Could not find a volume named OCLP-MBP143."
     exit 1
 fi
 
 PARENT_DISK=$(diskutil info "$TARGET_DISK" | grep "Part of Whole" | awk '{print $4}')
 if [ -z "$PARENT_DISK" ]; then
-    echo "ERRORE: Impossibile determinare il disco parent per $TARGET_DISK."
+    echo "ERROR: Could not determine the parent disk for $TARGET_DISK."
     exit 1
 fi
 
 # Ensure it's not disk0, disk1, or disk2
 if [[ "$PARENT_DISK" == "disk0" || "$PARENT_DISK" == "disk1" || "$PARENT_DISK" == "disk2" ]]; then
-    echo "ERRORE CRITICO: Il target è su un disco di sistema ($PARENT_DISK). Operazione annullata per sicurezza."
+    echo "CRITICAL ERROR: The target is on a system disk ($PARENT_DISK). Aborting for safety."
     exit 1
 fi
 
 # Ensure it's external
 IS_EXTERNAL=$(diskutil info "$PARENT_DISK" | grep "Device Location" | grep -c "External")
 if [ "$IS_EXTERNAL" -eq 0 ]; then
-    echo "ERRORE CRITICO: Il disco $PARENT_DISK non è un dispositivo esterno!"
+    echo "CRITICAL ERROR: Disk $PARENT_DISK is not an external device!"
     exit 1
 fi
 
@@ -56,35 +56,35 @@ echo "Wi-Fi: 14E4:43BA"
 echo "Country: IT"
 echo "=================================================="
 
-echo "Montaggio EFI in corso..."
+echo "Mounting EFI..."
 diskutil mount "$EFI_PARTITION" || {
-    echo "L'EFI non è formattata o è danneggiata. Formattazione in corso..."
+    echo "The EFI partition is unformatted or damaged. Formatting..."
     newfs_msdos -v EFI -F 32 /dev/r$EFI_PARTITION
     diskutil mount "$EFI_PARTITION"
 }
 
 if [ ! -d "/Volumes/EFI" ]; then
-    echo "ERRORE: Mount della partizione EFI fallito."
+    echo "ERROR: Failed to mount the EFI partition."
     exit 1
 fi
 
 SRC_DIR="$(dirname "$0")/EFI"
 if [ ! -d "$SRC_DIR" ]; then
-    echo "ERRORE: Impossibile trovare la cartella EFI sorgente in $SRC_DIR."
+    echo "ERROR: Could not find the source EFI folder in $SRC_DIR."
     sleep 2
     diskutil unmount force "$EFI_PARTITION"
     exit 1
 fi
 
-echo "Pulizia EFI esistente..."
+echo "Cleaning up the existing EFI..."
 rm -rf /Volumes/EFI/EFI
 rm -rf /Volumes/EFI/System
 
-echo "Copia della EFI TEST-B in corso..."
+echo "Copying the TEST-B EFI..."
 cp -R "$SRC_DIR" /Volumes/EFI/
 
 if [ ! -f "/Volumes/EFI/EFI/OC/Kexts/WhateverGreen.kext/Contents/Info.plist" ]; then
-    echo "ERRORE: Verifica WhateverGreen.kext fallita!"
+    echo "ERROR: WhateverGreen.kext verification failed!"
     sleep 2
     diskutil unmount force "$EFI_PARTITION"
     exit 1
@@ -92,7 +92,7 @@ fi
 
 grep -q "-wegnoegpu" "/Volumes/EFI/EFI/OC/config.plist"
 if [ $? -ne 0 ]; then
-    echo "ERRORE: -wegnoegpu non trovato in config.plist!"
+    echo "ERROR: -wegnoegpu not found in config.plist!"
     sleep 2
     diskutil unmount force "$EFI_PARTITION"
     exit 1
@@ -100,12 +100,12 @@ fi
 
 CONFIG_HASH=$(shasum -a 256 "/Volumes/EFI/EFI/OC/config.plist" | awk '{print $1}')
 echo "CONFIG SHA256: $CONFIG_HASH"
-echo "Installazione EFI completata con successo!"
-echo "Smontaggio EFI..."
+echo "EFI installation completed successfully!"
+echo "Unmounting EFI..."
 sleep 2
 diskutil unmount force "$EFI_PARTITION"
 
 echo "=================================================="
-echo "OPERAZIONE COMPLETATA."
-echo "Puoi ora riavviare tenendo premuto Option (Alt)."
+echo "OPERATION COMPLETE."
+echo "You can now reboot while holding Option (Alt)."
 echo "=================================================="

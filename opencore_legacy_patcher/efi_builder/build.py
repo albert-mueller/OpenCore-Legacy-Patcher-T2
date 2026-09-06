@@ -531,7 +531,7 @@ class BuildOpenCore:
             if any(real_model.startswith(m) or self.model.startswith(m) for m in ["MacBookPro14,1", "MacBookPro14,2", "MacBookPro14,3"]):
                 current_boot_args = self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"]
                 
-                # Rimuovi args di debug inutili
+                # Remove unnecessary debug args
                 cleaned = [a for a in current_boot_args.split() if a not in ["debug=0x100", "keepsyms=1"]]
                 current_boot_args = " ".join(cleaned)
                 

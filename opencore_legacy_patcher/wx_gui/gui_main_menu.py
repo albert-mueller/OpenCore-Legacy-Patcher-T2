@@ -123,6 +123,11 @@ class MainFrame(wx.Frame):
                     "description": ["App settings"],
                     "icon": str(self.constants.icns_resource_path / "Settings.icns"),
                 },
+                "Check for updates": {
+                    "function": self.on_check_for_updates,
+                    "description": ["Checks for updates so you have the", "latest features and bug fixes."],
+                    "icon": str(self.constants.icns_resource_path / "Settings.icns"),
+                },
                 "Create macOS Installer": {
                     "function": self.on_create_macos_installer,
                     "description": ["Download and flash a macOS", "Installer for your system."],
@@ -140,6 +145,9 @@ class MainFrame(wx.Frame):
                 }
         }
 
+        # Widest a description may be before it collides with the other column
+        DESCRIPTION_MAX_WIDTH = 270
+
         button_x = 25
         button_y = self.model_button.GetPosition()[1] + 30
         rollover = (len(menu_buttons) + 1) // 2
@@ -155,6 +163,9 @@ class MainFrame(wx.Frame):
             button = wx.Button(self, label=button_name, pos=(button_x + 68, button_y), size=(205, 30))
             button.SetFont(gui_support.font_factory(12, wx.FONTWEIGHT_NORMAL))
             button.Bind(wx.EVT_BUTTON, lambda event, f=button_function["function"]: f(event))
+
+            if button_name == "Check for updates":
+                self.update_button = button
 
             if "OpenCore" in button_name or "EXPERIMENTAL" in button_name:
                 self.build_button = button
@@ -200,9 +211,14 @@ class MainFrame(wx.Frame):
 
             description_label = wx.StaticText(self, label='\n'.join(button_function["description"]), pos=(button_x + 72, button.GetPosition()[1] + 33))
             description_label.SetFont(gui_support.font_factory(10, wx.FONTWEIGHT_NORMAL))
+            # These labels are absolutely positioned: the left column starts at x+72 and the
+            # right column's icon at 360, so anything wider than this runs underneath the
+            # other column instead of wrapping. Entries are hand-split into short lines above;
+            # this is the backstop for when one is edited and grows.
+            description_label.Wrap(DESCRIPTION_MAX_WIDTH)
 
-            # Maintain spacing
-            row_height = 85
+            # Maintain spacing - grows if a wrapped description needs more than two lines
+            row_height = max(85, 33 + description_label.GetSize()[1] + 20)
             button_y += row_height
             
             if button_y > max_height:
@@ -235,7 +251,7 @@ class MainFrame(wx.Frame):
             logging.error(f"Failed to return to mode selector: {e}")
             logging.exception("Stack Trace:") # <- Angreifern könnten davon ausnutzen, dass Benutzer nicht das exakte Fehler weißen, um ClickFix-Angriffe zu starten
 
-    def _preflight_checks(self):
+    def _preflight_checks(self, event: wx.Event = None) -> None:
         try:
             if self.constants.computer.build_model is None:
                 logging.info("No build model detected. Defaulting to current host hardware.")
@@ -326,14 +342,23 @@ class MainFrame(wx.Frame):
         # navigates), but constants persists for the whole process lifetime.
         self.constants.update_thread = self.update_thread
 
-    def _check_for_updates(self):
-        if self.constants.has_checked_updates is True:
+    def _check_for_updates(self, manual: bool = False):
+        if manual is False and self.constants.has_checked_updates is True:
             logging.info("We have already checked for updates.")
             return
         self.constants.has_checked_updates = True
-        
-        update_dict = updates.CheckBinaryUpdates(self.constants).check_binary_updates()
+
+        checker = updates.CheckBinaryUpdates(self.constants)
+        try:
+            update_dict = checker.check_binary_updates()
+        except Exception as e:
+            logging.error(f"Update check failed: {e}")
+            logging.exception("Stack Trace:")
+            self._report_manual_check(manual, None, str(e))
+            return
+
         if not update_dict:
+            self._report_manual_check(manual, None, checker.last_error)
             return
     
         remote_version_str = update_dict["Version"]
@@ -345,11 +370,13 @@ class MainFrame(wx.Frame):
     
             if remote_v <= local_v:
                 logging.info(f"{self.constants.patcher_name} is up to date. (Local: {local_v} >= Remote: {remote_v})")
+                self._report_manual_check(manual, None, None)
                 return
     
         except version.InvalidVersion:
             logging.info("The version is invalid, you'll not receive any further updates.")
             if remote_version_str == local_version_str:
+                self._report_manual_check(manual, None, None)
                 return
     
         if getattr(self, 'exiting_app', False) or gui_support.is_app_exiting():
@@ -369,8 +396,73 @@ class MainFrame(wx.Frame):
             logging.error(f"Es hat fehlgeschlagen, den Changelog-Text anzuzeigen: {e}")
 
         if not getattr(self, 'exiting_app', False) and not gui_support.is_app_exiting():
+            self._report_manual_check(manual, str(remote_version_str), None)
             wx.CallAfter(self.on_update, update_dict["Link"], remote_version_str, update_dict["Github Link"], changelog)
         
+    def on_check_for_updates(self, event: wx.Event = None) -> None:
+        """
+        Manual "Check for updates" button.
+
+        Unlike the startup check this ignores constants.has_checked_updates and
+        always reports back - a user who clicks the button gets an answer even
+        when there is nothing new. Runs on a worker thread so the GitHub request
+        cannot freeze the GUI.
+        """
+        thread = getattr(self, "update_thread", None)
+        if thread is not None and thread.is_alive():
+            logging.info("An update check is already running.")
+            return
+
+        button = getattr(self, "update_button", None)
+        if button is not None:
+            button.SetLabel("Checking...")
+            button.Disable()
+
+        self.update_thread = threading.Thread(target=self._check_for_updates, kwargs={"manual": True})
+        self.update_thread.daemon = True
+        self.update_thread.start()
+        self.constants.update_thread = self.update_thread
+
+    def _report_manual_check(self, manual: bool, new_version, error) -> None:
+        """
+        Hand the result of a manual check back to the main thread. No-op for the
+        automatic startup check, which stays silent when there is nothing new.
+        """
+        if manual is False:
+            return
+        wx.CallAfter(self._on_manual_check_finished, new_version, error)
+
+    def _on_manual_check_finished(self, new_version, error) -> None:
+        if getattr(self, 'exiting_app', False) or gui_support.is_app_exiting():
+            return
+
+        button = getattr(self, "update_button", None)
+        if button is not None:
+            try:
+                button.SetLabel("Check for updates")
+                button.Enable()
+            except RuntimeError:
+                # Frame was destroyed while the check was running
+                return
+
+        if new_version is not None:
+            # on_update() opens the updater window, no message box needed
+            return
+
+        if error:
+            wx.MessageBox(
+                f"Could not check for updates:\n\n{error}",
+                "Update check failed",
+                wx.OK | wx.ICON_ERROR, self
+            )
+            return
+
+        wx.MessageBox(
+            f"You are running the latest version ({self.constants.patcher_version_label}).",
+            "No updates available",
+            wx.OK | wx.ICON_INFORMATION, self
+        )
+
     def on_update(self, oclp_url: str, oclp_version: str, oclp_github_url: str, changelog_text: str):
         if not self or gui_support.is_app_exiting():
             return

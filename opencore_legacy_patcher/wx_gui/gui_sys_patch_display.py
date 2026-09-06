@@ -295,20 +295,20 @@ T1 Security: {t1_status}
 AMD Polaris: {gpu_status}
 Wi-Fi: {wifi_status}
 
-Root Patches da applicare:
+Root Patches to apply:
 {patch_list}
 
-ATTENZIONE:
-L'applicazione delle Root Patches modificherà il volume di sistema
-creando un nuovo snapshot APFS.
+WARNING:
+Applying Root Patches will modify the system volume
+by creating a new APFS snapshot.
 """
         pop_up = wx.MessageDialog(
             self.frame,
             warning_msg,
-            "CONFERMA APPLICAZIONE ROOT PATCH",
+            "CONFIRM ROOT PATCH APPLICATION",
             style=wx.OK | wx.CANCEL | wx.ICON_WARNING
         )
-        pop_up.SetOKCancelLabels("APPLICA ROOT PATCH", "ANNULLA")
+        pop_up.SetOKCancelLabels("APPLY ROOT PATCH", "CANCEL")
         
         if pop_up.ShowModal() != wx.ID_OK:
             return

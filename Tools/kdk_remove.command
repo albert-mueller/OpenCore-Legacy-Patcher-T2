@@ -13,8 +13,8 @@ echo "============================================="
 KDK_DIR="/Library/Developer/KDKs"
 
 if [ ! -d "$KDK_DIR" ]; then
-    echo "Nessuna directory KDK trovata ($KDK_DIR)."
-    echo "Nessun KDK installato."
+    echo "No KDK directory found ($KDK_DIR)."
+    echo "No KDKs installed."
     exit 0
 fi
 
@@ -22,11 +22,11 @@ fi
 KDK_FILES=$(find "$KDK_DIR" -mindepth 1 -maxdepth 1 -type d)
 
 if [ -z "$KDK_FILES" ]; then
-    echo "Nessun KDK installato in $KDK_DIR."
+    echo "No KDKs installed in $KDK_DIR."
     exit 0
 fi
 
-echo "KDK Installati trovati:"
+echo "Installed KDKs found:"
 echo ""
 
 # Display each KDK with its size
@@ -34,25 +34,25 @@ while IFS= read -r kdk_path; do
     kdk_name=$(basename "$kdk_path")
     kdk_size=$(du -sh "$kdk_path" 2>/dev/null | awk '{print $1}')
     echo "- $kdk_name ($kdk_size)"
-    echo "  Percorso: $kdk_path"
+    echo "  Path: $kdk_path"
     echo ""
 done <<< "$KDK_FILES"
 
-echo "ATTENZIONE: Questa operazione eliminerà TUTTI i KDK elencati sopra."
-echo "Questa operazione richiede i privilegi di amministratore."
+echo "WARNING: This operation will delete ALL of the KDKs listed above."
+echo "This operation requires administrator privileges."
 echo ""
 read -p "TYPE YES TO CONTINUE: " confirm
 
 if [ "$confirm" != "YES" ]; then
-    echo "Operazione annullata."
+    echo "Operation cancelled."
     exit 1
 fi
 
-echo "Rimozione in corso..."
+echo "Removing..."
 for kdk_path in $KDK_FILES; do
-    echo "Rimuovendo: $kdk_path"
+    echo "Removing: $kdk_path"
     sudo rm -rf "$kdk_path"
 done
 
-echo "Tutti i KDK sono stati rimossi."
+echo "All KDKs have been removed."
 echo "============================================="
