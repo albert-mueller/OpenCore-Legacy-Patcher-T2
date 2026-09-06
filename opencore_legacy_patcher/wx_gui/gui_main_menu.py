@@ -123,6 +123,11 @@ class MainFrame(wx.Frame):
                     "description": ["App settings"],
                     "icon": str(self.constants.icns_resource_path / "Settings.icns"),
                 },
+                "Check for updates": {
+                    "function": self._preflight_checks,
+                    "description": ["Checks for available updates to ensure you have the latest version with the latest features, bug fixes and "],
+                    "icon": str(self.constants.icns_resource_path / "Settings.icns"),
+                },
                 "Create macOS Installer": {
                     "function": self.on_create_macos_installer,
                     "description": ["Download and flash a macOS", "Installer for your system."],
