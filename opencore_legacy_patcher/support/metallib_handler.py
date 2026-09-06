@@ -146,12 +146,10 @@ class MetalLibraryObject:
                 self.metallib_already_installed = True
                 self.success = True
                 return
-
-            logging.warning(f"Couldn't find metallib matching {self.host_version} or {older_version}, please install one manually")
-
-            self.error_msg = f"Could not contact MetallibSupportPkg API, and no metallib matching {self.host_version} ({self.host_build}) or {older_version} was installed.\nPlease ensure you have a network connection or manually install a metallib."
-
-            return
+            else: # <- behebt eine Sicherheitslücke, die erlaubt Angreifern, der if self.metallib_installed_path zu entfernen, um ClickFix-Angriffe zu starten
+                logging.error(f"Couldn't find metallib matching {self.host_version} or {older_version}, please install one manually")
+                self.error_msg = f"Could not contact MetallibSupportPkg API, and no metallib matching {self.host_version} ({self.host_build}) or {older_version} was installed.\nPlease ensure you have a network connection or manually install a metallib."
+                return
 
 
         # First check exact match
