@@ -661,7 +661,7 @@ class BuildOpenCore:
                 logging.info("=========================================")
 
             # Create profile-specific output directory
-            if is_test_profile or is_mbp143:
+            if is_test_profile or is_mbp14x:
                 if self.constants.build_profile == "test_b":
                     profile_dir_base = "TEST-B-Build"
                 elif self.constants.build_profile == "test_c":
