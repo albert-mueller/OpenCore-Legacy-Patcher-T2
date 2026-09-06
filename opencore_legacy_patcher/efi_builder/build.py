@@ -420,7 +420,7 @@ class BuildOpenCore:
         # Generate OpenCore Configuration
         try:
             logging.info(f"Generating OpenCore configuration for {self.model} ...")
-            if self.model == "MacBookPro14,3" or (self.constants.computer is not None and getattr(self.constants.computer, "real_model", None) == "MacBookPro14,3"):
+            if any(m in self.model or (self.constants.computer is not None and getattr(self.constants.computer, "real_model", None) == m) for m in ["MacBookPro14,1", "MacBookPro14,2", "MacBookPro14,3"]):
                 if self.constants.build_profile == "test_b":
                     profile_name = "TEST-B GPU"
                 elif self.constants.build_profile == "test_c":
@@ -432,11 +432,13 @@ class BuildOpenCore:
                 else:
                     profile_name = "STANDARD / SAFE"
                 
-                logging.info(f"MacBookPro14,3 / T1 detected")
+                target_m = self.model if self.model.startswith("MacBookPro14") else (getattr(self.constants.computer, "real_model", self.model))
+                has_t1 = "14,1" not in target_m
+                logging.info(f"{target_m} (Kaby Lake 2017) detected")
                 logging.info(f"")
-                logging.info(f"TEST PROFILE")
-                logging.info(f"Profile: {profile_name}")
-                logging.info(f"T1: ENABLED")
+                logging.info(f"BUILD PROFILE: {profile_name}")
+                if has_t1:
+                    logging.info(f"T1 SECURITY CHIP: ENABLED")
                 logging.info(f"")
                 logging.info(f"Wi-Fi:")
                 if getattr(self.constants, "computer", None) is not None and self.constants.computer.wifi:
@@ -449,7 +451,8 @@ class BuildOpenCore:
                 logging.info(f"")
                 logging.info(f"GPU:")
                 logging.info(f"Found Intel Kaby Lake")
-                logging.info(f"Found AMD Polaris")
+                if "14,3" in target_m:
+                    logging.info(f"Found AMD Polaris")
 
             if self.constants.build_profile == "test_c_spoofed":
                 logging.info("Profile TEST-C SPOOFED: Forcing SMBIOS spoofing to MacBookPro16,1")
@@ -523,9 +526,9 @@ class BuildOpenCore:
                     logging.exception("Stack Trace:")
                     sys.exit(3)
 
-            # MacBookPro14,3-specific boot-args
+            # MacBookPro14,x (14,1, 14,2, 14,3) Kaby Lake optimizations (applied across Standard / Safe and all profiles)
             real_model = getattr(self.constants.computer, 'real_model', self.model) if hasattr(self.constants, 'computer') else self.model
-            if real_model == "MacBookPro14,3" or self.model == "MacBookPro14,3":
+            if any(real_model.startswith(m) or self.model.startswith(m) for m in ["MacBookPro14,1", "MacBookPro14,2", "MacBookPro14,3"]):
                 current_boot_args = self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"]
                 
                 # Rimuovi args di debug inutili
@@ -536,44 +539,42 @@ class BuildOpenCore:
                 # dart=0: Disables IOMMU/VT-d to prevent peripheral mapping issues
                 if "dart=0" not in current_boot_args:
                     extra_args.append("dart=0")
-                # alcid=13: Necessario per audio jack su MBP14,3 T1
-                if "alcid=" not in current_boot_args:
-                    extra_args.append("alcid=13")
                 # -nokcmismatchpanic: Previene kernel panic al boot
                 if "-nokcmismatchpanic" not in current_boot_args:
                     extra_args.append("-nokcmismatchpanic")
-                # agdpmod=pikera: Fix display policy / black screen
-                if "agdpmod=" not in current_boot_args:
-                    extra_args.append("agdpmod=pikera")
+                # -amfipassbeta: Pass AMFI checks with AMFIPass
+                if "-amfipassbeta" not in current_boot_args:
+                    extra_args.append("-amfipassbeta")
+                
+                # Audio codec layout for MacBookPro14,2 and 14,3 (T1)
+                if any(m in real_model or m in self.model for m in ["14,2", "14,3"]):
+                    if "alcid=" not in current_boot_args:
+                        extra_args.append("alcid=13")
+
+                # AMD Polaris dGPU optimizations (MacBookPro14,3 only)
+                if "14,3" in real_model or "14,3" in self.model:
+                    if "agdpmod=" not in current_boot_args:
+                        extra_args.append("agdpmod=pikera")
                 
                 # --- GPU / Performance boot-args (EFI-level only, no macOS modifications) ---
                 #
-                # igfxfw=2       → Force-load Apple GuC firmware on Intel HD 630.
-                #                  Hands off GPU scheduling to the firmware. Biggest single
-                #                  improvement for rendering smoothness on Tahoe.
+                # igfxfw=2       → Force-load Apple GuC firmware on Intel HD 630 / Iris Plus 640.
+                #                  Hands off GPU scheduling to the firmware.
                 # igfxonln=1     → Keep all Intel display ports "online".
-                #                  Prevents the GPU from partially powering down outputs,
-                #                  which causes micro-stutters on external displays.
                 # -igfxnotelemetry → Disable Intel GPU telemetry collection.
-                #                  Small but measurable reduction in GPU interrupt overhead.
-                # radpg=15       → Disable all Radeon power-gating states on AMD Radeon Pro 555/560.
-                #                  Both GPUs use the AMD Polaris 21 architecture (GCN 4th gen).
-                #                  Prevents the dGPU from aggressively clock-gating, which
-                #                  causes visible frame drops when switching between idle/active.
                 # watchdog=0     → Disable the macOS watchdog timer.
-                #                  Prevents unexpected reboots/hangs on Tahoe during heavy
-                #                  GPU workloads or long compile jobs.
-                # ipc_control_port_options=0 → Relax IPC port security checks.
-                #                  Required on Tahoe to allow LaunchServices and Spotlight
-                #                  to function correctly on non-supported hardware.
+                # ipc_control_port_options=0 → Relax IPC port security checks for LaunchServices/Spotlight.
                 perf_args = {
                     "igfxfw=2":                   "igfxfw=",
                     "igfxonln=1":                 "igfxonln=",
                     "-igfxnotelemetry":            "-igfxnotelemetry",
-                    "radpg=15":                   "radpg=",
                     "watchdog=0":                 "watchdog=",
                     "ipc_control_port_options=0": "ipc_control_port_options=",
                 }
+                # radpg=15: Disable all Radeon power-gating states on AMD Radeon Pro 555/560 (MBP14,3 only)
+                if "14,3" in real_model or "14,3" in self.model:
+                    perf_args["radpg=15"] = "radpg="
+
                 # First, apply the essential args (dart, alcid, etc.)
                 new_args = current_boot_args
                 if extra_args:
@@ -585,7 +586,7 @@ class BuildOpenCore:
                         logging.info(f"  + Perf: {arg}")
                 
                 self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = new_args
-                logging.info(f"- MacBookPro14,3: Optimized boot-args -> {new_args}")
+                logging.info(f"- MacBookPro14,x ({real_model}): Optimized boot-args -> {new_args}")
 
             support.BuildSupport(self.model, self.constants, self.config).cleanup()
             self._save_config()
@@ -602,9 +603,9 @@ class BuildOpenCore:
             support.BuildSupport(self.model, self.constants, self.config).validate_pathing()
             
             is_test_profile = getattr(self.constants, "build_profile", "standard") != "standard"
-            is_mbp143 = self.model == "MacBookPro14,3" or (self.constants.computer is not None and getattr(self.constants.computer, "real_model", None) == "MacBookPro14,3")
+            is_mbp14x = any(self.model == m or (self.constants.computer is not None and getattr(self.constants.computer, "real_model", None) == m) for m in ["MacBookPro14,1", "MacBookPro14,2", "MacBookPro14,3"])
 
-            if is_test_profile or is_mbp143:
+            if is_test_profile or is_mbp14x:
                 if self.constants.build_profile == "test_b":
                     profile_name = "TEST-B GPU"
                 elif self.constants.build_profile == "test_c":

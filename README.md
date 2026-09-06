@@ -56,6 +56,23 @@ fixes a vulnerability where an attacker or bad Hackintosh user could trick a Hac
 
 Our goal of this project is to add support for T2 Macs so unsupported T2 Macs can boot into Tahoe. This project does run also on non-T2 Macs and we're committing to improve macOS 26 Tahoe compatability even on non-T2 Macs.
 
+### 🌟 Validated & Working Models on macOS 26 Tahoe (Standard / Safe Build)
+
+Thanks to recent testing and optimizations, the following models are fully operational on macOS 26 Tahoe using the **Standard Build Profile**:
+
+* **MacBook Pro (13-inch, 2017, Two TB3 Ports) — `MacBookPro14,1`**:
+  * **Graphics**: Full hardware acceleration via Intel Iris Plus Graphics 640 (Kaby Lake GuC firmware `igfxfw=2`, zero stuttering).
+  * **Networking**: Broadcom Wi-Fi (`14E4:43BA` / AirportBrcmNIC) working via Modern Wireless root patching and unblocked Skywalk driver.
+  * **Audio & Video**: Fully functional, smooth UI rendering and media playback.
+* **MacBook Pro (15-inch, 2017) — `MacBookPro14,3`**:
+  * **Graphics**: Dual-GPU switching (Intel HD 630 + AMD Radeon Pro 555/560 with `agdpmod=pikera` & `radpg=15` power-gating fix).
+  * **Security & Auth**: T1 security chip supported with password login, Apple Account & iCloud connectivity.
+  * **Networking & Audio**: Broadcom Wi-Fi & AppleHDA / AppleALC audio (`alcid=13`).
+* **MacBook Pro (13-inch, 2017, Four TB3 Ports) — `MacBookPro14,2`**:
+  * Intel Iris Plus 650 graphics acceleration, T1 chip support, Broadcom Wi-Fi and audio.
+* **MacBook Pro (Retina, 15-inch, Mid 2015) — `MacBookPro11,4 / MacBookPro11,5`**:
+  * Integrated GPU optimizations (`-disablegfxfirmware igfxmetal=1 watchdog=0 ipc_control_port_options=0 -amfipassbeta`), Modern Wireless root patching.
+
 Noteworthy features of OpenCore Legacy Patcher:
 
 * Support for macOS Monterey, Ventura, Sonoma, Sequoia and eventually add support for Tahoe.
