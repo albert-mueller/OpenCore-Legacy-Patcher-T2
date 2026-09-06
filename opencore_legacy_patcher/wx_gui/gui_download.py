@@ -72,19 +72,39 @@ class DownloadFrame(wx.Frame):
         self.download_obj.download()
         while self.download_obj.is_active():
 
+            # wx.Yield() at the bottom of this loop pumps the event queue, so a Cmd+Q
+            # or window close runs the full teardown *inside* this loop: quit_app()
+            # destroys every top-level window, which deletes the C++ side of these
+            # widgets while their Python wrappers live on. Touching one after that
+            # raises "RuntimeError: wrapped C/C++ object of type Gauge has been
+            # deleted", so stop the transfer and get out instead.
+            if gui_support.is_app_exiting() or not frame or not progress_bar or not label_amount:
+                logging.info("Download window went away, stopping download")
+                self.user_cancelled = True
+                self.download_obj.stop()
+                return
+
             percentage: int = round(self.download_obj.get_percent())
             if percentage == 0:
                 percentage = 1
 
-            if percentage == -1:
-                amount_str = f"{utilities.human_fmt(self.download_obj.downloaded_file_size)} downloaded ({utilities.human_fmt(self.download_obj.get_speed())}/s)"
-                progress_bar.Pulse()
-            else:
-                amount_str = f"{utilities.seconds_to_readable_time(self.download_obj.get_time_remaining())}left - {utilities.human_fmt(self.download_obj.downloaded_file_size)} of {utilities.human_fmt(self.download_obj.total_file_size)} ({utilities.human_fmt(self.download_obj.get_speed())}/s)"
-                progress_bar.SetValue(int(percentage))
+            # The teardown can also land between the check above and these calls,
+            # so the widget updates stay guarded on their own.
+            try:
+                if percentage == -1:
+                    amount_str = f"{utilities.human_fmt(self.download_obj.downloaded_file_size)} downloaded ({utilities.human_fmt(self.download_obj.get_speed())}/s)"
+                    progress_bar.Pulse()
+                else:
+                    amount_str = f"{utilities.seconds_to_readable_time(self.download_obj.get_time_remaining())}left - {utilities.human_fmt(self.download_obj.downloaded_file_size)} of {utilities.human_fmt(self.download_obj.total_file_size)} ({utilities.human_fmt(self.download_obj.get_speed())}/s)"
+                    progress_bar.SetValue(int(percentage))
 
-            label_amount.SetLabel(amount_str)
-            label_amount.Centre(wx.HORIZONTAL)
+                label_amount.SetLabel(amount_str)
+                label_amount.Centre(wx.HORIZONTAL)
+            except RuntimeError:
+                logging.info("Download window destroyed mid-update, stopping download")
+                self.user_cancelled = True
+                self.download_obj.stop()
+                return
 
             wx.Yield()
             time.sleep(self.constants.thread_sleep_interval)
@@ -92,10 +112,15 @@ class DownloadFrame(wx.Frame):
         if self.download_obj.download_complete is False and self.user_cancelled is False:
             logging.error(f"Download failed due to an error")
             logging.exception("Stack Trace:")
-            wx.MessageBox(f"Download failed: \n{self.download_obj.error_msg}", "Error", wx.OK | wx.ICON_ERROR)
+            if not gui_support.is_app_exiting():
+                wx.MessageBox(f"Download failed: \n{self.download_obj.error_msg}", "Error", wx.OK | wx.ICON_ERROR)
 
-        progress_bar.Destroy()
-        frame.Destroy()
+        # Same story on the way out: either of these may already be gone.
+        for widget in (progress_bar, frame):
+            try:
+                widget.Destroy()
+            except RuntimeError:
+                continue
 
 
     def terminate_download(self) -> None:

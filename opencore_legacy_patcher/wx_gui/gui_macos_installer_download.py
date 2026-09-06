@@ -504,6 +504,13 @@ class macOSInstallerDownloadFrame(wx.Frame):
         self.frame_modal.Close()
 
     def on_return_to_main_menu(self, event: wx.Event = None) -> None:
+        # Failure paths (cancelled/failed download, bad checksum) funnel through here,
+        # and one of them is "the user quit mid-download". Building a fresh MainFrame
+        # during teardown puts a window back on screen on the way out and touches
+        # frames quit_app() has already destroyed, so there is nothing to return to.
+        if not self or gui_support.is_app_exiting():
+            return
+
         if self.frame_modal:
             self.frame_modal.Hide()
         
