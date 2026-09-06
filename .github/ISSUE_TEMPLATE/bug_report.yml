@@ -89,7 +89,7 @@ body:
   - type: input
     id: oclp-version
     attributes:
-      label: OpenCore Legacy Patcher T2 version
+      label: OpenCore Legacy Patcher T2 version (Please state the version clearly, not state as version new or something. / Bitte die exakte Version nennen, nicht nur etwas oder neu.)
       placeholder: e.g. 4.0.0.16000 or 4.0.0 alpha 16 / z.B 4.0.0.16000 oder 4.0.0 alpha 16
     validations:
       required: true
@@ -101,13 +101,14 @@ body:
       options:
         - Boot failure / Startfehler
         - Kernel panic
-        - OpenCore doesn't start at all / OpenCore startet überhaupt nicht
+        - OpenCore related issues / Probleme, die mit OpenCore verwandt sind
         - Installer error / Installationsfehler
         - Graphics glitch / Grafikfehler
         - Wi-Fi / Bluetooth
         - Audio
         - Sleep / wake / Ruhezustand / Aufwachen
         - USB
+        - Installing root patches fails / Installierung von Root Patches schlägt fehl
         - Application related issues / Anwendungsprobleme
         - Security vulnerability - in the main project, please do not report it here and go to Security and quality and report a vulnerability there / - Sicherheitslücke - in der Hauptprojekt, bitte melden Sie diese nicht hier, sondern im Bereich „Security and quality“.
         - Malicious website delivering malware disguised as OpenCore Legacy Patcher / Bösartige Webseite, die sich tarnt als OpenCore Legacy Patcher T2, um Malware einzuschleusen
