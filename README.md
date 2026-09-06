@@ -7,8 +7,8 @@
 
 ---
 
-### 👑 Authorship & Contributions (Medelcartelinc Fork)
-This repository is the dedicated development fork led by **Medelcartelinc (Matteo)**. While building upon work by Dortania, Acidanthera, and Albert Müller, this fork independently engineered the critical solutions that make macOS 26 Tahoe fully usable on legacy and T1/T2 hardware:
+### 👑 Authorship & Contributions
+This repository is the dedicated development fork led by **albert-mueller (Albert Müller)**. While building upon work by Dortania, Acidanthera, and Albert Müller, this fork independently engineered the critical solutions that make macOS 26 Tahoe fully usable on legacy and T1/T2 hardware:
 
 1. **T1 Security & Native Login**: Engineered the Native Software Keystore login flow on macOS Tahoe for `MacBookPro14,1`, `MacBookPro14,2`, and `MacBookPro14,3` (retaining Apple ID/iCloud, resolving Keychain panics).
 2. **Broadcom Wi-Fi Restoration**: Unblocked the `IOSkywalkFamily` kernel stack in the EFI builder and root patcher on macOS 15 & 26 Tahoe, restoring full Wi-Fi functionality on Broadcom chipsets (`14E4:43BA`).
