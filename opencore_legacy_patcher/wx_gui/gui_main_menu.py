@@ -125,7 +125,7 @@ class MainFrame(wx.Frame):
                 },
                 "Check for updates": {
                     "function": self.on_check_for_updates,
-                    "description": ["Checks for available updates to ensure you have the latest version with the latest features, bug fixes and "],
+                    "description": ["Checks for updates so you have the", "latest features and bug fixes."],
                     "icon": str(self.constants.icns_resource_path / "Settings.icns"),
                 },
                 "Create macOS Installer": {
@@ -144,6 +144,9 @@ class MainFrame(wx.Frame):
                     "icon": str(self.constants.icns_resource_path / "OC-Support.icns"),
                 }
         }
+
+        # Widest a description may be before it collides with the other column
+        DESCRIPTION_MAX_WIDTH = 270
 
         button_x = 25
         button_y = self.model_button.GetPosition()[1] + 30
@@ -208,9 +211,14 @@ class MainFrame(wx.Frame):
 
             description_label = wx.StaticText(self, label='\n'.join(button_function["description"]), pos=(button_x + 72, button.GetPosition()[1] + 33))
             description_label.SetFont(gui_support.font_factory(10, wx.FONTWEIGHT_NORMAL))
+            # These labels are absolutely positioned: the left column starts at x+72 and the
+            # right column's icon at 360, so anything wider than this runs underneath the
+            # other column instead of wrapping. Entries are hand-split into short lines above;
+            # this is the backstop for when one is edited and grows.
+            description_label.Wrap(DESCRIPTION_MAX_WIDTH)
 
-            # Maintain spacing
-            row_height = 85
+            # Maintain spacing - grows if a wrapped description needs more than two lines
+            row_height = max(85, 33 + description_label.GetSize()[1] + 20)
             button_y += row_height
             
             if button_y > max_height:
