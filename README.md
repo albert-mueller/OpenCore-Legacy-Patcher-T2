@@ -1,7 +1,7 @@
 <div align="center">
   <img src="https://github.com/dortania/OpenCore-Legacy-Patcher/blob/macos-next/docs/images/OC-Patcher.png" alt="OpenCore Patcher Logo" width="200" />
   <h1>OpenCore Legacy Patcher — T1 & T2 macOS Tahoe Edition</h1>
-  <p><b>Developed & Maintained by <a href="https://github.com/Medelcartelinc">Medelcartelinc (Matteo)</a> with community contributions</b></p>
+  <p><b>Developed & Maintained by <a href="https://github.com/albert-mueller">albert-mueller (Albert Müller)</a> with community contributions</b></p>
   <p><i>Restoring full graphics acceleration, Broadcom Wi-Fi, audio routing, and T1/T2 security on macOS 26 Tahoe & macOS 15 Sequoia</i></p>
 </div>
 
