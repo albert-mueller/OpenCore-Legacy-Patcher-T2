@@ -370,7 +370,7 @@ class BuildGraphicsAudio:
         Audio Handler
         """
 
-        is_t2_mac = self.model in model_array.T2Macs or "T2_CHIP" in self.constants.device_properties.get(self.model, {}).get("Features", [])
+        is_t2_mac = utilities.is_t2_mac(self.model, self.constants)
 
         # T2 Macs on macOS Tahoe (Kernel 25.x) require AppleALC to resolve CoreAudio stalls
         if ((self.model in model_array.LegacyAudio or self.model in model_array.MacPro or is_t2_mac) 

@@ -44,6 +44,7 @@ class BuildFirmware:
         """
 
         self._cpu_compatibility_handling()
+        self._block_acpi_smc_platform_plugin_tahoe()
         self._power_management_handling()
         self._acpi_handling()
         self._firmware_driver_handling()
@@ -115,6 +116,24 @@ class BuildFirmware:
             logging.info("- Disabling Firmware Throttling")
             # Nehalem and newer systems force firmware throttling via MSR_POWER_CTL
             support.BuildSupport(self.model, self.constants, self.config).enable_kext("SimpleMSR.kext", self.constants.simplemsr_version, self.constants.simplemsr_path)
+    def _block_acpi_smc_platform_plugin_tahoe(self) -> None:
+        """
+        macOS 26 (Tahoe) Beta bug: Kernel loads both ACPI_SMC_PlatformPlugin and X86PlatformPlugin
+        on Intel Macs, causing a conflict that breaks thermal management (fans don't spin up).
+        Block ACPI_SMC_PlatformPlugin on Macs that natively use X86PlatformPlugin (Ivy Bridge+).
+        """
+        if smbios_data.smbios_dictionary[self.model]["CPU Generation"] >= cpu_data.CPUGen.ivy_bridge.value:
+            if self.constants.detected_os >= os_data.os_data.tahoe:
+                logging.info("- Blocking ACPI_SMC_PlatformPlugin on Tahoe to fix thermal conflict")
+                self.config["Kernel"]["Block"].append({
+                    "Arch": "x86_64",
+                    "Comment": "Tahoe: Block ACPI_SMC_PlatformPlugin to fix X86PlatformPlugin conflict",
+                    "Enabled": True,
+                    "Identifier": "com.apple.driver.ACPI_SMC_PlatformPlugin",
+                    "MaxKernel": "",
+                    "MinKernel": "25.0.0",
+                    "Strategy": "Disable"
+                })
 
 
     def _acpi_handling(self) -> None:

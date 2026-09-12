@@ -275,6 +275,19 @@ class SettingsFrame(wx.Frame):
                         "Requires restarting the app to take effect."
                     ],
                 },
+                "Allow Experimental T2 RestrictEvents Kext": {
+                    "type": "checkbox",
+                    "override_function": self._update_global_settings,
+                    "variable": "allow_t2_experimental_kext",
+                    "value": self.constants.allow_t2_experimental_kext,
+                    "warning": "You are about to allow the injection of an experimental custom RestrictEvents.kext for T2 Macs.\n\nWARNING: This kext is highly unstable and may cause early boot kernel panics on macOS Tahoe. Only enable this if you are testing the T2 patches and are prepared to recover your system.",
+                    "description": [
+                        "Injects the custom RestrictEvents kext on T2 Macs",
+                        "to bypass Tahoe installer checks. If disabled,",
+                        "no RestrictEvents kext is injected on T2."
+                    ],
+                    "condition": self.constants.True_Developer_Mode
+                },
                 "Check for updates": {
                     "type": "button",
                     "variable": "",

@@ -12,7 +12,7 @@ from pathlib import Path
 
 from . import support
 from .. import constants
-from ..support import generate_smbios
+from ..support import generate_smbios, utilities
 from ..detections import device_probe
 from ..datasets import (
     model_array,
@@ -74,7 +74,7 @@ class BuildMiscellaneous:
 
     def _is_t2_mac(self) -> bool:
         """Check whether the current model configuration matches a known T2 system."""
-        return self.model in _T2_MODELS
+        return utilities.is_t2_mac(self.model, self.constants)
 
     def _build(self) -> None:
         """Kick off Misc Build Process."""
@@ -145,6 +145,10 @@ class BuildMiscellaneous:
             self._set_nvram_value(OCLP_UUID, "revpatch", patch_args, overwrite=True)
 
         kext_obj = support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("RestrictEvents.kext")
+        if self.model == "MacBookPro14,3" and self.constants.detected_os >= os_data.os_data.tahoe and kext_obj:
+            logging.info("- Disabling RestrictEvents.kext on MacBookPro14,3 for Tahoe to prevent kernel panic")
+            kext_obj["Enabled"] = False
+
         if kext_obj and kext_obj.get("Enabled") is False:
             support.BuildSupport(self.model, self.constants, self.config).enable_kext(
                 "EFICheckDisabler.kext", "", self.constants.efi_disabler_path
@@ -411,7 +415,8 @@ class BuildMiscellaneous:
             # Injecting Ventura 13.6 kexts causes ABI/IPC mismatch with Tahoe user-space (securityd, LocalAuthentication, akd),
             # breaking password authorization in System Settings and Apple Account login.
             # Using Native Software Keystore mode allows Tahoe to handle password auth & Apple Account natively via CPU crypto.
-            is_tahoe_or_newer = self.constants.detected_os >= os_data.os_data.tahoe if hasattr(os_data.os_data, 'tahoe') else True
+            is_sonoma_or_newer = self.constants.detected_os >= os_data.os_data.sonoma
+            is_tahoe_or_newer = self.constants.detected_os >= os_data.os_data.tahoe
             active_profile = getattr(self.constants, "build_profile", "standard")
             
             if is_tahoe_or_newer or active_profile in ["standard", "test_b", "test_c", "test_c_spoofed", "test_d"]:
@@ -581,27 +586,7 @@ class BuildMiscellaneous:
             self.config.setdefault('Kernel', {}).setdefault('Patch', [])
             kernel_patches = self.config['Kernel']['Patch']
     
-            if not any(p.get("Comment") == "Patch AppleKeyStore SEP retry limit" for p in kernel_patches):
-                new_patch = {
-                    "Arch": "x86_64",
-                    "Identifier": "com.apple.driver.AppleKeyStore",
-                    "Base": "",
-                    "Comment": "Patch AppleKeyStore SEP retry limit",
-                    "Count": 1,
-                    "Enabled": True,
-                    "MinKernel": "25.0.0",
-                    "MaxKernel": "25.99.99",
-                    "Find": binascii.unhexlify("FF90F00100004183FF140F8D06050000"),
-                    "Replace": binascii.unhexlify("FF90F00100004183FFC80F8D06050000"),
-                    "Mask": b"",
-                    "ReplaceMask": b"",
-                    "Limit": 0,
-                    "Skip": 0
-                }
-                if self._validate_patch(new_patch):
-                    logging.info("- Injecting AppleKeyStore SEP retry-limit patch")
-                    kernel_patches.append(new_patch)
-             
+
             # --- Patch 2: Force FileVault on Broken Seal ---
             if not any(p.get("Comment") == "Force FileVault on Broken Seal" for p in kernel_patches):
                 new_patch = {

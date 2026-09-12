@@ -773,10 +773,9 @@ class PatchSysVolume:
                         logging.info(f"- Running Process:\n{process}")
                         try:
                             subprocess_wrapper.run_and_verify(
-                                process,
+                                process.split(" "),
                                 stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT,
-                                shell=True
+                                stderr=subprocess.STDOUT
                             )
                         except Exception as e:
                             logging.error(f"- Failed to execute process: {e}")

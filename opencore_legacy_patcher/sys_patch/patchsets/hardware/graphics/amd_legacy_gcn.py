@@ -72,11 +72,31 @@ class AMDLegacyGCN(BaseHardware):
         return self._xnu_major >= os_data.ventura.value
 
 
+    def _is_amd_gcn_metal_supported_on_current_os(self) -> bool:
+        """
+        Check if AMD Legacy GCN Metal acceleration packages are fully compatible
+        on the current OS.
+        On macOS 26 Tahoe (golden_gate, Darwin 26) and newer, the legacy Monterey
+        AMD Metal bundles cause a black screen / WindowServer compositor failure
+        identical to the Skylake issue. Patching is skipped unless developer mode
+        is explicitly active.
+        """
+        if self._xnu_major >= os_data.tahoe.value:
+            if not self._dortania_internal_check():
+                return False
+        return True
+
+
     def _model_specific_patches(self) -> dict:
         """
         Model specific patches
         """
-        # If 3802 GPU present, use stock Monterey bronze bundle even on Sequoia/Tahoe
+        if not self._is_amd_gcn_metal_supported_on_current_os():
+            # Preserve unaccelerated display stability on Tahoe to prevent
+            # the black screen / freeze state at loginwindow.
+            return {}
+
+        # If 3802 GPU present, use stock Monterey bronze bundle even on Sequoia
         bronze_bundle_source = "12.5"
         if self._is_gpu_architecture_present(
             [
@@ -85,11 +105,7 @@ class AMDLegacyGCN(BaseHardware):
                 device_probe.NVIDIA.Archs.Kepler,
             ]
         ) is False:
-            if self._xnu_major >= os_data.golden_gate.value:
-                bronze_bundle_source = "12.5-26"
-            elif self._xnu_major >= os_data.tahoe.value:
-                bronze_bundle_source = "12.5-25"
-            elif self._xnu_major >= os_data.sequoia.value:
+            if self._xnu_major >= os_data.sequoia.value:
                 bronze_bundle_source = "12.5-24"
 
         return {
@@ -122,6 +138,9 @@ class AMDLegacyGCN(BaseHardware):
         Patches for AMD Legacy GCN GPUs
         """
         if self.native_os() is True:
+            return {}
+
+        if not self._is_amd_gcn_metal_supported_on_current_os():
             return {}
 
         _base = {

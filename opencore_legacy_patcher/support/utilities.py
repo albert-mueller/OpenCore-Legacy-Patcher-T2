@@ -22,9 +22,16 @@ from ..detections import ioreg
 
 from ..datasets import (
     os_data,
-    sip_data
+    sip_data,
+    model_array
 )
 
+
+def is_t2_mac(model: str, global_constants) -> bool:
+    """Return True if the current model has a T2 security chip."""
+    if model in model_array.T2Macs:
+        return True
+    return "T2_CHIP" in global_constants.device_properties.get(model, {}).get("Features", [])
 
 def hexswap(input_hex: str):
     hex_pairs = [input_hex[i : i + 2] for i in range(0, len(input_hex), 2)]

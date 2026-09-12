@@ -52,6 +52,13 @@ class T1SecurityChip(BaseHardware):
         if self.native_os() is True:
             return {}
 
+        if self._xnu_major >= os_data.tahoe.value:
+            # On macOS Tahoe (26.x), legacy Ventura/Sequoia biometrickitd and SharedUtils
+            # binaries cause SecurityAgent and WindowServer to crash, resulting in a black
+            # screen at login and Touch Bar flashing.
+            # Tahoe T1 password authentication is handled natively / via T1LoginExperimental.
+            return {}
+
         return {
             "T1 Security Chip": {
                 PatchType.OVERWRITE_SYSTEM_VOLUME: {

@@ -74,7 +74,7 @@ class InstallUSBFrame(wx.Frame):
         self.info_box.ShowPosition(self.info_box.GetLastPosition())
 
     def _run_cmd(self, cmd):
-        result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(cmd.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         return result.stdout.strip()
 
     def _detect_usb_environment(self):

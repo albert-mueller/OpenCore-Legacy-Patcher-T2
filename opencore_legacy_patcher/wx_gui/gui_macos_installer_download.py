@@ -331,6 +331,7 @@ class macOSInstallerDownloadFrame(wx.Frame):
                 dlg.ShowModal()
                 return
 
+            wx.GetApp().SetExitOnFrameDelete(False)
             self.frame_modal.Close()
 
             expected_checksum, checksum_algo = self.catalog_products.checksum_for_product(selected_installer)
@@ -349,6 +350,7 @@ class macOSInstallerDownloadFrame(wx.Frame):
             )
 
             if download_obj.download_complete is False:
+                wx.GetApp().SetExitOnFrameDelete(True)
                 self.on_return_to_main_menu()
                 return
 
@@ -413,7 +415,15 @@ class macOSInstallerDownloadFrame(wx.Frame):
         self.SetSize((-1, return_button.GetPosition()[1] + return_button.GetSize()[1] + 40))
 
         if result is False:
-            wx.MessageBox("An error occurred while extracting the macOS installer. Could be due to a corrupted installer", "Error", wx.OK | wx.ICON_ERROR, self)
+            wx.MessageBox(
+                "Failed to extract the macOS installer. Common causes:\n\n"
+                "1. Not enough free disk space (at least 45 GB required).\n"
+                "2. macOS restriction: you cannot install an InstallAssistant.pkg\n"
+                "   for the same version of macOS you are already running.\n"
+                "   Boot from a different volume or use a USB drive workflow instead.\n\n"
+                "Check the application log for the exact error from /usr/sbin/installer.",
+                "Extraction Failed", wx.OK | wx.ICON_ERROR, self
+            )
             return
 
         user_input = wx.MessageBox("Finished extracting the installer, would you like to continue and create a macOS installer?", "Create macOS Installer?", wx.YES_NO | wx.ICON_QUESTION, self)

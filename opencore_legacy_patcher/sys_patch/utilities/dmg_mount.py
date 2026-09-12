@@ -51,7 +51,8 @@ class PatcherSupportPkgMount:
                 ["/usr/bin/hdiutil", "isencrypted", str(dmg_path)],
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30
             )
-        except Exception:
+        except Exception as e:
+            logging.error(f"- Failed to check if DMG is encrypted: {e}")
             return True
         output = result.stdout.decode(errors="ignore").lower()
         # hdiutil has printed both "encrypted: YES/NO" and "encrypted: 1/0" across releases.
@@ -72,15 +73,14 @@ class PatcherSupportPkgMount:
             applescript.AppleScript(
                 f'display dialog "OpenCore Legacy Patcher could not unlock Universal-Binaries.dmg automatically.\\n\\nIf macOS asks for a password for this disk image, the password is:\\n\\n{UNIVERSAL_BINARIES_PASSPHRASE}" buttons {{"OK"}} default button "OK" with title "OpenCore Legacy Patcher"{subprocess_wrapper.applescript_icon_clause(self.icon_path)}'
             ).run()
-        except Exception:
-            logging.info("- Failed to display Universal-Binaries.dmg password notice")
+        except Exception as e:
+            logging.error(f"- Failed to display Universal-Binaries.dmg password notice: {e}")
 
     def _mount_universal_binaries_dmg(self) -> bool:
         """Mount PatcherSupportPkg's Universal-Binaries.dmg"""
         dmg_path = Path(self.constants.payload_local_binaries_root_path_dmg)
         if not dmg_path.exists():
             logging.error("- PatcherSupportPkg resources missing, Patcher likely corrupted!!!")
-            logging.exception("Stack Trace:")
             return False
 
         mount_point = Path(self.constants.payload_path / "Universal-Binaries")
@@ -163,7 +163,8 @@ class PatcherSupportPkgMount:
             return applescript.AppleScript(
                 f'set theResult to display dialog "{subprocess_wrapper.applescript_quote(msg)}" default answer "" with hidden answer with title "OpenCore Legacy Patcher"{subprocess_wrapper.applescript_icon_clause(self.icon_path)}\nreturn the text returned of theResult'
             ).run()
-        except Exception:
+        except Exception as e:
+            logging.error(f"- Failed to prompt for decryption key: {e}")
             return ""
 
     def _display_authentication_error(self) -> None:
@@ -198,7 +199,7 @@ class PatcherSupportPkgMount:
                 return True
         except OSError as error:
             # Unreadable (e.g. root-owned) - treat as unusable rather than assuming
-            logging.info(f"- Could not inspect existing Universal-Binaries directory: {error}")
+            logging.error(f"- Could not inspect existing Universal-Binaries directory: {error}")
             return False
 
         logging.info("- Ignoring empty leftover Universal-Binaries directory, remounting")

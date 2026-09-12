@@ -34,6 +34,70 @@ class InstallerCreation():
         pass
 
 
+    def _install_via_manual_extraction(self, pkg_path: str) -> bool:
+        """
+        Fallback installer using xar + tar to bypass the macOS restriction that
+        prevents /usr/sbin/installer from installing an InstallAssistant.pkg whose
+        version matches the running OS (returns 'The upgrade failed').
+
+        Unpacks the PKG with xar, locates the sub-package Payload, and extracts
+        it directly into /Applications.
+
+        Parameters:
+            pkg_path (str): Absolute path to InstallAssistant.pkg
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        import tempfile, shutil
+
+        logging.info("Trying manual extraction fallback (xar + tar) for InstallAssistant.pkg")
+
+        work_dir = tempfile.mkdtemp()
+        try:
+            # Step 1: expand the flat PKG with xar
+            xar_result = subprocess_wrapper.run_as_root(
+                ["/usr/bin/xar", "-xf", pkg_path, "-C", work_dir],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            if xar_result.returncode != 0:
+                logging.error(f"xar extraction failed: {xar_result.stderr.decode(errors='replace').strip()}")
+                return False
+
+            # Step 2: find the Payload file (may be nested inside a sub-package dir)
+            payload_path = None
+            import os as _os
+            for root, dirs, files in _os.walk(work_dir):
+                for name in files:
+                    if name == "Payload":
+                        payload_path = Path(root) / name
+                        break
+                if payload_path:
+                    break
+
+            if payload_path is None:
+                logging.error("No Payload file found in expanded InstallAssistant.pkg")
+                return False
+
+            logging.info(f"Found Payload at: {payload_path}")
+
+            # Step 3: extract Payload into /Applications using tar
+            tar_result = subprocess_wrapper.run_as_root(
+                ["/usr/bin/tar", "-xf", str(payload_path), "-C", "/Applications"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            if tar_result.returncode != 0:
+                logging.error(f"tar extraction failed: {tar_result.stderr.decode(errors='replace').strip()}")
+                return False
+
+        finally:
+            # Clean up the temp directory as root, since the files inside are root-owned
+            subprocess_wrapper.run_as_root(["/bin/rm", "-rf", work_dir])
+
+        logging.info("InstallAssistant manually extracted to /Applications")
+        return True
+
+
     def install_macOS_installer(self, download_path: str) -> bool:
         """
         Installs InstallAssistant.pkg
@@ -45,15 +109,43 @@ class InstallerCreation():
             bool: True if successful, False otherwise
         """
 
+        # Pre-flight: check free space. Manual extraction requires ~45 GB
+        # (14GB PKG + 14GB unpacked Payload + 14GB extracted App).
+        MIN_SPACE_BYTES = 45 * 1024 * 1024 * 1024
+        try:
+            import shutil
+            free = shutil.disk_usage("/").free
+            if free < MIN_SPACE_BYTES:
+                logging.error(
+                    f"Not enough free disk space to extract InstallAssistant.pkg: "
+                    f"{utilities.human_fmt(free)} available, "
+                    f"{utilities.human_fmt(MIN_SPACE_BYTES)} required"
+                    f"Please free up some storage space and try again"
+                )
+                return False
+        except Exception as e:
+            logging.error(f"Could not check free disk space: {e}")
+            sys.exit(3)
+
         logging.info("Extracting macOS installer from InstallAssistant.pkg")
-        result = subprocess_wrapper.run_as_root(["/usr/sbin/installer", "-pkg", f"{Path(download_path)}/InstallAssistant.pkg", "-target", "/"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        pkg_path = f"{Path(download_path)}/InstallAssistant.pkg"
+        result = subprocess_wrapper.run_as_root(
+            ["/usr/sbin/installer", "-pkg", pkg_path, "-target", "/"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
         if result.returncode != 0:
-            logging.info("Failed to install InstallAssistant")
-            subprocess_wrapper.log(result)
-            return False
+            stderr_text = result.stderr.decode(errors="replace").strip() if result.stderr else ""
+            logging.warning(
+                f"installer failed (exit {result.returncode}): {stderr_text or '(empty)'}. "
+                f"Trying manual extraction fallback..."
+            )
+            # On macOS 26 Tahoe (and when the running OS matches the installer version),
+            # /usr/sbin/installer returns 'The upgrade failed'. Fall back to manual extraction.
+            return self._install_via_manual_extraction(pkg_path)
 
         logging.info("InstallAssistant installed")
         return True
+
 
 
     def generate_installer_creation_script(self, tmp_location: str, installer_path: str, disk: str) -> bool:
