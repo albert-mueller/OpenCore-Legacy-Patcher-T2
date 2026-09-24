@@ -53,9 +53,9 @@ class MainFrame(wx.Frame):
 
         self.model_button: wx.Button = None
         self.build_button: wx.Button = None
-        
+
         # FIX: Absicherung gegen Thread-Races & Verwaiste Fenster-Referenzen
-        self.exiting_app: bool = False  
+        self.exiting_app: bool = False
         self.active_gemini_frame: wx.Frame = None
 
         self.constants.update_stage = gui_support.AutoUpdateStages.INACTIVE
@@ -155,7 +155,7 @@ class MainFrame(wx.Frame):
                 icon = wx.StaticBitmap(self, bitmap=wx.Bitmap(button_function["icon"], wx.BITMAP_TYPE_ICON), pos=(button_x - 5, button_y), size=(64, 64))
                 if "OpenCore" in button_name or "EXPERIMENTAL" in button_name:
                     icon.SetSize((68, 68))
-            
+
             button = wx.Button(self, label=button_name, pos=(button_x + 68, button_y), size=(205, 30))
             button.SetFont(gui_support.font_factory(12, wx.FONTWEIGHT_NORMAL))
             button.Bind(wx.EVT_BUTTON, lambda event, f=button_function["function"]: f(event))
@@ -216,7 +216,7 @@ class MainFrame(wx.Frame):
             # Maintain spacing - grows if a wrapped description needs more than two lines
             row_height = max(85, 33 + description_label.GetSize()[1] + 20)
             button_y += row_height
-            
+
             if button_y > max_height:
                 max_height = button_y
 
@@ -252,10 +252,10 @@ class MainFrame(wx.Frame):
             if self.constants.computer.build_model is None:
                 logging.info("No build model detected. Defaulting to current host hardware.")
                 self.constants.computer.build_model = self.constants.computer.real_model
-            
+
             real_model = str(self.constants.computer.real_model).strip()
             build_model = str(self.constants.computer.build_model).strip() if self.constants.computer.build_model else None
-            
+
             print(f"DEBUG: Real: '{real_model}' | Build: '{build_model}'")
 
             if (
@@ -356,7 +356,7 @@ class MainFrame(wx.Frame):
         if not update_dict:
             self._report_manual_check(manual, None, checker.last_error)
             return
-    
+
         remote_version_str = update_dict["Version"]
         local_version_str = self.constants.patcher_version
         channel_switch = bool(update_dict.get("ChannelSwitch", False))
@@ -381,9 +381,9 @@ class MainFrame(wx.Frame):
 
         if getattr(self, 'exiting_app', False) or gui_support.is_app_exiting():
             return
-        
+
         logging.info(f"Newer version detected: {remote_version_str}")
-        
+
         changelog = """## Unable to fetch changelog\n\nPlease check the Github page for more information."""
         # The release notes come from the same release (and the same update channel)
         # updates.py picked - /releases/latest of the official repo could describe a
@@ -396,7 +396,7 @@ class MainFrame(wx.Frame):
             # A channel switch can install a build with a lower version number, so it
             # always goes through the confirmation dialog, never the silent auto-update.
             wx.CallAfter(self.on_update, update_dict["Link"], remote_version_str, update_dict["Github Link"], changelog, manual or channel_switch, channel_switch)
-        
+
     def _report_manual_check(self, manual: bool, new_version, error) -> None:
         """
         Hand the result of a manual check back to the main thread. No-op for the
@@ -458,19 +458,19 @@ class MainFrame(wx.Frame):
                 version_label=oclp_version
             )
             return
-            
+
         ID_GITHUB = wx.NewIdRef() if hasattr(wx, "NewIdRef") else wx.NewId()
         ID_UPDATE = wx.NewIdRef() if hasattr(wx, "NewIdRef") else wx.NewId()
 
         html_markdown = markdown2.markdown(changelog_text, extras=["tables"])
         html_css = css_data.updater_css
-        
+
         # Parent auf self gesetzt zur sauberen Speicherhierarchie
         frame = wx.Dialog(self, -1, title="", size=(650, 500))
         frame.SetMinSize((650, 500))
         frame.SetWindowStyle(wx.STAY_ON_TOP)
         panel = wx.Panel(frame)
-        
+
         if channel_switch:
             self.title_text = wx.StaticText(panel, label=f"Switch to the {self.constants.update_channel_label} channel?")
             self.description = wx.StaticText(panel, label=f"The newest build of the {self.constants.update_channel_label} channel is {oclp_version} - You have {self.constants.patcher_version_label}. Builds from different channels are not directly comparable, this may install a lower version number. Would you like to switch?")
@@ -484,7 +484,7 @@ class MainFrame(wx.Frame):
         # Siehe Commit 573d55e; ging beim GUI-Redesign (PR #200) in dieser Datei verloren.
         # Duplikat dieses Dialogs in sys_patch/auto_patcher/start.py -- dort bei Änderungen mitziehen.
         self.description.Wrap(600)
-        
+
         self.web_view = wx.html2.WebView.New(panel, style=wx.BORDER_SUNKEN)
         html_code = f'''
 <html>
@@ -501,7 +501,7 @@ class MainFrame(wx.Frame):
         self.web_view.SetPage(html_code, "")
         self.web_view.Bind(wx.html2.EVT_WEBVIEW_NEWWINDOW, self._onWebviewNav)
         self.web_view.EnableContextMenu(False)
-        
+
         self.close_button = wx.Button(panel, label="Switch Later" if channel_switch else "Update Later")
         self.close_button.Bind(wx.EVT_BUTTON, lambda event: frame.EndModal(wx.ID_CANCEL))
         self.view_button = wx.Button(panel, ID_GITHUB, label="View on GitHub")
@@ -514,7 +514,7 @@ class MainFrame(wx.Frame):
         buttonsizer.Add(self.close_button, 0, wx.ALIGN_CENTRE | wx.RIGHT, 5)
         buttonsizer.Add(self.view_button, 0, wx.ALIGN_CENTRE | wx.LEFT|wx.RIGHT, 5)
         buttonsizer.Add(self.install_button, 0, wx.ALIGN_CENTRE | wx.LEFT, 5)
-        
+
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self.title_text, 0, wx.ALIGN_CENTRE | wx.TOP, 20)
         sizer.Add(self.description, 0, wx.ALIGN_CENTRE | wx.BOTTOM, 20)
@@ -570,7 +570,7 @@ class MainFrame(wx.Frame):
             "Build OpenCore",
             choices
         )
-        
+
         if dialog.ShowModal() == wx.ID_OK:
             selection = dialog.GetSelection()
             if selection == 0:
@@ -587,9 +587,9 @@ class MainFrame(wx.Frame):
             else:
                 logging.error("You haven't selected a valid testing OpenCore option.")
                 logging.info("Please try again later.")
-            
+
             self.on_build_and_install(event)
-        
+
         dialog.Destroy()
 
     def on_build_and_install_testd(self, event: wx.Event = None):

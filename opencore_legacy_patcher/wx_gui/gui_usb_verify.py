@@ -21,14 +21,14 @@ class VerifyUSBFrame(wx.Frame):
 
         self.constants: constants.Constants = global_constants
         self.title: str = title
-        
+
         self.available_efis = {} # identifier -> string representation
         self.selected_efi = None
         self.mount_point = None
 
         self._generate_elements()
         self.Centre()
-        
+
         threading.Thread(target=self._detect_usb_environment).start()
 
     def _generate_elements(self) -> None:
@@ -52,7 +52,7 @@ class VerifyUSBFrame(wx.Frame):
         self.info_box = wx.TextCtrl(self.panel, style=wx.TE_READONLY | wx.TE_MULTILINE | wx.TE_RICH2, size=(550, 350))
         self.info_box.SetFont(wx.Font(12, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
         self.sizer.Add(self.info_box, 0, wx.ALL | wx.CENTER, 10)
-        
+
         self.confirm_button = wx.Button(self.panel, label="Waiting for selection...")
         self.confirm_button.Bind(wx.EVT_BUTTON, self.on_confirm)
         self.confirm_button.Disable()
@@ -74,22 +74,22 @@ class VerifyUSBFrame(wx.Frame):
     def _run_cmd(self, cmd):
         result = subprocess.run(cmd.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         return result.stdout.strip()
-        
+
     def _detect_usb_environment(self):
         self._append_log("Scanning for drives with EFI partitions...")
-        
+
         try:
             plist_out = self._run_cmd("diskutil list -plist")
             if not plist_out:
                 raise Exception("No drives found or diskutil failed.")
             data = plistlib.loads(plist_out.encode('utf-8'))
-            
+
             for disk in data.get("AllDisksAndPartitions", []):
                 # Ensure it has partitions
                 disk_id = disk.get("DeviceIdentifier", "")
                 disk_name = disk.get("MediaName", "Unknown")
                 size = disk.get("Size", 0) // (1024*1024*1024)
-                
+
                 for part in disk.get("Partitions", []):
                     if part.get("Content") == "EFI":
                         part_id = part.get("DeviceIdentifier")
@@ -97,7 +97,7 @@ class VerifyUSBFrame(wx.Frame):
                         self.available_efis[label] = part_id
 
             wx.CallAfter(self._update_choices)
-            
+
         except Exception as e:
             self._append_log(f"Error scanning drives: {e}")
             wx.CallAfter(self.status_text.SetLabel, "Error scanning drives.")
@@ -117,14 +117,14 @@ class VerifyUSBFrame(wx.Frame):
     def on_disk_select(self, event):
         selection = self.disk_choice.GetStringSelection()
         self.selected_efi = self.available_efis[selection]
-        
+
         self.info_box.Clear()
         self._append_log("=========================================")
         self._append_log("TARGET SELECTION:")
         self._append_log(selection)
         self._append_log(f"EFI PARTITION:    {self.selected_efi}")
         self._append_log("=========================================")
-        
+
         self.confirm_button.Enable()
         self.confirm_button.SetLabel(f"Verify EFI on {self.selected_efi}")
 
@@ -161,7 +161,7 @@ class VerifyUSBFrame(wx.Frame):
             self.mount_point = data.get("MountPoint")
         except:
             self.mount_point = None
-            
+
         if not self.mount_point:
             raise Exception("Failed to mount EFI or find mount point.")
         self._append_log(f"Mounted at {self.mount_point}")
@@ -169,10 +169,10 @@ class VerifyUSBFrame(wx.Frame):
     def _verify_files(self):
         self._append_log("=========================================")
         target_efi = os.path.join(self.mount_point, "EFI", "OC")
-        
+
         if not os.path.exists(target_efi):
             raise Exception("EFI/OC folder not found on target!")
-            
+
         required_kexts = [
             "Lilu.kext",
             "IOSkywalkFamily.kext",
@@ -180,51 +180,51 @@ class VerifyUSBFrame(wx.Frame):
             "AirportBrcmFixup.kext",
             "AMFIPass.kext"
         ]
-        
+
         missing_kexts = []
         for kext in required_kexts:
             if not os.path.exists(os.path.join(target_efi, "Kexts", kext)):
                 missing_kexts.append(kext)
-                
+
         if missing_kexts:
             self._append_log(f"WARNING: Missing Kexts: {', '.join(missing_kexts)}")
         else:
             self._append_log("All required Kexts are present in EFI/OC/Kexts.")
-            
+
         config_path = os.path.join(target_efi, "config.plist")
         if not os.path.exists(config_path):
             raise Exception("config.plist not found in EFI/OC!")
-            
+
         with open(config_path, "rb") as f:
             config = plistlib.load(f)
-            
+
         # Verify WhateverGreen is enabled
         weg_enabled = False
         for kext in config.get("Kernel", {}).get("Add", []):
             if kext.get("BundlePath") == "WhateverGreen.kext" and kext.get("Enabled") == True:
                 weg_enabled = True
                 break
-                
+
         boot_args = config.get("NVRAM", {}).get("Add", {}).get("7C436110-AB2A-4BBB-A880-FE41995C9F82", {}).get("boot-args", "")
         wegnoegpu_enabled = "-wegnoegpu" in boot_args
         dart0_enabled = "dart=0" in boot_args
-        
+
         amd_patches = []
         for patch in config.get("Kernel", {}).get("Patch", []):
             if "AMD" in patch.get("Comment", "") or "Polaris" in patch.get("Comment", ""):
                 if patch.get("Enabled") == True:
                     amd_patches.append(patch.get("Comment"))
-                    
+
         self._append_log("\nTEST-B CONFIGURATION IN EFI:")
         self._append_log(f"WhateverGreen: {'ENABLED' if weg_enabled else 'DISABLED'}")
         self._append_log(f"-wegnoegpu: {'ENABLED' if wegnoegpu_enabled else 'DISABLED'}")
         self._append_log(f"AMD patches: {'NONE' if not amd_patches else ', '.join(amd_patches)}")
         self._append_log(f"dart=0: {'ENABLED' if dart0_enabled else 'NOT ENABLED'}")
-        
+
         self._append_log("\nSHA256 CHECKSUM:")
         target_sha = hashlib.sha256(open(config_path, 'rb').read()).hexdigest()
         self._append_log(f"Installed: {target_sha}")
-        
+
         source_config = os.path.join(self.constants.launcher_script_location, "Build-Folder", self.constants.oc_build_folder_name, "EFI", "OC", "config.plist")
         if os.path.exists(source_config):
             source_sha = hashlib.sha256(open(source_config, 'rb').read()).hexdigest()

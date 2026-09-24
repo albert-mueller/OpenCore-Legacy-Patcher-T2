@@ -42,12 +42,12 @@ class CatalogURL:
         Fixes seed type for URL generation based on legacy OS catalog support constraints.
         """
         legacy_no_seeds = [
-            CatalogVersion.LION, 
-            CatalogVersion.SNOW_LEOPARD, 
-            CatalogVersion.LEOPARD, 
+            CatalogVersion.LION,
+            CatalogVersion.SNOW_LEOPARD,
+            CatalogVersion.LEOPARD,
             CatalogVersion.TIGER
         ]
-        
+
         # Pre-Mountain Lion lacked track seeds entirely
         if self.version in legacy_no_seeds:
             if self.seed != SeedType.PublicRelease:
@@ -151,7 +151,7 @@ class CatalogURL:
 
         if self.version != CatalogVersion.TIGER:
             base_url += ".merged-1"
-            
+
         base_url += self.extension.value
         return base_url
 
@@ -192,5 +192,5 @@ class CatalogURL:
                 return plistlib.loads(response.content)
         except Exception as e:
             logging.error(f"Failed to fetch or parse URL contents from {self.url}: {e}")
-            
+
         return {}

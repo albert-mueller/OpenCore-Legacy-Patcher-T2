@@ -45,7 +45,7 @@ class CheckBinaryUpdates:
             assert self.constants.special_build is True, "Invalid version number for binary"
             # Special builds will not have a proper version number
             self.binary_version = version.parse("0.0.0")
-        
+
         self.latest_details = None
         self.last_error: Optional[str] = None
 
@@ -144,7 +144,7 @@ class CheckBinaryUpdates:
                     logging.error("NextUpdateCheck value is invalid and will be ignored: %r", next_update_check)
                 except Exception as e: # behebt eine Sicherheitslücke, indem einen Angreifer könnte Fehler außerhalb ValueError verursachen, um beliebiges Code auszuführen
                     logging.error("NextUpdateCheck value is invalid and will be ignored: %r", next_update_check)
-        
+
         # Self-heal the Privileged Helper Tool's permissions before doing anything
         # network-related below. No-op (no prompt) unless a repair is actually needed.
         self._ensure_privileged_helper_permissions()
@@ -176,13 +176,13 @@ class CheckBinaryUpdates:
             logging.info("If so, report this issue immediately")
             self.last_error = "Could not reach GitHub. Please check your internet connection."
             return None
-            
+
         response = network_handler.NetworkUtilities().get(repo_latest_release_url)
         releases = response.json()
-        
+
         if not releases or not isinstance(releases, list):
             return None
-            
+
         # GitHub's /releases API returns items sorted by creation date, not by version number.
         # To avoid fetching an older version that was published more recently, we must find the highest version.
         highest_release = None
@@ -191,7 +191,7 @@ class CheckBinaryUpdates:
         for release in releases:
             if "tag_name" not in release:
                 continue
-            
+
             try:
                 rel_ver = version.parse(release["tag_name"])
             except version.InvalidVersion:

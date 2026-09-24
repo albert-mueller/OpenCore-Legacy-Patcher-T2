@@ -98,7 +98,7 @@ get_font_face.font_face = None
 # Centralize the common options for font creation
 def font_factory(size: int, weight):
     return wx.Font(size, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, weight, False, get_font_face())
-    
+
     # If returncode is 0, we have access.
     return result.returncode == 0
 

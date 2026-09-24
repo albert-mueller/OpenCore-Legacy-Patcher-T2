@@ -31,9 +31,9 @@ class UpdateFrame(wx.Frame):
     def __init__(self, parent: wx.Frame, title: str, global_constants: constants.Constants, screen_location: wx.Point, url: str = "", version_label: str = "") -> None:
         # CORRECTED: Always call the super-class constructor first to register the window correctly
         super().__init__(parent, title=title, size=(350, 300), style=wx.DEFAULT_FRAME_STYLE & ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX))
-        
+
         logging.info("Initializing Update Frame")
-        
+
         # Handle the parent/child UI logic after the super-class is initialized
         self.parent: wx.Frame = parent
         # Remember which children were actually visible before hiding them, so a
@@ -263,7 +263,7 @@ class UpdateFrame(wx.Frame):
 
         self.progress_bar_animation.stop_pulse()
         self.progress_bar.Hide()
-            
+
         # A cancelled install (user dismissed the admin prompt) leaves the system
         # untouched, so return to the main menu instead of taking the app down.
         if is_cancelled and self._return_to_parent():
@@ -300,7 +300,7 @@ class UpdateFrame(wx.Frame):
         # Fire and forget launch execution thread
         thread = threading.Thread(target=self._launch_update)
         thread.start()
-        
+
         # Fire non-blocking main loop timer event every 1 second (1000ms)
         self.exit_timer.Start(1000)
 
@@ -333,7 +333,7 @@ class UpdateFrame(wx.Frame):
             logging.error(f"Failed to extract update.")
             logging.exception("Stack Trace:")
             subprocess_wrapper.log(result)
-            
+
             error_str = f"Failed to extract update. Error: {result.stderr.decode('utf-8')}"
             wx.CallAfter(self._handle_fatal_failure, error_str, "Critical Error!")
             # Ensure background thread execution chain halts gracefully
@@ -345,10 +345,10 @@ class UpdateFrame(wx.Frame):
         logging.info(f"Update wird installiert: {self.pkg_download_path}")
         logging.info(f"Installing update: {self.pkg_download_path}")
         result = subprocess_wrapper.run_as_root(["/usr/sbin/installer", "-pkg", str(self.pkg_download_path), "-target", "/"], capture_output=True)
-        
+
         if result.returncode != 0:
             stderr_output = result.stderr.decode("utf-8")
-            
+
             if "User cancelled" in stderr_output:
                 logging.info("User cancelled update")
                 wx.CallAfter(self._handle_fatal_failure, "User cancelled update", "Update Cancelled", is_cancelled=True)
@@ -359,11 +359,11 @@ class UpdateFrame(wx.Frame):
                 logging.error("Auf In-Place-Upgrade wechseln...")
                 logging.error("Switching to in-place upgrade instead...")
                 subprocess.run(["/usr/bin/open", str(self.pkg_download_path)])
-                
+
                 support_url = getattr(self.constants, 'support_url', 'the official repository')
                 fallback_msg = f"Failed to install update automatically. Please visit {support_url} to manually download the package and perform an in-place upgrade."
                 wx.CallAfter(self._handle_fatal_failure, fallback_msg, "Critical Error!")
-            
+
             sys.exit(1)
 
         # Installed successfully - the running build now belongs to the selected

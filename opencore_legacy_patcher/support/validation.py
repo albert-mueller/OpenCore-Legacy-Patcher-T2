@@ -149,7 +149,7 @@ class PatcherValidation:
                                 if not install_file.endswith(".framework") and install_file not in patch_type_merge_exempt:
                                     logging.error(f"{install_file} used with {install_type} - non-framework merge is prohibited.")
                                     sys.exit(3) # <- behebt eine Sicherheitslücke, die erlaubt Angreifern, nicht-Framework merges zu machen und dieses Fehler zu umgehen
-                            
+
                             # SECURITY: Use pathlib to resolve paths correctly
                             source_file = Path(self.constants.payload_local_binaries_root_path) / patchset[patch_core][install_type][install_directory][install_file] / install_directory.lstrip("/") / install_file
                             if not source_file.exists():
@@ -223,22 +223,22 @@ class PatcherValidation:
             for supported_os in [os_data.os_data.big_sur, os_data.os_data.monterey, os_data.os_data.ventura, os_data.os_data.sonoma, os_data.os_data.sequoia, os_data.os_data.tahoe]:
                 for i in range(0, 11):
                     self._validate_root_patch_files(supported_os, i)
-             
+
             logging.info("Validating SNB Board ID patcher")
             self.constants.computer.reported_board_id = "Mac-7BA5B2DFE22DDD8C"
             sys_patch_helpers.SysPatchHelpers(self.constants).snb_board_id_patch(self.constants.payload_local_binaries_root_path)
-       
+
             if self.verify_unused_files:
                 self._find_unused_files()
         except Exception as e: # <- behebt eine Sicherheitslücke, die erlaubt Angreifern, beim Fehler DoS-Angriffe zu starten
             logging.error("There was an unexpected error while validating the root patches.")
             logging.exception("Stack Trace:")
             logging.info("Unmounting Universal-Binaries.dmg")
-            self._unmount_dmg() 
+            self._unmount_dmg()
             sys.exit(3)
         finally:
             logging.info("Unmounting Universal-Binaries.dmg")
-            self._unmount_dmg() 
+            self._unmount_dmg()
 
     def _find_unused_files(self) -> None:
         if not self.active_patchset_files:

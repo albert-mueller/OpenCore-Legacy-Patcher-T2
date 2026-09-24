@@ -21,7 +21,7 @@ class ModelPickerFrame(wx.Frame):
         self.frame_modal = wx.Dialog(parent, title=title, size=(470, 188))
 
         self.generate_elements(self.frame_modal)
-        
+
         self.frame_modal.ShowWindowModal()
 
     def generate_elements(self, frame: wx.Frame = None):
@@ -43,7 +43,7 @@ class ModelPickerFrame(wx.Frame):
         cancel_button = wx.Button(frame, label="Cancel", pos=(270, 130))
         cancel_button.SetFont(gui_support.font_factory(13, wx.FONTWEIGHT_NORMAL))
         cancel_button.Bind(wx.EVT_BUTTON, lambda event, function=self.on_cancel: function(event))
-        
+
         # Done Button
         done_button = wx.Button(frame, label="Done", pos=(cancel_button.GetPosition()[0] + cancel_button.GetSize()[0] + 20, cancel_button.GetPosition()[1]))
         done_button.SetFont(gui_support.font_factory(13, wx.FONTWEIGHT_NORMAL))

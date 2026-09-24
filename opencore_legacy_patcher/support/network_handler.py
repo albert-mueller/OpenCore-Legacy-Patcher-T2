@@ -28,7 +28,7 @@ class NetworkUtilities:
         try:
             requests.head(self.url, timeout=5, allow_redirects=True)
             return True
-        except (requests.exceptions.Timeout, requests.exceptions.TooManyRedirects, 
+        except (requests.exceptions.Timeout, requests.exceptions.TooManyRedirects,
                 requests.exceptions.ConnectionError, requests.exceptions.HTTPError):
             return False
 
@@ -37,14 +37,14 @@ class NetworkUtilities:
             response = SESSION.head(self.url, timeout=5, allow_redirects=True)
             response.raise_for_status()
             return True
-        except (requests.exceptions.Timeout, requests.exceptions.TooManyRedirects, 
+        except (requests.exceptions.Timeout, requests.exceptions.TooManyRedirects,
                 requests.exceptions.ConnectionError, requests.exceptions.HTTPError):
             return False
 
     def get(self, url: str, **kwargs) -> requests.Response:
         try:
             return SESSION.get(url, **kwargs)
-        except (requests.exceptions.Timeout, requests.exceptions.TooManyRedirects, 
+        except (requests.exceptions.Timeout, requests.exceptions.TooManyRedirects,
                 requests.exceptions.ConnectionError, requests.exceptions.HTTPError) as error:
             logging.warning(f"Error calling requests.get: {error}")
             return requests.Response()
@@ -52,7 +52,7 @@ class NetworkUtilities:
     def post(self, url: str, **kwargs) -> requests.Response:
         try:
             return SESSION.post(url, **kwargs)
-        except (requests.exceptions.Timeout, requests.exceptions.TooManyRedirects, 
+        except (requests.exceptions.Timeout, requests.exceptions.TooManyRedirects,
                 requests.exceptions.ConnectionError, requests.exceptions.HTTPError) as error:
             logging.warning(f"Error calling requests.post: {error}")
             return requests.Response()
@@ -90,7 +90,7 @@ class DownloadObject:
             logging.info("Bitte suchen Sie manuell nach Updates.")
             logging.info("Please check for updates manually.")
 
-    
+
     # --- RESTORED DIAGNOSTIC/HELPER METHODS ---
     def _get_filename(self) -> str:
         """
@@ -99,12 +99,12 @@ class DownloadObject:
         Returns:
             str: Filename
         """
-        # Diagnostic: Log the result to ensure URL parsing isn't failing 
+        # Diagnostic: Log the result to ensure URL parsing isn't failing
         # due to unexpected URL structures
         filename = Path(self.url).name
         logging.debug(f"Resolved filename from URL: {filename}")
         return filename
-    
+
     def _populate_file_size(self) -> None:
         """
         Get the file size of the file to be downloaded
@@ -114,7 +114,7 @@ class DownloadObject:
         """
         logging.info("Probieren, zu ermitteln der Datei-Größe für: {self.url}")
         logging.debug(f"Attempting to determine file size for: {self.url}")
-        
+
         try:
             # We use SESSION (global) for consistency with your original code
             # Timeout is strictly defined to prevent hanging during the check.
@@ -122,18 +122,18 @@ class DownloadObject:
             # (e.g. github.com -> release-assets.githubusercontent.com) more slack
             # on higher-latency or slower links before we give up on a real size.
             result = SESSION.head(self.url, allow_redirects=True, timeout=10)
-            
+
             if 'Content-Length' in result.headers:
                 self.total_file_size = float(result.headers['Content-Length'])
                 logging.info(f"Datei-Größe bestätigt: {self.total_file_size} bytes")
                 logging.info(f"File size confirmed: {self.total_file_size} bytes")
             else:
-                # This provides the diagnostic insight you need—did the server 
+                # This provides the diagnostic insight you need—did the server
                 # actually return a length or is it missing?
                 logging.warning(f"Content-Length-Header fehlt für {self.url}")
                 logging.warning(f"Content-Length header missing for {self.url}")
                 raise Exception("Content-Length missing from headers")
-        
+
         except Exception as e:
             # Diagnostic: Now you will know if the file size failed due to
             # a network timeout or an unexpected response
@@ -250,12 +250,12 @@ class DownloadObject:
             self.error = True
             self.error_msg = str(e)
             self.status = DownloadStatus.ERROR
-            
+
             # CRITICAL: This will log the entire stack trace (file, line number, and function)
             # You will no longer have to guess where the crash occurred.
             logging.info("FATALES FEHLER WÄHREND HERUNTERLADEN:")
             logging.exception(f"FATAL DOWNLOAD ERROR: {self.url} | Error: {self.error_msg}")
-            
+
         finally:
             # NOTE: status is intentionally NOT overwritten here anymore - it was
             # unconditionally reset to COMPLETE even after the except block above

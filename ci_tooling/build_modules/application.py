@@ -15,8 +15,8 @@ class GenerateApplication:
     Generate OpenCore-Patcher-T2.app
     """
 
-    def __init__(self, reset_pyinstaller_cache: bool = False, git_branch: str = None, 
-                 git_commit_url: str = None, git_commit_date: str = None, 
+    def __init__(self, reset_pyinstaller_cache: bool = False, git_branch: str = None,
+                 git_commit_url: str = None, git_commit_date: str = None,
                  analytics_key: str = None, analytics_endpoint: str = None) -> None:
         """
         Initialize
@@ -32,7 +32,7 @@ class GenerateApplication:
 
         self._analytics_key = analytics_key
         self._analytics_endpoint = analytics_endpoint
-        
+
         # Back to your original target file path
         self._analytics_source_file = Path("./opencore_legacy_patcher/support/analytics_handler.py")
 
@@ -62,7 +62,7 @@ class GenerateApplication:
         with open(self._analytics_source_file, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
-        # repr() automatically wraps the string in quotes and safely escapes 
+        # repr() automatically wraps the string in quotes and safely escapes
         # hazardous characters (like internal quotes, newlines, or backslashes)
         safe_key = repr(key or "")
         safe_endpoint = repr(endpoint or "")
@@ -110,7 +110,7 @@ class GenerateApplication:
 
         with open(_file, "rb") as f:
             data = f.read()
-            
+
         data = data.replace(_find, _replace, 1)
 
         with open(_file, "wb") as f:
@@ -131,7 +131,7 @@ class GenerateApplication:
 
         with open(_file, "rb") as f:
             data = f.read()
-            
+
         # Bounded to the first match, like _patch_load_command() above. The load command
         # lives once in the Mach-O header at the front of the file, but this is a 4-byte
         # sequence that recurs by chance across a multi-megabyte binary full of embedded
@@ -318,7 +318,7 @@ class GenerateApplication:
         about_file_path = repository_root / "opencore_legacy_patcher" / "wx_gui" / "gui_about.py"
         with open(about_file_path, "w", encoding="utf-8") as f:
             f.write(about_file)
-        
+
     def generate(self) -> None:
         """
         Generate OpenCore-Patcher-T2.app
@@ -335,7 +335,7 @@ class GenerateApplication:
                 self.remove_hard_readme(about_file=about_file)
 
         self._patch_load_command()
-        
+
         if not self._git_branch or not self._git_branch.startswith('refs/tags'):
             self._patch_sdk_version()
 

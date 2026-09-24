@@ -26,17 +26,17 @@ class InstallOCFrame(wx.Frame):
     """
     Create a frame for installing OpenCore to disk
     """
-    
+
     def get_mac_version():
         # platform.mac_ver() returns a tuple like ('13.4.1', ('', '', ''), 'arm64')
         os_version_str = platform.mac_ver()[0]
-        
+
         if not os_version_str:
             return (0, 0) # Not a macOS system
-            
+
         # Convert '13.4.1' into an integer tuple: (13, 4, 1)
         return tuple(map(int, os_version_str.split('.')))
-    
+
     def __init__(self, parent: wx.Frame, title: str, global_constants: constants.Constants, screen_location: tuple = None):
         logging.info("Initializing Install OpenCore Frame")
         super(InstallOCFrame, self).__init__(parent, title=title, size=(300, 120), style=wx.DEFAULT_FRAME_STYLE & ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX))
@@ -119,15 +119,15 @@ class InstallOCFrame(wx.Frame):
 
         if current_version < (10, 12):
             logging.info(f"Detected legacy macOS version {current_version}. Cleaning up output safely...")
-            
+
             ignore = ["disk image", "read-only", "virtual"]
             filtered_disks = {}
-            
+
             for disk_id, disk_info in raw_disks.items():
                 disk_name = disk_info.get('name', '').lower()
                 if not any(bad_string in disk_name for bad_string in ignore):
                     filtered_disks[disk_id] = disk_info
-            
+
             self.available_disks = filtered_disks
         else:
             logging.info(f"Detected macOS {current_version}. No legacy cleanup required.")
@@ -356,43 +356,43 @@ class InstallOCFrame(wx.Frame):
         else:
             if self.constants.update_stage != gui_support.AutoUpdateStages.INACTIVE:
                 self.constants.update_stage = gui_support.AutoUpdateStages.FINISHED
-            
+
             try:
                 error_dialog = wx.Dialog(self, title="Installation Error", size=(460, 200))
-                
+
                 main_sizer = wx.BoxSizer(wx.VERTICAL)
                 button_sizer = wx.BoxSizer(wx.HORIZONTAL)
-                
+
                 error_msg = "OpenCore installation failed.\n\nWould you like to report this issue or ask Gemini for help?"
                 msg_text = wx.StaticText(error_dialog, label=error_msg)
                 msg_text.SetFont(gui_support.font_factory(12, wx.FONTWEIGHT_NORMAL))
-                
+
                 btn_report = wx.Button(error_dialog, id=wx.ID_OK, label="Report Issue")
                 btn_gemini = wx.Button(error_dialog, id=wx.ID_ANY, label="Ask Gemini")
                 btn_close  = wx.Button(error_dialog, id=wx.ID_CANCEL, label="Close")
-                
+
                 # Define a custom return code identifier for Gemini tracking
                 GEMINI_CLICKED_ID = 10001
-                
+
                 # Bind an event so clicking the button closes the dialog and returns our custom identifier
                 error_dialog.Bind(wx.EVT_BUTTON, lambda event: error_dialog.EndModal(GEMINI_CLICKED_ID), btn_gemini)
-                
+
                 main_sizer.Add(msg_text, 1, wx.ALL | wx.EXPAND, 20)
                 button_sizer.Add(btn_report, 0, wx.RIGHT, 10)
                 button_sizer.Add(btn_gemini, 0, wx.RIGHT, 10)
                 button_sizer.Add(btn_close, 0)
-                
+
                 main_sizer.Add(button_sizer, 0, wx.ALIGN_RIGHT | wx.BOTTOM | wx.RIGHT, 20)
-                
+
                 error_dialog.SetSizer(main_sizer)
                 error_dialog.Layout()
                 error_dialog.Centre()
-                
+
                 response = error_dialog.ShowModal()
-                
+
                 if response == wx.ID_OK:
                     webbrowser.open("https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues")
-                
+
                 # Check directly for your custom event return hook code
                 # Unter macOS Catalina und älter Gemini funktioniert nicht richtig unter Safari/WebKit
                 elif response == GEMINI_CLICKED_ID:
@@ -422,7 +422,7 @@ class InstallOCFrame(wx.Frame):
                         logging.info("- Launching Gemini AI Assistant (default web browser, host predates Big Sur)")
                         logging.info("macOS Catalina, Mojave and High Sierra can't load Gemini in Safari and WebKit because they're too old.")
                         webbrowser.open("https://gemini.google.com")
-                    
+
                 error_dialog.Destroy()
 
             except Exception as ui_error:
@@ -462,19 +462,19 @@ class InstallOCFrame(wx.Frame):
             # FIX: Capture the boolean return value from the backend.
             # Do not assume execution was successful just because no unhandled exception crashed Python.
             install_success = install.tui_disk_installation(self.constants).install_opencore(partition)
-            
+
             if install_success:
                 self.result = True
                 logging.info("OpenCore transfer complete")
             else:
                 self.result = False
                 logging.error("Installation failed during internal file copy or mount routines.")
-        
+
         except Exception as e:
             self.result = False
             logging.error(f"Installation encountered a critical error: {e}")
             logging.error(traceback.format_exc())
-        
+
         finally:
             if my_handler in logger.handlers:
                 logger.removeHandler(my_handler)

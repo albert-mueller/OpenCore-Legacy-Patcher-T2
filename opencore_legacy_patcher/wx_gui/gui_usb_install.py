@@ -24,13 +24,13 @@ class InstallUSBFrame(wx.Frame):
 
         self.constants: constants.Constants = global_constants
         self.title: str = title
-        
+
         self.available_efis = {} # identifier -> string representation
         self.selected_efi = None
 
         self._generate_elements()
         self.Centre()
-        
+
         threading.Thread(target=self._detect_usb_environment).start()
 
     def _generate_elements(self) -> None:
@@ -44,7 +44,7 @@ class InstallUSBFrame(wx.Frame):
         self.status_text = wx.StaticText(self.panel, label="Scanning drives...")
         self.status_text.SetFont(gui_support.font_factory(13, wx.FONTWEIGHT_NORMAL))
         self.sizer.Add(self.status_text, 0, wx.ALL | wx.CENTER, 10)
-        
+
         # Choice dropdown for drives
         self.disk_choice = wx.Choice(self.panel, choices=[])
         self.disk_choice.Bind(wx.EVT_CHOICE, self.on_disk_select)
@@ -80,20 +80,20 @@ class InstallUSBFrame(wx.Frame):
     def _detect_usb_environment(self):
         logging.info("Scanning for drives with EFI partitions...")
         self._append_log("Scanning for drives with EFI partitions...")
-        
+
         try:
             plist_out = self._run_cmd("diskutil list -plist")
             if not plist_out:
                 logging.error("No drives found or diskutil failed.")
                 raise Exception("No drives found or diskutil failed.")
             data = plistlib.loads(plist_out.encode('utf-8'))
-            
+
             for disk in data.get("AllDisksAndPartitions", []):
                 # Ensure it has partitions
                 disk_id = disk.get("DeviceIdentifier", "")
                 disk_name = disk.get("MediaName", "Unknown")
                 size = disk.get("Size", 0) // (1024*1024*1024)
-                
+
                 for part in disk.get("Partitions", []):
                     if part.get("Content") == "EFI":
                         part_id = part.get("DeviceIdentifier")
@@ -101,7 +101,7 @@ class InstallUSBFrame(wx.Frame):
                         self.available_efis[label] = part_id
 
             wx.CallAfter(self._update_choices)
-            
+
         except Exception as e:
             logging.error(f"Error scanning drives: {e}")
             self._append_log(f"Error scanning drives: {e}")
@@ -122,17 +122,17 @@ class InstallUSBFrame(wx.Frame):
     def on_disk_select(self, event):
         selection = self.disk_choice.GetStringSelection()
         self.selected_efi = self.available_efis[selection]
-        
+
         self.info_box.Clear()
         self._append_log("=========================================")
         self._append_log("TARGET SELECTION:")
         self._append_log(selection)
         self._append_log(f"EFI PARTITION:    {self.selected_efi}")
-        
+
         self.backup_path = os.path.join(str(self.constants.current_path), f"USB_EFI_Backup_{time.strftime('%Y%m%d_%H%M%S')}")
         self._append_log(f"BACKUP PATH:      {self.backup_path}")
         self._append_log("=========================================")
-        
+
         self.confirm_button.Enable()
         self.confirm_button.SetLabel(f"Install TEST-B EFI to {self.selected_efi}")
 
@@ -150,7 +150,7 @@ class InstallUSBFrame(wx.Frame):
             self._backup_efi()
             self._replace_efi()
             self._unmount_efi()
-            
+
             wx.CallAfter(self.status_text.SetLabel, "Installation Complete.")
             wx.CallAfter(self.return_button.Enable)
         except Exception as e:
@@ -198,37 +198,37 @@ class InstallUSBFrame(wx.Frame):
     def _replace_efi(self):
         source_efi = os.path.join(str(self.constants.current_path), "Build-Folder", self.constants.oc_build_folder_name, "EFI")
         target_efi = os.path.join(self.mount_point, "EFI")
-        
+
         if not os.path.exists(source_efi):
             logging.error(f"Source EFI not found at {source_efi}. Please Build OpenCore first.")
             raise Exception(f"Source EFI not found at {source_efi}. Please Build OpenCore first.")
-            
+
         self._append_log("Removing old EFI/OC and EFI/BOOT...")
         if os.path.exists(os.path.join(target_efi, "OC")):
             shutil.rmtree(os.path.join(target_efi, "OC"))
         if os.path.exists(os.path.join(target_efi, "BOOT")):
             shutil.rmtree(os.path.join(target_efi, "BOOT"))
-            
+
         os.makedirs(target_efi, exist_ok=True)
-        
+
         self._append_log("Copying new EFI/OC and EFI/BOOT...")
         subprocess.run(["cp", "-R", os.path.join(source_efi, "OC"), target_efi + "/"])
         subprocess.run(["cp", "-R", os.path.join(source_efi, "BOOT"), target_efi + "/"])
-        
+
         self._append_log("Copy complete. Verifying SHA256 of config.plist...")
         source_config = os.path.join(source_efi, "OC", "config.plist")
         target_config = os.path.join(target_efi, "OC", "config.plist")
-        
+
         source_sha = hashlib.sha256(open(source_config, 'rb').read()).hexdigest()
         target_sha = hashlib.sha256(open(target_config, 'rb').read()).hexdigest()
-        
+
         self._append_log("\nEFI INSTALLATION COMPLETE")
         self._append_log(f"Target:\n{self.selected_efi}")
         self._append_log(f"Backup:\n{self.backup_path}\n")
-        
+
         self._append_log(f"SOURCE SHA256:\n{source_sha}")
         self._append_log(f"INSTALLED SHA256:\n{target_sha}\n")
-        
+
         if source_sha != target_sha:
             self._append_log("WARNING: SHA256 MISMATCH!")
         else:

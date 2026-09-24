@@ -80,7 +80,7 @@ class SysPatchHelpers:
         # Construct the target path safely
         relative_path = Path("10.13.6/System/Library/Extensions/AppleIntelSNBGraphicsFB.kext/Contents/MacOS/AppleIntelSNBGraphicsFB")
         path = source_path / relative_path
-        
+
         # Verify the resolved path is still within the expected source directory (prevent directory escape)
         try:
             path.relative_to(source_path)
@@ -88,7 +88,7 @@ class SysPatchHelpers:
             logging.error(f"Path traversal detected: {path} is outside {source_path}")
             logging.exception("Stack Trace:")
             raise Exception("Path traversal attack detected!")
-        
+
         if not path.exists():
             logging.error(f"Error: Could not find {path}")
             logging.exception("Stack Trace:")
@@ -278,7 +278,7 @@ class SysPatchHelpers:
             return
 
         logging.info("Disabling WindowServer Caching")
-        
+
         # Use glob to find matching paths and remove them without shell expansion
         window_server_paths = glob.glob("/private/var/folders/*/*/*/WindowServer/com.apple.WindowServer")
         if window_server_paths:
@@ -288,7 +288,7 @@ class SysPatchHelpers:
                 except Exception as e:
                     logging.error(f"Failed to remove WindowServer cache at {path}: {e}")
                     logging.exception("Stack Trace:")
-        
+
         # Disable writing to WindowServer folder
         window_server_dirs = glob.glob("/private/var/folders/*/*/*/WindowServer")
         if window_server_dirs:
@@ -298,7 +298,7 @@ class SysPatchHelpers:
                 except Exception as e:
                     logging.warning(f"Failed to set immutable flag on {path}: {e}")
                     logging.exception("Stack Trace:")
-        
+
         # Reference:
         #   To reverse write lock:
         #   'chflags nouchg /private/var/folders/*/*/*/WindowServer'
@@ -403,7 +403,7 @@ class SysPatchHelpers:
 
             src_dir = LIBRARY_DIR / file.name
             dest_lib_dir = DEST_DIR / "lib"
-            
+
             if not dest_lib_dir.exists():
                 # Validate that generate_copy_arguments returns a valid result
                 copy_args = generate_copy_arguments(str(src_dir / "lib"), str(DEST_DIR / ""))
@@ -411,7 +411,7 @@ class SysPatchHelpers:
                     logging.error(f"Failed to generate copy arguments for {src_dir}/lib")
                     logging.exception("Stack Trace:")
                     raise Exception(f"Failed to generate copy arguments for {src_dir}/lib")
-                
+
                 try:
                     result = subprocess_wrapper.run_as_root_and_verify(copy_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                     if result and result.returncode != 0:

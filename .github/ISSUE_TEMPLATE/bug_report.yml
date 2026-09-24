@@ -134,7 +134,7 @@ body:
   - type: textarea
     id: steps
     attributes:
-      label: Steps to upload the logs of the kernel panic if any (if not, you can skip this step or write -) / Schritte zum Hochladen der Protokolle des Kernel-Panics, falls vorhanden (falls keiner, dann Sie können das überspringen oder einen - schreiben) 
+      label: Steps to upload the logs of the kernel panic if any (if not, you can skip this step or write -) / Schritte zum Hochladen der Protokolle des Kernel-Panics, falls vorhanden (falls keiner, dann Sie können das überspringen oder einen - schreiben)
       placeholder: |
         If this is a kernel panic, follow these steps / Falls das einen Kernel Panic ist, folgen Sie bitte die folgenden Schritten:
         Whenever is possible, please upload a slow motion video displaying the boot sequence before and during the kernel panic.

@@ -563,7 +563,7 @@ Hardware Information:
             if isinstance(child, wx.Choice):
                 oc_build_box = child
                 break
-    
+
         oc_build_box.Bind(wx.EVT_CHOICE, self.oc_build_selection)
         if self.constants.build_profile == "standard":
             oc_build_box.SetStringSelection("Standard / Safe Build")
@@ -577,7 +577,7 @@ Hardware Information:
             oc_build_box.SetStringsSelection("[LEVEL-C] Experimental Spoof T2 (MacBookPro16,1)")
         elif self.constants.build_profile == "test_d":
             oc_build_box.SetStringSelection("[LEVEL-D] All-In-One Tahoe (Wi-Fi + Audio + GPU + T1)")
-    
+
     def oc_build_selection(self, event: wx.Event) -> None:
         value = event.GetEventObject().GetStringSelection()
         if value == "Standard / Safe Build":
@@ -612,9 +612,9 @@ Hardware Information:
             return
         else: # behebt eine Sicherheitslücke, die erlaubt Angreifern, das Wert Value auf beliebiges Wert zu setzen, um beliebiges Code auszuführen
             logging.error("No value is selected. Please specify a proper value. This message could appear if value is set to an arbitary value")
-        
 
-    
+
+
     def on_checkbox(self, event: wx.Event, warning_pop: str = "", override_function: bool = False) -> None:
         """
         """
@@ -991,7 +991,7 @@ Hardware Information:
             # inherit whatever the current one happens to be right now.
             current_dir = os.getcwd()
             logging.info(f"Restarting app: {command} (cwd={current_dir})")
-            
+
             # Prevent OSError: [Errno 5] Input/output error when running from source
             # by detaching stdin/stdout/stderr, as the parent terminal might close
             kwargs = {}
@@ -1047,7 +1047,7 @@ Hardware Information:
         )
         response = pop_up.ShowModal()
         pop_up.Destroy()
-        
+
         if response != wx.ID_YES:
             logging.info("Skipping rebuild KDK")
             return

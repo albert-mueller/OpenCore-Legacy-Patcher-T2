@@ -39,7 +39,7 @@ class AppleDBProducts:
 
         try:
             response = network_handler.NetworkUtilities().get(
-                api_url, 
+                api_url,
                 headers={"User-Agent": f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Safari/605.1.15/OpenCoreLegacyPatcherT2/{self.constants.patcher_version}"}
             )
             if response and hasattr(response, "json"):
@@ -78,7 +78,7 @@ class AppleDBProducts:
             try:
                 resolved_enum = os_data(i)
                 supported_versions[resolved_enum] = [
-                    v for v in products 
+                    v for v in products
                     if isinstance(v, dict) and v.get("InstallAssistant", {}).get("XNUMajor") == i
                 ]
             except ValueError:
@@ -88,16 +88,16 @@ class AppleDBProducts:
         for enum_version, versions in supported_versions.items():
             if not versions:
                 continue
-            
+
             # Sort constraints: Stable releases prioritized over Betas, then sort descending by version
             versions.sort(
                 key=lambda v: (
-                    not v.get("Beta", False), 
+                    not v.get("Beta", False),
                     packaging.version.parse(v.get("RawVersion", "0.0.0"))
-                ), 
+                ),
                 reverse=True
             )
-            
+
             # Extract the absolute freshest matching platform generation target entry safely
             final_list.append(next(iter(versions)))
 
@@ -118,7 +118,7 @@ class AppleDBProducts:
         for firmware in self.data:
             if not isinstance(firmware, dict):
                 continue
-            
+
             if firmware.get("internal") or firmware.get("sdk") or firmware.get("rsr"):
                 continue
 
@@ -186,7 +186,7 @@ class AppleDBProducts:
                     }
                     has_valid_source = True
                     break
-                
+
                 if has_valid_source:
                     break
 
@@ -211,10 +211,10 @@ class AppleDBProducts:
 
         # Re-sort into standard version processing arrays
         _deduplicated_products = sorted(
-            _deduplicated_products, 
+            _deduplicated_products,
             key=lambda x: (
-                packaging.version.parse(x.get("RawVersion", "0.0.0")), 
-                x.get("Build", ""), 
+                packaging.version.parse(x.get("RawVersion", "0.0.0")),
+                x.get("Build", ""),
                 not x.get("Beta", False)
             )
         )
@@ -233,9 +233,9 @@ class AppleDBProducts:
         Returns the checksum string and cryptographic matching algorithm pair for a given product payload.
         """
         HASH_TO_ALGO = {
-            "md5": hashlib.md5, 
-            "sha1": hashlib.sha1, 
-            "sha2-256": hashlib.sha256, 
+            "md5": hashlib.md5,
+            "sha1": hashlib.sha1,
+            "sha2-256": hashlib.sha256,
             "sha2-512": hashlib.sha512
         }
 

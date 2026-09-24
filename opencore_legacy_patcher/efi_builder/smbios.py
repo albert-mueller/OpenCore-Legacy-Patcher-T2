@@ -92,7 +92,7 @@ class BuildSMBIOS:
 
     def _strip_usb_map(self, map_path, model, spoofed_model, serial_settings):
         target_path = Path(map_path)
-        
+
         # Guard clause to handle missing staged USB maps during cross-model spoofing
         if not target_path.exists():
             logging.info(f"- Staged map asset not found at {target_path}, skipping strip operation.")
@@ -286,11 +286,11 @@ class BuildSMBIOS:
                         for gpu in ["Vendor10deDevice0a34", "Vendor10deDevice0a29"]:
                             agpm_config["IOKitPersonalities"]["AGPM"]["Machines"][self.spoofed_board][gpu]["BoostPState"] = [2, 2, 2, 2]
                             agpm_config["IOKitPersonalities"]["AGPM"]["Machines"][self.spoofed_board][gpu]["BoostTime"] = [2, 2, 2, 2]
-    
+
                     for entry in list(agpm_config["IOKitPersonalities"]["AGPM"]["Machines"]):
                         if not entry.startswith(self.spoofed_board):
                             agpm_config["IOKitPersonalities"]["AGPM"]["Machines"].pop(entry)
-    
+
                     plistlib.dump(agpm_config, Path(new_agpm_ls).open("wb"), sort_keys=True)
                 if self.model in model_array.AGDPSupport:
                     new_agdp_ls = Path(self.constants.agdp_contents_folder) / Path("Info.plist")

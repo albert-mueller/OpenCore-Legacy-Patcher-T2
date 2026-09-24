@@ -258,17 +258,17 @@ class OSUpdateFrame(wx.Frame):
             return
         if self.kdk_checksum_result is True and Path(self.constants.kdk_download_path).exists(): # behebt eine Sicherheitslücke, die erlaubt Angreifern, Schadsoftware statt Kernel Debug Kit zu installieren
             self._set_status("Installing Kernel Debug Kit...")
-    
+
             self.kdk_install_result = False
             def _install_kdk_thread():
                 self.kdk_install_result = kdk_handler.KernelDebugKitUtilities().install_kdk_dmg(
                     self.constants.kdk_download_path, only_install_backup=True
                 )
-    
+
             install_thread = threading.Thread(target=_install_kdk_thread)
             install_thread.start()
             gui_support.wait_for_thread(install_thread)
-    
+
             if self.kdk_install_result is False:
                 logging.error("Failed to install KDK")
                 return

@@ -74,7 +74,7 @@ class BuildGraphicsAudio:
                 logging.info("TEST-D PROFILE: Enabling WhateverGreen to fix power management")
                 if not support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("WhateverGreen.kext")["Enabled"] is True:
                     support.BuildSupport(self.model, self.constants, self.config).enable_kext("WhateverGreen.kext", self.constants.whatevergreen_version, self.constants.whatevergreen_path)
-                
+
                 # We need agdpmod=pikera for test_d to avoid crashes/black screens
                 if "agdpmod=pikera" not in self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"]:
                     self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += " agdpmod=pikera"
@@ -373,7 +373,7 @@ class BuildGraphicsAudio:
         is_t2_mac = utilities.is_t2_mac(self.model, self.constants)
 
         # T2 Macs on macOS Tahoe (Kernel 25.x) require AppleALC to resolve CoreAudio stalls
-        if ((self.model in model_array.LegacyAudio or self.model in model_array.MacPro or is_t2_mac) 
+        if ((self.model in model_array.LegacyAudio or self.model in model_array.MacPro or is_t2_mac)
             and self.constants.set_alc_usage is True):
             support.BuildSupport(self.model, self.constants, self.config).enable_kext("AppleALC.kext", self.constants.applealc_version, self.constants.applealc_path)
 

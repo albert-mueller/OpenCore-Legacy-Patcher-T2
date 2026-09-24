@@ -156,7 +156,7 @@ class EntryPoint:
             **({"patches": patches} if is_patching_mode else {})
         )
 
-        # BEHOBEN: Gefährliches atexit.register entfernt. 
+        # BEHOBEN: Gefährliches atexit.register entfernt.
         # Stattdessen nutzen wir das native wxPython Event-Handling für das Schließen des Fensters.
         self.frame.Bind(wx.EVT_CLOSE, self.OnCloseFrame)
 

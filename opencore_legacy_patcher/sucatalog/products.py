@@ -143,7 +143,7 @@ class CatalogProducts:
         if xml_contents is not None:
             title_element = xml_contents.find(".//title")
             item_title = title_element.text if title_element is not None else None
-            
+
             if item_title in ["SU_TITLE", "MANUAL_TITLE", "MAN_TITLE"]:
                 try:
                     title_search = re.search(r'"SU_TITLE"\s*=\s*"(.*)";', data.decode("utf-8"))
@@ -179,7 +179,7 @@ class CatalogProducts:
         """
         supported_versions = []
         did_find_latest = False
-        
+
         for version in CatalogVersion:
             if not did_find_latest:
                 if version != self.max_ia_catalog:
@@ -217,7 +217,7 @@ class CatalogProducts:
             v_str = installer.get("Version")
             if not v_str:
                 continue
-            
+
             matching_prefix = next((prefix for prefix in version_thresholds if v_str.startswith(prefix)), None)
             if matching_prefix:
                 try:
@@ -247,7 +247,7 @@ class CatalogProducts:
         # Exclude End-of-Life asset definitions
         eol_threshold = supported_versions[0].value
         final_products = [
-            inst for inst in final_products 
+            inst for inst in final_products
             if inst.get("Version", "0.0.0").split(".")[0] >= eol_threshold
         ]
 
@@ -266,7 +266,7 @@ class CatalogProducts:
 
         for product in catalog["Products"]:
             product_entry = catalog["Products"][product]
-            
+
             if self.ia_only:
                 try:
                     meta = product_entry["ExtendedMetaInfo"]
@@ -287,11 +287,11 @@ class CatalogProducts:
             if "Packages" in product_entry:
                 if not self.ia_only:
                     _product_map["Packages"] = product_entry["Packages"]
-                
+
                 for package in product_entry["Packages"]:
                     if "URL" not in package:
                         continue
-                    
+
                     pkg_name = Path(package["URL"]).name
                     if pkg_name == "InstallAssistant.pkg":
                         _product_map["InstallAssistant"] = {

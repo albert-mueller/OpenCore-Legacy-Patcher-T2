@@ -44,7 +44,7 @@ class macOSInstallerDownloadFrame(wx.Frame):
     def __init__(self, parent: wx.Frame, title: str, global_constants: constants.Constants, screen_location: tuple = None):
         logging.info("Initializing macOS Installer Download Frame")
         super(macOSInstallerDownloadFrame, self).__init__(parent, title=title, size=(300, 200), style=wx.DEFAULT_FRAME_STYLE & ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX))
-        
+
         self.constants: constants.Constants = global_constants
         self.title: str = title
         self.parent: wx.Frame = parent
@@ -189,7 +189,7 @@ class macOSInstallerDownloadFrame(wx.Frame):
 
         if self.frame_modal:
             self.frame_modal.Destroy()
-            
+
         self.frame_modal = wx.Dialog(self, title="Select macOS Installer", size=(550, 500))
 
         title_label = wx.StaticText(self.frame_modal, label="Select macOS Installer", pos=(-1, -1))
@@ -398,7 +398,7 @@ class macOSInstallerDownloadFrame(wx.Frame):
             return
         self.extract_animation.stop_pulse()
         self.extract_progress_bar.Hide()
-        
+
         self.chunk_label.SetLabel("Successfully extracted macOS installer" if result is True else "Failed to extract macOS installer")
         self.chunk_label.Centre(wx.HORIZONTAL)
 
@@ -523,7 +523,7 @@ class macOSInstallerDownloadFrame(wx.Frame):
 
         if self.frame_modal:
             self.frame_modal.Hide()
-        
+
         main_menu_frame = gui_main_menu.MainFrame(
             None,
             title=self.title,
@@ -531,7 +531,7 @@ class macOSInstallerDownloadFrame(wx.Frame):
             screen_location=self.GetScreenPosition()
         )
         main_menu_frame.Show()
-        
+
         if self.frame_modal:
             self.frame_modal.Destroy()
         self.Destroy()

@@ -349,7 +349,7 @@ class HardwarePatchsetDetection:
 
         return "FileVault is Off" not in subprocess.run(["/usr/bin/fdesetup", "status"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout.decode()
 
-    
+
     def _validation_check_system_integrity_protection_enabled(self, configs: list[str]) -> bool:
         """
         Determine if System Integrity Protection is enabled
@@ -474,7 +474,7 @@ class HardwarePatchsetDetection:
             logging.error("The system volume's seal is broken, unpatching is required to patch again.")
             logging.info("If for whatever reason doesn't let you undo the root patches, you need to start a repair upgrade of your operating system.")
             return True
-        else: # behebt einen Fehler, indem ohne Bedingung nichts zu sealen benötigt wäre, auch wenn sealen benötigt ist. Einen Angreifer könnte aus dieser Fehler ausnutzen, um theoretisch beim Suchen von Root Patches nichts auszugeben. Praktischerweise, meisten Angreifern möchten nicht, die Root-Patching zu deaktivieren, sondern ist es mehr wahrscheinlicher, Angreifern von andere Sicherheitslücken auszunutzen. 
+        else: # behebt einen Fehler, indem ohne Bedingung nichts zu sealen benötigt wäre, auch wenn sealen benötigt ist. Einen Angreifer könnte aus dieser Fehler ausnutzen, um theoretisch beim Suchen von Root Patches nichts auszugeben. Praktischerweise, meisten Angreifern möchten nicht, die Root-Patching zu deaktivieren, sondern ist es mehr wahrscheinlicher, Angreifern von andere Sicherheitslücken auszunutzen.
             return False
 
 
@@ -639,7 +639,7 @@ class HardwarePatchsetDetection:
         """
         return metallib_handler.MetalLibraryObject(self._constants, self._os_build, self._os_version).metallib_already_installed
 
-    
+
     def _can_patch(self, requirements: dict, ignore_keys: list[str] = []) -> bool:
         """
         Check if patching is possible

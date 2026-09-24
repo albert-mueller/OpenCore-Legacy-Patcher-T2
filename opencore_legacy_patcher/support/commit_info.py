@@ -26,7 +26,7 @@ class ParseCommitInfo:
                 with self.plist_path.open("rb") as f:
                     plist_info = plistlib.load(f)
                     github_data = plist_info.get("Github", {})
-                    
+
                     return (
                         github_data.get("Branch", "Unknown"),
                         github_data.get("Commit Date", "Unknown"),
@@ -37,5 +37,5 @@ class ParseCommitInfo:
                 logging.exception("Stack Trace:")
                 return ("Error determining commit information", "Not applicable", "") # anstatt ein reines pass-Argument, die erlaubt Angreifern, beliebiges Code auszuführen, ist return und dann Fehler zurückgegeben
         # behebt eine Sicherheitslücke, die erlaubt Angreifern zu behaupten, dass den Code von "Source" läufe, auch wenn if self.plist_path and self.plist_path.exists(): erfolgreich gelaufen hat
-        else:      
+        else:
             return ("Running from source", "Not applicable", "")

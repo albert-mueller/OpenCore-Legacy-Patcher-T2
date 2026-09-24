@@ -20,16 +20,15 @@ class GenerateHash():
         dist = Path("./dist/")
 
         for filepath in list(dist.glob("*.pkg")) + list(dist.glob("*.privileged-helper")):
-            
+
             sha256 = hashlib.sha256()
-            
+
             with open(filepath, "rb") as f:
                 while chunk := f.read(8192):
                     sha256.update(chunk)
-            
+
             file_dump.append(f"{filepath.name}: {sha256.hexdigest()}")
             rich.print(f"{filepath.name}: {sha256.hexdigest()}")
 
         with open("./dist/certificates.txt", "w") as f:
             f.write("\n".join(file_dump))
-        

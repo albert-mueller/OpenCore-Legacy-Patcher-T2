@@ -89,7 +89,7 @@ class Constants:
 
         ## Acidanthera - Albert Mueller Modified
         self.restrictevents_t2_version: str = "1.1.6-T2"  #RestrictEvents-T2
-        
+
         ## Apple
         ## https://www.apple.com
         self.marvel_version:        str = "1.0.1"  #  MarvelYukonEthernet
@@ -207,7 +207,7 @@ class Constants:
         self.update_stage:               int = 0  #     Determine update stage (see gui_support.py)
         self.log_filepath:              Path = None  #  Path to log file
         self.thread_sleep_interval:    float = 0.01  #  Sleep interval between UI updates (seconds) - balance between UI responsiveness and CPU usage
-        self.Experimental_Features:     bool = False 
+        self.Experimental_Features:     bool = False
         self.t2_installer_workaround:   bool = False
         self.allow_t2_experimental_kext:bool = False
         self.True_Developer_Mode:       bool = False
@@ -456,7 +456,7 @@ class Constants:
     @property
     def restrictevents_t2_path(self):
         return self.payload_kexts_path / Path(f"Acidanthera/RestrictEvents-v{self.restrictevents_t2_version}-{self.kext_variant}.zip")
-    
+
 
     @property
     def efi_disabler_path(self):
@@ -861,7 +861,7 @@ class Constants:
        else:
             return self.icns_resource_path / Path(f"OC-Patch-{self.detected_os}.icns")
 
-       
+
     @property
     def app_icon_path(self):
         return self.icns_resource_path / Path("OC-Patcher.icns")
