@@ -680,7 +680,7 @@ def check_cli_args():
     else:
         return args
 
-def get_admin_permission(action: str = "/usr/bin/whoami", args: list =None, reason: str = "OpenCore-Patcher-T2 needs your administrative permission", confirm_button: str ="OK", deny_button: str = "Cancel"):
+def get_admin_permission(action: str = "/usr/bin/whoami", args: list =None, reason: str = "OpenCore-Patcher-T2 needs your administrative permission"):
     """
     run the give action as root without using the Privileged Helper Tool
 
@@ -771,7 +771,7 @@ def get_admin_permission(action: str = "/usr/bin/whoami", args: list =None, reas
     except Exception:
         logging.error("Running as root failed")
         logging.exception("Stack Trace:")
-        return subprocess.CompletedProcess(args=return_args, returncode=0, stderr="Running as root failed")
+        return subprocess.CompletedProcess(args=return_args, returncode=2, stderr="Running as root failed")
 
     finally:
         Security.AuthorizationFree(

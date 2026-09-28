@@ -845,13 +845,20 @@ class Constants:
             return self.payload_path / Path("Resources/AppIcons")
         return Path(self.launcher_binary).parent.parent / Path("Resources")
 
+    @property
+    def app_icons_resource_path(self):
+        # PNG icons for the GUI. They live next to the .icns files: in
+        # payloads/Resources/AppIcons from source, and in Contents/Resources in the
+        # built app (ci_tooling/build_modules/application.py copies the whole folder).
+        return self.icns_resource_path
+
 
     @property
     def patch_icon_path(self):
         if self.detected_os < os_data.os_data.big_sur:
-            return self.icns_resource_path / Path("OC-Patch-WrenchAndScrewDriver.icns")
+            return self.app_icons_resource_path / Path("OC-Patch-WrenchAndScrewDriver.png")
         # There is no "OC-Patch-Wrench.icns" - newer OSes than Tahoe reuse the newest icon
-        return self.icns_resource_path / Path(f"OC-Patch-{min(self.detected_os, os_data.os_data.tahoe)}.icns")
+        return self.app_icons_resource_path / Path(f"OC-Patch-{min(self.detected_os, os_data.os_data.tahoe)}.png")
 
 
     @property
@@ -902,6 +909,10 @@ class Constants:
 
     @property
     def app_icon_path_png(self):
+        if self.use_dark_app_icon:
+            dark_icon = self.icns_resource_path / Path("OC-Patcher-Dark.png")
+            if dark_icon.exists():
+                return dark_icon
         return self.app_icons_resource_path / Path("OC-Patcher.png")
 
     @property
