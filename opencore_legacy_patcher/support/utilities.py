@@ -742,7 +742,7 @@ def get_admin_permission(action: str = "/usr/bin/whoami", args: list =None, reas
 
         if status != Security.errAuthorizationSuccess:
             return subprocess.CompletedProcess(args=return_args, returncode=2, stderr=f"AuthorizationCopyRights failed with status {status}")
-        
+
         if args is None or args == "":
             status, _ = Security.AuthorizationExecuteWithPrivileges(
                 auth_ref,

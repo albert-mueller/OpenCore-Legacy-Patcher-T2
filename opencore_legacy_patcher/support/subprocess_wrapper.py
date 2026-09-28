@@ -192,7 +192,7 @@ def repair_privileged_helper_permissions():
         prompt = "OpenCore Legacy Patcher T2 needs administrator permission to repair the permissions of its privileged helper tool."
 
         result=utilities.get_admin_permission(
-            action="/bin/chmod", 
+            action="/bin/chmod",
             args=[f"{oct(OCLP_PRIVILEGED_HELPER_EXPECTED_MODE)[2:]} {OCLP_PRIVILEGED_HELPER}".encode("utf-8")],
             reason=prompt,
             # the defaults for the buttons are ok, so we would touch them

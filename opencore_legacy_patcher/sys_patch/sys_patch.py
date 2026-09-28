@@ -176,7 +176,7 @@ class PatchSysVolume:
             return False
         else:
             return True
- 
+
 
     def _unmount_root_vol(self) -> None:
         """Unmount root volume gracefully."""
