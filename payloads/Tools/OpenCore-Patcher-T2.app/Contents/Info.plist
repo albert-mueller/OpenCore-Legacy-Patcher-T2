@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>OpenCore-Patcher</string>
+	<string>OpenCore-Patcher-T2</string>
 	<key>CFBundleExecutable</key>
-	<string>OpenCore-Patcher</string>
+	<string>OpenCore-Patcher-T2</string>
 	<key>CFBundleIconFile</key>
 	<string>OC-Patcher.icns</string>
 	<key>CFBundleIdentifier</key>
@@ -13,19 +13,19 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>OpenCore-Patcher</string>
+	<string>OpenCore-Patcher-T2</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>10.10.0</string>
+	<string>10.13.6</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2020-2023 Dortania</string>
+	<string>Copyright © 2020-2026 Dortania</string>
 	<key>SMPrivilegedExecutables</key>
 	<dict>
-		<key>com.albert-mueller.opencore-legacy-patcher.privileged-helper</key>
-		<string>identifier "com.albert-mueller.opencore-legacy-patcher.privileged-helper" and anchor apple generic</string>
+		<key>com.albert-mueller.opencore-patcher-t2.privileged-helper</key>
+		<string>identifier "com.albert-mueller.opencore-patcher-t2.privileged-helper" and anchor apple generic</string>
 	</dict>
 </dict>
 </plist>

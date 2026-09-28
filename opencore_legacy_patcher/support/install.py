@@ -29,7 +29,7 @@ class tui_disk_installation:
         except ValueError:
             # Sierra und älter
             disks = plistlib.loads(subprocess.run(["/usr/sbin/diskutil", "list", "-plist"], stdout=subprocess.PIPE).stdout.decode().strip().encode())
-        
+
         for disk in disks["AllDisksAndPartitions"]:
             try:
                 disk_info = plistlib.loads(subprocess.run(["/usr/sbin/diskutil", "info", "-plist", disk["DeviceIdentifier"]], stdout=subprocess.PIPE).stdout.decode().strip().encode())
@@ -43,7 +43,7 @@ class tui_disk_installation:
                 except Exception:
                     # Falls das Laden immer noch fehlschlägt, überspringen wir die Disk, um Abstürze zu verhindern
                     continue
-            
+
             try:
                 all_disks[disk["DeviceIdentifier"]] = {"identifier": disk_info["DeviceNode"], "name": disk_info.get("MediaName", "Disk"), "size": disk_info["TotalSize"], "partitions": {}}
                 for partition in disk["Partitions"]:
@@ -74,7 +74,7 @@ class tui_disk_installation:
 
     def list_partitions(self, disk_response, supported_disks):
         disk_identifier = disk_response
-        
+
         # FIX: Sicherheitsprüfung, falls die Festplatte nicht (mehr) existiert
         selected_disk = supported_disks.get(disk_identifier)
         if not selected_disk:
@@ -105,10 +105,10 @@ class tui_disk_installation:
         # TODO: Apple Script schlägt in Yosemite und älter fehl
         logging.info(f"Mounte Partition: {full_disk_identifier}")
         logging.info(f"Mounting partition: {full_disk_identifier}")
-        
+
         # Mount-Versuch als Root
         result = subprocess_wrapper.run_as_root(["/usr/sbin/diskutil", "mount", full_disk_identifier], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        
+
         # FIX 1: Wenn der Mount fehlschlägt (z.B. weil Root-Rechte verweigert wurden)
         if result.returncode != 0:
             logging.error("Failed to mount the drive due to not enought rights or locked partition.")
@@ -120,13 +120,13 @@ class tui_disk_installation:
         parent_disk = partition_info["ParentWholeDisk"]
         drive_host_info = plistlib.loads(subprocess.run(["/usr/sbin/diskutil", "info", "-plist", parent_disk], stdout=subprocess.PIPE).stdout.decode().strip().encode())
         sd_type = drive_host_info.get("MediaName", "Disk")
-        
+
         try:
             logging.info("Checking hard disk type")
             ssd_type = drive_host_info["SolidState"]
         except KeyError:
             ssd_type = False
-            
+
         mount_path = Path(partition_info["MountPoint"])
         disk_type = partition_info["BusProtocol"]
 
@@ -184,10 +184,10 @@ class tui_disk_installation:
                 subprocess_wrapper.run_as_root_and_verify(["/bin/mkdir", "-p", mount_path / "EFI/BOOT"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 subprocess_wrapper.run_as_root_and_verify(["/bin/mv", str(mount_path / "System/Library/CoreServices/boot.efi"), str(mount_path / "EFI/BOOT/BOOTx64.efi")], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 subprocess_wrapper.run_as_root_and_verify(["/bin/rm", "-rf", mount_path / "System"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                
+
         except Exception as e:
             logging.error(f"File operation failed during installation: {e}")
-            logging.exception("Stack Trace:") 
+            logging.exception("Stack Trace:")
             logging.info("Please try again later.")
             sys.exit(3)
 

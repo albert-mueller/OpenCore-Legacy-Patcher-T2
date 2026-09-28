@@ -817,20 +817,20 @@ class Computer:
 
         # FIX: Explicit Rosetta check to avoid Truthy/Falsy string issues on Intel
         proc_check = subprocess.run(["/usr/sbin/sysctl", "-in", "sysctl.proc_translated"], stdout=subprocess.PIPE).stdout.decode().strip()
-        
+
         # We only use 'target-type' on Apple Silicon under translation; Intel always uses 'board-id'
         board_key = "target-type" if proc_check == "1" else "board-id"
-        
+
         raw_board = ioreg.corefoundation_to_native(ioreg.IORegistryEntryCreateCFProperty(entry, board_key, ioreg.kCFAllocatorDefault, ioreg.kNilOptions))
         if isinstance(raw_board, bytes):
             self.reported_board_id = raw_board.strip(b"\0").decode()
         else:
             self.reported_board_id = raw_board
-        
+
         # UUID Handling (Updated to SHA-256 for better collision resistance)
         uuid_raw = ioreg.corefoundation_to_native(ioreg.IORegistryEntryCreateCFProperty(entry, "IOPlatformUUID", ioreg.kCFAllocatorDefault, ioreg.kNilOptions))
         self.uuid_sha1 = hashlib.sha256(uuid_raw.encode()).hexdigest() if uuid_raw else None
-        
+
         ioreg.IOObjectRelease(entry)
 
         # "oem-product"/"oem-board" are written by our OpenCorePkg fork before it applies

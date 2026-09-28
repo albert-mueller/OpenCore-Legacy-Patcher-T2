@@ -1,0 +1,136 @@
+# .github/workflows/ask-for-mac-model.yml
+#
+# Asks the reporter which Mac they're using when an issue doesn't say
+# (no model picked in the issue form, "not applicable" picked for a real Mac
+# problem, or an issue opened without the form). Accepts a model identifier
+# (e.g. Macmini8,1) or a name with a year (e.g. "Mac mini 2018").
+# Suggestions / change requests (also icon or artwork contributions),
+# security/malicious-site reports, feature requests and Hackintosh reports
+# (handled by ask-for-hackintosh-specs.yml) are skipped. The bot comment and
+# label are removed automatically once the model is added (by editing the
+# issue or replying).
+
+name: Ask for Mac model
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  issues: write
+
+concurrency:
+  group: mac-model-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    if: >-
+      github.event.issue.pull_request == null &&
+      github.event.issue.state == 'open' &&
+      github.event.issue.user.type != 'Bot' &&
+      (github.event_name != 'issue_comment' ||
+       github.event.comment.user.login == github.event.issue.user.login)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const MARKER = '<!-- mac-model-bot -->';
+            const LABEL = 'needs-mac-model';
+            const { owner, repo } = context.repo;
+            const issue = context.payload.issue;
+            const issue_number = issue.number;
+            const title = issue.title || '';
+            const body = issue.body || '';
+            const labels = (issue.labels || []).map(l => (typeof l === 'string' ? l : l.name).toLowerCase());
+
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 });
+            const existing = comments.find(c => c.user.type === 'Bot' && (c.body || '').includes(MARKER));
+            const authorText = comments
+              .filter(c => c.user.login === issue.user.login)
+              .map(c => c.body || '')
+              .join('\n');
+            const issueText = `${title}\n${body}`;
+
+            async function cleanUp(reason) {
+              if (existing) await github.rest.issues.deleteComment({ owner, repo, comment_id: existing.id });
+              if (labels.includes(LABEL)) {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name: LABEL }).catch(() => {});
+              }
+              core.info(reason);
+            }
+
+            // Issue forms render fields as "### Heading\n\nvalue"
+            function section(headingRe) {
+              for (const part of body.split(/^###\s+/m).slice(1)) {
+                const nl = part.indexOf('\n');
+                if (nl === -1) continue;
+                if (headingRe.test(part.slice(0, nl))) return part.slice(nl + 1).replace(/[`*_>]/g, '').trim();
+              }
+              return null;
+            }
+
+            // ---- 1. Skip reports where the Mac model doesn't matter ---------
+            const SKIP_LABELS = ['security', 'vulnerability', 'enhancement', 'feature request', 'question', 'documentation'];
+            if (labels.some(l => SKIP_LABELS.includes(l))) return cleanUp('Skipped: skip label');
+            const SECURITY_RE = /\b(security|vulnerab\w*|cve-\d{4}-\d+|ghsa-[\w-]+|exploit\w*|rce|remote code execution|code injection|command injection|privilege escalation|malware|malicious|typosquat\w*|phishing)\b/i;
+            if (SECURITY_RE.test(issueText)) return cleanUp('Skipped: security / malicious-site report');
+            // Suggestions, change requests and contributions (icons, artwork, ...)
+            // don't need a Mac model or versions. Everything else, including
+            // issues opened without the form, is treated as a problem report.
+            const usedForm = /^###\s+(mac model|mac-modell|issue type|typ fehler)/im.test(body);
+            const SUGGEST_RE = /\b(suggest\w*|feature request|request(ing)? (a |an |the )?(feature|change|option)|would be (nice|great|cool|awesome)|(could|can) you (please )?add|please add|propos(e|al|ing)|vorschlag\w*|vorschlagen|wäre (schön|toll|cool|super))\b|bitte hinzufügen/i;
+            const SUGGEST_TITLE_RE = /\b(icons?|logos?|artwork|wallpapers?|themes?|design|mockup|features?|ideas?|idee|improvements?|verbesserung\w*|changes?|enhancements?|translations?)\b|änderung|übersetzung/i;
+            const PROBLEM_RE = /\b(bug|panic\w*|crash\w*|boot\w*|freez\w*|froze|hang(s|ing)?|hängt|stuck|error\w*|fehler\w*|fail\w*|broken|kaputt|missing|fehlt|not (working|showing|loading)|(doesn'?t|does not|won'?t|will not|can'?t|cannot) (work|boot|start|install|open|load|show)|black screen|kext|kernel)\b/i;
+            // Titles like "Add ...", "Change ...", "[Feature] ..." are requests even if they mention booting etc.
+            const REQUEST_TITLE_RE = /^\s*\[(feature|suggestion|request|idea|vorschlag)\]|^\s*(add|change|make|allow|improve|implement|replace|rename|support for|option to|füge|ergänze|ändere)\b/i;
+            const issueType = section(/issue type|typ fehler/i);
+            const isSuggestion = usedForm
+              ? !!issueType && /suggestion|empfehlung|feature/i.test(issueType)
+              : SUGGEST_RE.test(issueText) || REQUEST_TITLE_RE.test(title) || (SUGGEST_TITLE_RE.test(title) && !PROBLEM_RE.test(issueText));
+            if (isSuggestion) return cleanUp('Skipped: suggestion / change request');
+            // Hackintoshes: ask-for-hackintosh-specs.yml already asks for the SMBIOS
+            const HACKINTOSH_RE = /\b(hackintosh\w*|hackintosch|hackbook|non[- ]apple (pc|hardware|machine)|not an? (real|genuine) mac|custom[- ]built pc|amd hackintosh)\b/i;
+            if (HACKINTOSH_RE.test(issueText)) return cleanUp('Skipped: Hackintosh report');
+
+            // ---- 2. Is a Mac model there? -----------------------------------
+            // Model identifiers: Macmini8,1 / MacBookPro16,2 / iMac17,1 / iMacPro1,1 / MacPro7,1
+            const ID_RE = /\b(MacBookPro|MacBookAir|MacBook|Macmini|iMacPro|iMac|MacPro|Xserve)\s?\d{1,2}\s?,\s?\d{1,2}\b/i;
+            // Names with a year: "Mac mini 2018", "MacBook Pro (16-inch, 2019)", "iMac 27-inch 2020"
+            const NAME_RE = /\b(mac\s?mini|macbook(\s?(pro|air))?|imac(\s?pro)?|mac\s?pro)\b[^\n]{0,40}?\b(200\d|201\d|202\d)\b/i;
+            const VAGUE_RE = /^(n\/?a|none|no response|unknown|idk|not sure|\?+|-+|not applicable.*|nicht anwendbar.*)$/i;
+
+            const formValue = section(/mac model|mac-modell/i);
+            const formHasModel = !!formValue && !VAGUE_RE.test(formValue) && !/not applicable|nicht anwendbar/i.test(formValue);
+            const allText = `${issueText}\n${authorText}`;
+            const hasModel = formHasModel || ID_RE.test(allText) || NAME_RE.test(allText);
+
+            if (hasModel) return cleanUp('Mac model present');
+
+            // ---- 3. Ask (or update the existing request) --------------------
+            const text = [
+              MARKER,
+              `Hi @${issue.user.login}, thanks for the report! We need to know **which Mac** this is about — the patches OpenCore Legacy Patcher applies depend on the exact model. Please edit your issue or reply below with your **model identifier**. You can get it by running this in Terminal:`,
+              '',
+              '```sh',
+              'sysctl -n hw.model',
+              '```',
+              '',
+              'It prints something like `Macmini8,1` or `MacBookPro16,2`. If you can\'t boot into macOS, the model name with its year works too (e.g. "Mac mini 2018", shown under  → About This Mac).',
+              '',
+              'This comment will go away once the model is added.',
+            ].join('\n');
+
+            if (existing) {
+              if (existing.body !== text) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: text });
+              }
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body: text });
+            }
+            if (!labels.includes(LABEL)) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: [LABEL] });
+            }

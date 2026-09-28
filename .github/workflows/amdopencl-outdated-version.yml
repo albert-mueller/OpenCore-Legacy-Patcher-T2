@@ -1,0 +1,110 @@
+name: AMDOpenCL error – ask to update
+
+on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  check:
+    # Skip pull request comments and bot comments
+    if: >
+      !github.event.issue.pull_request &&
+      github.event.sender.type != 'Bot'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for AMDOpenCL NameError on old version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const FIXED_VERSION = '4.0.0.18003';
+            const ERROR_PATTERN = /NameError:\s*name\s*['"]AMDOpenCL['"]\s*is not defined/i;
+            const MARKER = '<!-- amdopencl-update-bot -->';
+            const LABEL = 'fixed-in-newer-version';
+
+            const issue = context.payload.issue;
+            const text = context.eventName === 'issue_comment'
+              ? (context.payload.comment.body || '')
+              : `${issue.title || ''}\n${issue.body || ''}`;
+
+            if (!ERROR_PATTERN.test(text)) {
+              core.info('AMDOpenCL error not found, nothing to do.');
+              return;
+            }
+
+            // Look for the version in the triggering text, then fall back to the issue body
+            const findVersion = (s) => {
+              // Prefer a version right after "Patcher" / "OCLP" / "version"
+              const near = s.match(/(?:patcher(?:\s+t2)?|oclp(?:-t2)?|version)[^\d\n]{0,20}(\d+\.\d+\.\d+\.\d+)/i);
+              if (near) return near[1];
+              const any = s.match(/\b(\d+\.\d+\.\d+\.\d+)\b/);
+              return any ? any[1] : null;
+            };
+
+            let version = findVersion(text);
+            if (!version && context.eventName === 'issue_comment') {
+              version = findVersion(`${issue.title || ''}\n${issue.body || ''}`);
+            }
+
+            const isOlder = (a, b) => {
+              const pa = a.split('.').map(Number);
+              const pb = b.split('.').map(Number);
+              for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+                const x = pa[i] || 0, y = pb[i] || 0;
+                if (x !== y) return x < y;
+              }
+              return false;
+            };
+
+            if (version && !isOlder(version, FIXED_VERSION)) {
+              core.info(`Version ${version} already includes the fix, no comment.`);
+              return;
+            }
+
+            // Don't post twice on the same issue
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+            });
+            if (comments.some(c => (c.body || '').includes(MARKER))) {
+              core.info('Already commented on this issue.');
+              return;
+            }
+
+            const versionLine = version
+              ? `It looks like you're running **${version}**.`
+              : `I couldn't detect which version you're running.`;
+
+            const body = [
+              MARKER,
+              `Hi @${context.payload.sender.login}, thanks for the report!`,
+              '',
+              `The error \`NameError: name 'AMDOpenCL' is not defined\` has been fixed in version **${FIXED_VERSION}**. ${versionLine}`,
+              '',
+              `Please update to **${FIXED_VERSION} or newer** from the [Releases page](https://github.com/${context.repo.owner}/${context.repo.repo}/releases) and try again.`,
+              '',
+              `If the error still happens after updating, please reply here with your new version number and the full log.`,
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body,
+            });
+
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: [LABEL],
+              });
+            } catch (e) {
+              core.warning(`Could not add label: ${e.message}`);
+            }

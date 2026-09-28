@@ -1,0 +1,77 @@
+name: Apple Silicon auto-reply
+
+on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+
+jobs:
+  reply:
+    runs-on: ubuntu-latest
+    # Ignore bots (including this workflow's own comments)
+    if: github.event.sender.type != 'Bot'
+    steps:
+      - name: Check for Apple Silicon questions and reply
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const MARKER = '<!-- apple-silicon-auto-reply -->';
+            const LABEL = 'apple-silicon';
+
+            const issue = context.payload.issue;
+            const text = context.eventName === 'issue_comment'
+              ? context.payload.comment.body || ''
+              : `${issue.title}\n${issue.body || ''}`;
+
+            // Apple Silicon indicators
+            const appleSilicon = /\b(apple\s*silicon|arm64|aarch64|M[1-9](\s*(pro|max|ultra))?)\b/i;
+            // OpenCore / OCLP indicators
+            const openCore = /\b(open\s*core|oclp|opencore\s*legacy\s*patcher|hackintosh)\b/i;
+
+            if (!appleSilicon.test(text) || !openCore.test(text)) {
+              core.info('No Apple Silicon + OpenCore mention found.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const issue_number = issue.number;
+
+            // Only reply once per issue
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100,
+            });
+            if (comments.some(c => c.body && c.body.includes(MARKER))) {
+              core.info('Already replied on this issue.');
+              return;
+            }
+
+            const body = [
+              MARKER,
+              '👋 Thanks for your question!',
+              '',
+              '**OpenCore only works on Intel Macs.** Apple Silicon Macs (M1, M2, M3, M4 and later) ' +
+              'use a completely different boot chain (iBoot instead of UEFI), so OpenCore and ' +
+              'OpenCore Legacy Patcher cannot boot or run on them.',
+              '',
+              'If you are on an Intel Mac and this reply was triggered by mistake, just let us know and we will reopen the discussion.',
+            ].join('\n');
+
+            await github.rest.issues.createComment({ owner, repo, issue_number, body });
+
+            // Add a label (created automatically if it doesn't exist)
+            try {
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: [LABEL] });
+            } catch (e) {
+              core.warning(`Could not add label: ${e.message}`);
+            }
+
+            // Close the issue as "not planned"
+            if (issue.state === 'open') {
+              await github.rest.issues.update({
+                owner, repo, issue_number, state: 'closed', state_reason: 'not_planned',
+              });
+            }

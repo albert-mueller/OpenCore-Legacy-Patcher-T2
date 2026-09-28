@@ -123,7 +123,7 @@ class BuildFrame(wx.Frame):
         )
         dlg.ShowModal()
         dlg.Destroy()
-    
+
     def _generate_elements(self, frame: wx.Frame = None) -> None:
         """
         Generate UI elements for build frame
@@ -161,15 +161,15 @@ class BuildFrame(wx.Frame):
             self.radio_testb = wx.RadioButton(frame, label="TEST-B (GPU + No-Compat)", pos=(-1, next_y))
             self.radio_testb.Centre(wx.HORIZONTAL)
             next_y += 30
-            
+
             self.radio_testc = wx.RadioButton(frame, label="TEST-C (GPU + No-Compat + VBootArgs)", pos=(-1, next_y))
             self.radio_testc.Centre(wx.HORIZONTAL)
             next_y += 30
-            
+
             self.radio_testd = wx.RadioButton(frame, label="TEST-D (GPU + BootArgs + XPC)", pos=(-1, next_y))
             self.radio_testd.Centre(wx.HORIZONTAL)
             next_y += 40
-            
+
             if self.constants.build_profile == "test_d":
                 self.radio_testd.SetValue(True)
             elif self.constants.build_profile == "test_c":
@@ -211,11 +211,11 @@ class BuildFrame(wx.Frame):
         return_button = wx.Button(frame, label="Return to Main Menu", pos=(-1, text_box.GetPosition()[1] + text_box.GetSize()[1] + 5), size=(150, 30))
         return_button.Bind(wx.EVT_BUTTON, self.on_return_to_main_menu)
         return_button.Centre(wx.HORIZONTAL)
-        
+
         # Disable by default if standard mode (since it builds automatically)
         if not self.constants.Experimental_Features:
             return_button.Disable()
-            
+
         self.return_button = return_button
 
         # Adjust window size to fit all elements
@@ -412,7 +412,7 @@ class BuildFrame(wx.Frame):
         main_menu_frame.Show()
         # Deferred: this handler is running inside a button that lives on the frame
         wx.CallAfter(self.Destroy)
-    
+
     def on_install(self, event: wx.Event = None) -> None:
         """
         Launch install frame
@@ -422,7 +422,7 @@ class BuildFrame(wx.Frame):
         for handler in logger.handlers[:]:
             if isinstance(handler, gui_support.ThreadHandler):
                 logger.removeHandler(handler)
-        
+
         screen_location = self.GetScreenPosition()
         self._dismiss_modal() # Hides first, so it feels responsive
 

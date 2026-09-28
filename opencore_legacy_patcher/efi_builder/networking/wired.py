@@ -2,6 +2,8 @@
 wired.py: Class for handling Wired Networking Patches, invocation from build.py
 """
 
+import logging
+
 from .. import support
 
 from ... import constants
@@ -22,6 +24,13 @@ class BuildWiredNetworking:
     Invoke from build.py
     """
 
+    # Models without built-in Ethernet whose only wired option is Apple's
+    # Thunderbolt Ethernet adapter, which can't be detected until plugged in
+    _ADAPTER_ONLY_MODELS: tuple = (
+        "MacBookAir4,1",
+        "MacBookAir4,2",
+    )
+
     def __init__(self, model: str, global_constants: constants.Constants, config: dict) -> None:
         self.model: str = model
         self.config: dict = config
@@ -36,11 +45,23 @@ class BuildWiredNetworking:
         Kick off Wired Build Process
         """
 
-        # Check if Ethernet was detected, otherwise fall back to assumptions (mainly for 2011 MacBook Airs and TB Ethernet)
-        if not self.constants.custom_model and self.constants.computer.ethernet:
-            self._on_model()
-        else:
+        if self.constants.custom_model:
+            # Building for another machine: no hardware to probe, rely on SMBIOS data
             self._prebuilt_assumption()
+        elif self.constants.computer.ethernet:
+            # On-model with detected controllers: only inject what is actually present
+            self._on_model()
+        elif self.model in self._ADAPTER_ONLY_MODELS:
+            # No built-in Ethernet, but Apple's Thunderbolt Ethernet adapter (BCM57762)
+            # may be hot-plugged later, so keep the SMBIOS based assumption
+            self._prebuilt_assumption()
+        else:
+            # On-model, but no supported Ethernet controller was detected.
+            # Previously this fell through to _prebuilt_assumption(), which injected
+            # CatalinaBCM5701Ethernet.kext on every model whose SMBIOS data lists a
+            # Broadcom chipset - including 10GbE (Aquantia only) Mac mini/iMac
+            # configurations and machines whose controller isn't a BCM5701 at all.
+            logging.info("- No supported Ethernet controller detected, skipping wired kexts")
 
         # Always enable due to chance of hot-plugging
         self._usb_ecm_dongles()

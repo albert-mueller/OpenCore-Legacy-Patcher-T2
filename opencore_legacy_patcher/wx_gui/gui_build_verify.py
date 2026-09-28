@@ -23,7 +23,7 @@ class VerifyBuildFrame(wx.Frame):
 
         self._generate_elements()
         self.Centre()
-        
+
         threading.Thread(target=self._perform_verification).start()
 
     def _generate_elements(self) -> None:
@@ -70,10 +70,10 @@ class VerifyBuildFrame(wx.Frame):
     def _verify_files(self):
         self._append_log("=========================================")
         target_efi = os.path.join(self.constants.launcher_script_location, "Build-Folder", self.constants.oc_build_folder_name, "EFI", "OC")
-        
+
         if not os.path.exists(target_efi):
             raise Exception("Generated EFI/OC folder not found! Please BUILD OPENCORE first.")
-            
+
         required_kexts = [
             "Lilu.kext",
             "IOSkywalkFamily.kext",
@@ -81,51 +81,51 @@ class VerifyBuildFrame(wx.Frame):
             "AirportBrcmFixup.kext",
             "AMFIPass.kext"
         ]
-        
+
         missing_kexts = []
         for kext in required_kexts:
             if not os.path.exists(os.path.join(target_efi, "Kexts", kext)):
                 missing_kexts.append(kext)
-                
+
         if missing_kexts:
             self._append_log(f"WARNING: Missing Kexts: {', '.join(missing_kexts)}")
         else:
             self._append_log("All required Kexts are present in EFI/OC/Kexts.")
-            
+
         config_path = os.path.join(target_efi, "config.plist")
         if not os.path.exists(config_path):
             raise Exception("config.plist not found in EFI/OC!")
-            
+
         with open(config_path, "rb") as f:
             config = plistlib.load(f)
-            
+
         # Verify WhateverGreen is enabled
         weg_enabled = False
         for kext in config.get("Kernel", {}).get("Add", []):
             if kext.get("BundlePath") == "WhateverGreen.kext" and kext.get("Enabled") == True:
                 weg_enabled = True
                 break
-                
+
         boot_args = config.get("NVRAM", {}).get("Add", {}).get("7C436110-AB2A-4BBB-A880-FE41995C9F82", {}).get("boot-args", "")
         wegnoegpu_enabled = "-wegnoegpu" in boot_args
         dart0_enabled = "dart=0" in boot_args
-        
+
         amd_patches = []
         for patch in config.get("Kernel", {}).get("Patch", []):
             if "AMD" in patch.get("Comment", "") or "Polaris" in patch.get("Comment", ""):
                 if patch.get("Enabled") == True:
                     amd_patches.append(patch.get("Comment"))
-                    
+
         self._append_log("\nTEST-B CONFIGURATION IN BUILD:")
         self._append_log(f"WhateverGreen: {'ENABLED' if weg_enabled else 'DISABLED'}")
         self._append_log(f"-wegnoegpu: {'ENABLED' if wegnoegpu_enabled else 'DISABLED'}")
         self._append_log(f"AMD patches: {'NONE' if not amd_patches else ', '.join(amd_patches)}")
         self._append_log(f"dart=0: {'ENABLED' if dart0_enabled else 'NOT ENABLED'}")
-        
+
         self._append_log("\nSHA256 CHECKSUM:")
         target_sha = hashlib.sha256(open(config_path, 'rb').read()).hexdigest()
         self._append_log(f"{target_sha}")
-        
+
         self._append_log("=========================================")
 
     def on_return_to_main_menu(self, event):

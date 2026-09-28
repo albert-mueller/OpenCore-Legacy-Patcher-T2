@@ -132,7 +132,7 @@ class AMDVega(BaseHardware):
 
         return {
             **LegacyMetal31001(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
-            
+
             # AMD GCN and newer GPUs can still use the native GVA stack
             **MontereyGVA(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).revert_patches(),
 

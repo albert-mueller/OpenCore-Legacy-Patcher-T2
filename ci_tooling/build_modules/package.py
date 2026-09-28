@@ -45,11 +45,11 @@ class GeneratePackage:
         Initialize
         """
         self._files = {
-            "./dist/OpenCore-Patcher-T2.app": "/Library/Application Support/Dortania/OpenCore-Patcher-T2.app",
-            "./ci_tooling/privileged_helper_tool/com.albert-mueller.opencore-legacy-patcher.privileged-helper": "/Library/PrivilegedHelperTools/com.albert-mueller.opencore-legacy-patcher.privileged-helper",
+            "./dist/OpenCore-Patcher-T2.app": "/Library/Application Support/albert-mueller/OpenCore-Patcher-T2/OpenCore-Patcher-T2.app",
+            "./ci_tooling/privileged_helper_tool/com.albert-mueller.opencore-patcher-t2.privileged-helper": "/Library/PrivilegedHelperTools/com.albert-mueller.opencore-patcher-t2.privileged-helper",
         }
         self._autopkg_files = {
-            "./payloads/Launch Services/com.dortania.opencore-legacy-patcher.auto-patch.plist": "/Library/LaunchAgents/com.dortania.opencore-legacy-patcher.auto-patch.plist",
+            "./payloads/Launch Services/com.albert-mueller.opencore-legacy-patcher.auto-patch.plist": "/Library/LaunchAgents/com.albert-mueller.opencore-legacy-patcher.auto-patch.plist",
         }
         self._autopkg_files.update(self._files)
 

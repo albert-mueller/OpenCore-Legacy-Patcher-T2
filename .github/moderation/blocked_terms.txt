@@ -1,0 +1,59 @@
+# One term per line, case-insensitive, matched as whole words.
+# Used as a fallback when ANTHROPIC_API_KEY is not set (or the API call fails).
+# Lines starting with # are ignored.
+#
+# Only unambiguous slurs and hate phrases are listed. Words that also have
+# ordinary meanings (in tech, cars, everyday language) are deliberately left out
+# to avoid deleting legitimate issues - the Claude check covers those in context.
+# Plurals are listed separately because matching is whole-word.
+
+# --- English: racial / ethnic ---
+nigger
+niggers
+sandnigger
+sandniggers
+kike
+kikes
+spic
+spics
+wetback
+wetbacks
+beaner
+beaners
+gook
+gooks
+zipperhead
+zipperheads
+raghead
+ragheads
+towelhead
+towelheads
+porch monkey
+porch monkeys
+jungle bunny
+jungle bunnies
+
+# --- English: sexual orientation / gender ---
+faggot
+faggots
+shemale
+shemales
+
+# --- English: phrases ---
+gas the jews
+heil hitler
+sieg heil
+
+# --- German ---
+kanake
+kanaken
+kanacke
+kanacken
+neger
+schwuchtel
+schwuchteln
+untermensch
+untermenschen
+judensau
+juden raus
+ausländer raus

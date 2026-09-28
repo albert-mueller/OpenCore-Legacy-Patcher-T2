@@ -9,6 +9,7 @@ import subprocess
 import sys
 import shutil
 import glob
+import tempfile
 
 from typing import Union
 from pathlib import Path
@@ -79,7 +80,7 @@ class SysPatchHelpers:
         # Construct the target path safely
         relative_path = Path("10.13.6/System/Library/Extensions/AppleIntelSNBGraphicsFB.kext/Contents/MacOS/AppleIntelSNBGraphicsFB")
         path = source_path / relative_path
-        
+
         # Verify the resolved path is still within the expected source directory (prevent directory escape)
         try:
             path.relative_to(source_path)
@@ -87,7 +88,7 @@ class SysPatchHelpers:
             logging.error(f"Path traversal detected: {path} is outside {source_path}")
             logging.exception("Stack Trace:")
             raise Exception("Path traversal attack detected!")
-        
+
         if not path.exists():
             logging.error(f"Error: Could not find {path}")
             logging.exception("Stack Trace:")
@@ -126,27 +127,50 @@ class SysPatchHelpers:
             return
 
         logging.info("- Applying macOS Tahoe AppleHDAController binary patch (ml_cpu_int_event_time -> mach_absolute_time)")
+        patched = data.replace(b"_ml_cpu_int_event_time\0", b"_mach_absolute_time\0\0\0\0")
+
+        # The kext was just installed onto the mounted system volume by a root-privileged
+        # copy, so it is root:wheel 0644. The patcher process itself runs unprivileged
+        # (every other root-volume write goes through the privileged helper), so writing
+        # it directly with Python fails with EACCES. Stage the patched binary in a private
+        # temp dir and let root copy it over the original. cp into an existing file
+        # rewrites its contents in place, keeping the original owner and mode.
+        temp_dir = None
         try:
-            patched = data.replace(b"_ml_cpu_int_event_time\0", b"_mach_absolute_time\0\0\0\0")
-            installed_path.write_bytes(patched)
-        except (OSError, IOError) as e:
+            temp_dir = tempfile.mkdtemp(prefix="oclp-applehda-")
+            staged_path = Path(temp_dir) / "AppleHDAController"
+            staged_path.write_bytes(patched)
+            subprocess_wrapper.run_as_root_and_verify(
+                ["/bin/cp", str(staged_path), str(installed_path)],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            )
+        except Exception as e:
             logging.error(f"- Failed to patch AppleHDAController binary: {e}")
             logging.exception("Stack Trace:")
             raise Exception(f"Failed to patch AppleHDAController.kext: {e}")
+        finally:
+            if temp_dir:
+                shutil.rmtree(temp_dir, ignore_errors=True)
 
-        # Re-sign the kext ad-hoc so kmutil does not reject it during kernel cache rebuild
+        # Make sure the copy actually landed before re-signing
+        if installed_path.read_bytes() != patched:
+            raise Exception("Failed to patch AppleHDAController.kext: patched binary did not persist on the system volume")
+
+        # Re-sign the kext ad-hoc so kmutil does not reject it during kernel cache rebuild.
+        # The binary has already been modified at this point, so its old signature is
+        # invalid: a failed re-sign leaves a kext kmutil will drop, which is the same
+        # silent "patched but no audio" result as a failed write. Treat it as fatal.
         kext_bundle = installed_path.parent.parent.parent
         logging.info(f"- Re-signing {kext_bundle.name} with ad-hoc signature")
         try:
-            result = subprocess_wrapper.run_as_root(
+            subprocess_wrapper.run_as_root_and_verify(
                 ["/usr/bin/codesign", "--force", "--sign", "-", "--timestamp=none", str(kext_bundle)],
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT
             )
-            if result.returncode != 0:
-                output = result.stdout.decode(errors="replace").strip() if result.stdout else ""
-                logging.warning(f"- codesign returned non-zero ({result.returncode}): {output}")
         except Exception as e:
-            logging.warning(f"- codesign failed (non-fatal): {e}")
+            logging.error(f"- Failed to re-sign {kext_bundle.name}: {e}")
+            logging.exception("Stack Trace:")
+            raise Exception(f"Failed to re-sign AppleHDAController.kext: {e}")
 
 
 
@@ -254,7 +278,7 @@ class SysPatchHelpers:
             return
 
         logging.info("Disabling WindowServer Caching")
-        
+
         # Use glob to find matching paths and remove them without shell expansion
         window_server_paths = glob.glob("/private/var/folders/*/*/*/WindowServer/com.apple.WindowServer")
         if window_server_paths:
@@ -264,7 +288,7 @@ class SysPatchHelpers:
                 except Exception as e:
                     logging.error(f"Failed to remove WindowServer cache at {path}: {e}")
                     logging.exception("Stack Trace:")
-        
+
         # Disable writing to WindowServer folder
         window_server_dirs = glob.glob("/private/var/folders/*/*/*/WindowServer")
         if window_server_dirs:
@@ -274,7 +298,7 @@ class SysPatchHelpers:
                 except Exception as e:
                     logging.warning(f"Failed to set immutable flag on {path}: {e}")
                     logging.exception("Stack Trace:")
-        
+
         # Reference:
         #   To reverse write lock:
         #   'chflags nouchg /private/var/folders/*/*/*/WindowServer'
@@ -379,7 +403,7 @@ class SysPatchHelpers:
 
             src_dir = LIBRARY_DIR / file.name
             dest_lib_dir = DEST_DIR / "lib"
-            
+
             if not dest_lib_dir.exists():
                 # Validate that generate_copy_arguments returns a valid result
                 copy_args = generate_copy_arguments(str(src_dir / "lib"), str(DEST_DIR / ""))
@@ -387,7 +411,7 @@ class SysPatchHelpers:
                     logging.error(f"Failed to generate copy arguments for {src_dir}/lib")
                     logging.exception("Stack Trace:")
                     raise Exception(f"Failed to generate copy arguments for {src_dir}/lib")
-                
+
                 try:
                     result = subprocess_wrapper.run_as_root_and_verify(copy_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                     if result and result.returncode != 0:

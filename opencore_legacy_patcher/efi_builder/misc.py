@@ -51,12 +51,12 @@ class BuildMiscellaneous:
     def _update_nvram_string(self, uuid: str, key: str, value: str) -> None:
         """Appends string flags using precise word boundaries to prevent substring collisions."""
         self._ensure_nvram_path(uuid)
-        
+
         current_value = self.config["NVRAM"]["Add"][uuid].get(key, "")
-        
+
         existing_tokens = set(current_value.split())
         new_tokens = value.strip().split()
-        
+
         tokens_to_add = [t for t in new_tokens if t not in existing_tokens]
         if not tokens_to_add:
             return
@@ -166,7 +166,7 @@ class BuildMiscellaneous:
             re_block_args.append("media")
 
         return re_block_args
-    
+
     def _re_generate_patch_arguments(self) -> list:
         """Generate RestrictEvents patch arguments.
 
@@ -177,7 +177,7 @@ class BuildMiscellaneous:
         never fires, leaving revpatch=sbvmm absent from the 4D1FDA02 NVRAM key
         and causing BIPreflightError Code 9 (J680AP / MacBookPro15,1 confirmed).
         """
-        
+
         re_patch_args = []
         if self.constants.allow_oc_everywhere is False and (self.constants.serial_settings == "None" or self.constants.secure_status is False or self._is_t2_mac()):
             re_patch_args.append("sbvmm")
@@ -199,11 +199,11 @@ class BuildMiscellaneous:
             pp_map_path = Path(self.constants.platform_plugin_plist_path) / Path(f"{self.model}/Info.plist")
             if not pp_map_path.exists():
                 raise Exception(f"{pp_map_path} does not exist for {self.model}.")
-            
+
             Path(self.constants.pp_kext_folder).mkdir(parents=True, exist_ok=True)
             Path(self.constants.pp_contents_folder).mkdir(parents=True, exist_ok=True)
             shutil.copy(pp_map_path, self.constants.pp_contents_folder)
-            
+
             kf_obj = support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("CPUFriendDataProvider.kext")
             if kf_obj:
                 kf_obj["Enabled"] = True
@@ -221,7 +221,7 @@ class BuildMiscellaneous:
                 builder.enable_kext("IOFireWireFamily.kext", self.constants.fw_kext, self.constants.fw_family_path)
                 builder.enable_kext("IOFireWireSBP2.kext", self.constants.fw_kext, self.constants.fw_sbp2_path)
                 builder.enable_kext("IOFireWireSerialBusProtocolTransport.kext", self.constants.fw_kext, self.constants.fw_bus_path)
-                
+
                 # get_kext_by_bundle_path() raises IndexError when the entry is absent, it never
                 # returns None - so a falsy check here would be dead code. Catch the exception instead.
                 try:
@@ -246,7 +246,7 @@ class BuildMiscellaneous:
         if not self.constants.custom_model and self.computer.internal_keyboard_type and self.computer.trackpad_type:
             builder = support.BuildSupport(self.model, self.constants, self.config)
             builder.enable_kext("AppleUSBTopCase.kext", self.constants.topcase_version, self.constants.top_case_path)
-            
+
             for part in ["AppleUSBTCButtons.kext", "AppleUSBTCKeyboard.kext", "AppleUSBTCKeyEventDriver.kext"]:
                 obj = builder.get_kext_by_bundle_path(f"AppleUSBTopCase.kext/Contents/PlugIns/{part}")
                 if obj:
@@ -319,7 +319,7 @@ class BuildMiscellaneous:
             logging.info("Your Mac is not affected by Unsupported Mantissa speed kernel panics, continuing with USB mapping.")
             usb_map_path = Path(self.constants.plist_folder_path) / Path("AppleUSBMaps/Info.plist")
             usb_map_tahoe_path = Path(self.constants.plist_folder_path) / Path("AppleUSBMaps/Info-Tahoe.plist")
-            
+
             if (
                 usb_map_path.exists() and usb_map_tahoe_path.exists()
                 and (self.constants.allow_oc_everywhere is False or self.constants.allow_native_spoofs is True)
@@ -332,16 +332,16 @@ class BuildMiscellaneous:
                 Path(self.constants.map_kext_folder_tahoe).mkdir(parents=True, exist_ok=True)
                 Path(self.constants.map_contents_folder).mkdir(parents=True, exist_ok=True)
                 Path(self.constants.map_contents_folder_tahoe).mkdir(parents=True, exist_ok=True)
-                
+
                 shutil.copy(usb_map_path, self.constants.map_contents_folder)
                 shutil.copy(usb_map_tahoe_path, self.constants.map_contents_folder_tahoe / Path("Info.plist"))
-                
+
                 builder = support.BuildSupport(self.model, self.constants, self.config)
                 m1 = builder.get_kext_by_bundle_path("USB-Map.kext")
                 m2 = builder.get_kext_by_bundle_path("USB-Map-Tahoe.kext")
                 if m1: m1["Enabled"] = True
                 if m2: m2["Enabled"] = True
-                
+
                 if self.model in model_array.Missing_USB_Map_Ventura and self.constants.serial_settings not in ["Moderate", "Advanced"]:
                     if m1: m1["MinKernel"] = "22.0.0"
 
@@ -355,7 +355,7 @@ class BuildMiscellaneous:
                 for injector in ["AppleUSBOHCI.kext", "AppleUSBOHCIPCI.kext", "AppleUSBUHCI.kext", "AppleUSBUHCIPCI.kext"]:
                     obj = builder.get_kext_by_bundle_path(f"USB1.1-Injector.kext/Contents/PlugIns/{injector}")
                     if obj: obj["Enabled"] = True
-                
+
                 # The 'Legacy USB 1.1' patchset downgrades the USB stack on these models after root
                 # patching, so the pre-Tahoe port map has to keep applying on XNU 25.0.0+ as well -
                 # hence dropping its MaxKernel (24.99.99) here.
@@ -399,7 +399,7 @@ class BuildMiscellaneous:
         logging.info("- Adding OpenCanopy GUI")
         shutil.copy(self.constants.gui_path, self.constants.oc_folder)
         builder = support.BuildSupport(self.model, self.constants, self.config)
-        
+
         for efi_bin in ["OpenCanopy.efi", "OpenRuntime.efi", "OpenLinuxBoot.efi", "ResetNvramEntry.efi"]:
             obj = builder.get_efi_binary_by_path(efi_bin, "UEFI", "Drivers")
             if obj: obj["Enabled"] = True
@@ -428,22 +428,22 @@ class BuildMiscellaneous:
             is_sonoma_or_newer = self.constants.detected_os >= os_data.os_data.sonoma
             is_tahoe_or_newer = self.constants.detected_os >= os_data.os_data.tahoe
             active_profile = getattr(self.constants, "build_profile", "standard")
-            
+
             if is_tahoe_or_newer or active_profile in ["standard", "test_b", "test_c", "test_c_spoofed", "test_d"]:
                 logging.info("- T1 Mac on macOS Tahoe: Enabling Native Software Keystore Mode for Password Auth & Apple Account")
                 logging.info("  (Native Tahoe AppleKeyStore & AppleCredentialManager preserved; legacy Ventura kext downgrade bypassed)")
                 return
-                    
+
             logging.info("- Enabling Legacy T1 Security Chip support (Ventura fallback)")
             try:
                 builder = support.BuildSupport(self.model, self.constants, self.config)
                 identifiers = ["com.apple.driver.AppleSSE", "com.apple.driver.AppleKeyStore", "com.apple.driver.AppleCredentialManager"]
-                
+
                 self.config.setdefault("Kernel", {}).setdefault("Block", [])
                 for identifier in identifiers:
                     item = builder.get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", identifier)
                     if item: item["Enabled"] = True
-            
+
                 kexts_to_enable = [
                     ("corecrypto_T1.kext", self.constants.t1_corecrypto_version, self.constants.t1_corecrypto_path),
                     ("AppleSSE.kext", self.constants.t1_sse_version, self.constants.t1_sse_path),
@@ -467,11 +467,11 @@ class BuildMiscellaneous:
             find_bytes = patch_dict.get("Find", b"")
             replace_bytes = patch_dict.get("Replace", b"")
             base_sym = patch_dict.get("Base", "")
-            
+
             # When Base symbol is specified with empty Find, OpenCore writes Replace at Base entry
             if base_sym and len(find_bytes) == 0 and len(replace_bytes) > 0:
                 return True
-            
+
             # Längenvergleich
             if len(find_bytes) != len(replace_bytes):
                 logging.error(f"LÄNGENFEHLER in '{patch_dict.get('Comment')}': "
@@ -484,7 +484,7 @@ class BuildMiscellaneous:
             logging.error("Wir haben einen Problem, die Bytes-Länge zu vergleichen")
             logging.error("We have an issue to compare the bytes length.")
             sys.exit(3)
-    
+
     def _cpu_topology_handling(self) -> None:
         """Apply CPU topology / thread pooling panic fixes on affected models."""
         if self.model in ["MacBookAir8,1", "MacBookAir8,2", "MacBookPro11,1", "MacBookPro11,2", "MacBookPro11,3"]: # <- behebt eine Sicherheitslücke, die erlaubt Angreifern zu zwingen, CPU-Topologie-Patches zu überspringen, um DoS-Angriffe zu starten
@@ -504,7 +504,7 @@ class BuildMiscellaneous:
                 sys.exit(3)
         else:
             logging.info("Your Mac doesn't require CPU topology / thread pooling panic layout patches. Skipping.")
-    
+
     def _t2_handling(self) -> None:
         """T2 Security Chip Handler."""
         if not self._is_t2_mac():
@@ -527,7 +527,7 @@ class BuildMiscellaneous:
             logging.info(f"{self.model} is a T2 Mac.")
             builder = support.BuildSupport(self.model, self.constants, self.config)
             self.config.setdefault("Kernel", {}).setdefault("Patch", [])
-    
+
             # Prerequisite kext checks
             for kext, ver, path in [
                 ("WhateverGreen.kext", self.constants.whatevergreen_version, self.constants.whatevergreen_path),
@@ -538,7 +538,7 @@ class BuildMiscellaneous:
                 if not obj or obj.get("Enabled") is not True:
                     logging.info(f"- Enabling {kext}")
                     builder.enable_kext(kext, ver, path)
-    
+
             # Handle explicit performance/timeout panics on specific MacBook lines
             # Der Grund warum MinKernel auf 24.0.0 (Sequoias Version von Darwin) stattdessen von 25.x.x eingestellt ist, ist es die Installationsprogramm läuft auf Darwin 24 noch, auch die von 26 Tahoe.
             if self.model in ["MacBookAir8,1", "MacBookAir8,2", "MacBookAir9,1", "MacBookPro16,3"]:
@@ -560,7 +560,7 @@ class BuildMiscellaneous:
                 logging.exception("Stack Trace:")
                 logging.info("Please try again later.")
                 sys.exit(3)
-    
+
             try:
                 logging.info("- Adding T2-specific boot arguments for macOS 15/26")
                 # agdpmod=pikera is required for models with a discrete Polaris/Navi dGPU to prevent
@@ -575,14 +575,14 @@ class BuildMiscellaneous:
                 logging.exception("Stack Trace:")
                 logging.info("Please try again later.")
                 sys.exit(3)
-                
+
             # Structure guarding for OpenCore NVRAM delete layout
             self.config.setdefault("NVRAM", {}).setdefault("Delete", {})
             if APPLE_NVRAM_UUID not in self.config["NVRAM"]["Delete"]:
                 self.config["NVRAM"]["Delete"][APPLE_NVRAM_UUID] = []
             if "boot-args" not in self.config["NVRAM"]["Delete"][APPLE_NVRAM_UUID]:
                 self.config["NVRAM"]["Delete"][APPLE_NVRAM_UUID].append("boot-args")
-    
+
             try:
                 logging.info("- Set SIP to allow Root Volume patching on T2 Macs (03080000)")
                 self._set_nvram_value(APPLE_NVRAM_UUID, "csr-active-config", binascii.unhexlify("03080000"), overwrite=True)
@@ -591,11 +591,11 @@ class BuildMiscellaneous:
                 logging.exception("Stack Trace:")
                 logging.info("Please try again later.")
                 sys.exit(3)
-            
+
             # Allows booting macOS 26 Tahoe's installer via OpenCore on T2 Macs
             self.config.setdefault('Kernel', {}).setdefault('Patch', [])
             kernel_patches = self.config['Kernel']['Patch']
-    
+
 
             # --- Patch 2: Force FileVault on Broken Seal ---
             if not any(p.get("Comment") == "Force FileVault on Broken Seal" for p in kernel_patches):
@@ -618,7 +618,7 @@ class BuildMiscellaneous:
                 if self._validate_patch(new_patch):
                     logging.info("- Injecting Force FileVault on Broken Seal patch")
                     kernel_patches.append(new_patch)
-             
+
             # --- Patch 3: Disable Library Validation Enforcement ---
             if not any(p.get("Comment") == "Disable Library Validation Enforcement" for p in kernel_patches):
                 new_patch = {
@@ -640,7 +640,7 @@ class BuildMiscellaneous:
                 if self._validate_patch(new_patch):
                     logging.info("- Injecting Disable Library Validation Enforcement patch")
                     kernel_patches.append(new_patch)
-             
+
             # --- Patch 4: Disable _csr_check() in _vnode_check_signature ---
             if not any(p.get("Comment") == "Disable _csr_check() in _vnode_check_signature" for p in kernel_patches):
                 new_patch = {
@@ -662,7 +662,7 @@ class BuildMiscellaneous:
                 if self._validate_patch(new_patch):
                     logging.info("- Injecting Disable _csr_check() in _vnode_check_signature patch")
                     kernel_patches.append(new_patch)
-            
+
             # Bypass osinstallersetupd bridge device validation checks (Fixes Attestation Error -10000)
             try:
                 logging.info("- Injecting User-Space Attestation bypass flags (Fixes Error -10000)")

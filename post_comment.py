@@ -8,8 +8,8 @@ repo = "albert-mueller/OpenCore-Legacy-Patcher-T2"
 issue_number = "194"
 url = f"https://api.github.com/repos/{repo}/issues/{issue_number}/comments"
 
-comment_body = """@Richard-Hanus 
-I've analyzed the kernel panic screenshot. The crash occurs in `RestrictEvents` during its early initialization (`__start + 0xb`). 
+comment_body = """@Richard-Hanus
+I've analyzed the kernel panic screenshot. The crash occurs in `RestrictEvents` during its early initialization (`__start + 0xb`).
 
 Since I completely removed `amfi=0x80` in `.8`, the macOS MAC policy framework is no longer entirely disabled (which is a good thing for fixing the WindowServer / yellow screen issue). However, it seems that `RestrictEvents 1.1.6` is incompatible with Darwin 25's new MAC framework and crashes the kernel if it attempts to load without `amfi=0x80` present.
 

@@ -29,7 +29,7 @@ class BuildFirmware:
 
     Invoke from build.py
     """
-    
+
 
     def __init__(self, model: str, global_constants: constants.Constants, config: dict) -> None:
         self.model: str = model
@@ -386,7 +386,7 @@ class BuildFirmware:
             # This is to ensure that only the Mac's firmware presents the boot option, but not OpenCore
             # https://github.com/acidanthera/OpenCorePkg/blob/0.7.6/Library/OcAppleBootPolicyLib/OcAppleBootPolicyLib.c#L50-L73
             self.config["Misc"]["Boot"]["LauncherPath"] = "\\boot.efi"
-    
+
             # Setup diags.efi chainloading
             Path(self.constants.opencore_release_folder / Path("System/Library/CoreServices/.diagnostics/Drivers/HardwareDrivers")).mkdir(parents=True, exist_ok=True)
             if self.constants.boot_efi is True:
@@ -396,4 +396,4 @@ class BuildFirmware:
             shutil.move(path_oc_loader, self.constants.opencore_release_folder / Path("System/Library/CoreServices/.diagnostics/Drivers/HardwareDrivers/Product.efi"))
             shutil.copy(self.constants.diags_launcher_path, self.constants.opencore_release_folder)
             shutil.move(self.constants.opencore_release_folder / Path("diags.efi"), self.constants.opencore_release_folder / Path("boot.efi"))
-    
+

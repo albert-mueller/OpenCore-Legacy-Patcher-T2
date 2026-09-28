@@ -1,0 +1,290 @@
+name: PR Version Spoofing Check
+
+# Catches PRs that claim to be a newer version than the code they contain,
+# e.g. a title, branch, commit or changelog saying "4.0.0.190005" while
+# constants.py still says "4.0.0.190004", or a version number that jumps,
+# goes backwards or uses lookalike characters.
+#
+# pull_request_target runs THIS file from the base branch, so a PR cannot
+# change the check. No PR code is checked out or executed – everything is
+# read through the GitHub API.
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: version-spoof-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compare claimed and actual version
+        uses: actions/github-script@v8
+        with:
+          script: |
+            // ---- Settings ----------------------------------------------------
+            const VERSION_FILE  = 'opencore_legacy_patcher/constants.py';
+            const CHANGELOG     = 'CHANGELOG.md';
+            const TRUSTED       = ['OWNER', 'MEMBER', 'COLLABORATOR']; // may change the version
+            const FLAG_SCORE    = 3;
+            const MARKER        = '<!-- version-spoof-bot -->';
+            // ------------------------------------------------------------------
+
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+            const headOwner = pr.head.repo.owner.login, headRepo = pr.head.repo.name;
+            const findings = []; // { score, en, de, link? }
+
+            // ---- Read files through the API (no checkout) --------------------
+            async function readFile(o, r, p, ref) {
+              try {
+                const { data } = await github.rest.repos.getContent({ owner: o, repo: r, path: p, ref });
+                if (Array.isArray(data) || data.type !== 'file') return null;
+                if (data.content) return Buffer.from(data.content, 'base64').toString('utf8');
+                // Files over 1 MB come without content – fetch the blob instead
+                const blob = await github.rest.git.getBlob({ owner: o, repo: r, file_sha: data.sha });
+                return Buffer.from(blob.data.content, 'base64').toString('utf8');
+              } catch { return null; }
+            }
+
+            // ---- Version parsing ----------------------------------------------
+            // Format: 4.0.0.<build>[.<n>...][s]   ("s" = not finished yet)
+            // Build number schemes used in this repo:
+            //   6 digits: 190004 = alpha 19.4  (alpha * 10000 + sub)
+            //   5 digits: 18009  = alpha 18.9  (alpha * 1000  + sub, older scheme)
+            function parseVersion(raw) {
+              if (!raw) return null;
+              let s = String(raw).trim();
+              const unfinished = /s$/i.test(s);
+              if (unfinished) s = s.slice(0, -1);
+              if (!/^\d+(\.\d+){2,}$/.test(s)) return null;
+              const seg = s.split('.');
+              const key = seg.slice(0, 3).map(Number);
+              if (seg.length > 3) {
+                const b = seg[3], n = Number(b);
+                if (b.length >= 6)      key.push(Math.floor(n / 10000), n % 10000);
+                else if (b.length === 5) key.push(Math.floor(n / 1000), n % 1000);
+                else                     key.push(n, 0);
+                key.push(...seg.slice(4).map(Number));
+              }
+              return { raw: String(raw).trim(), key, unfinished };
+            }
+            function compare(a, b) {
+              const n = Math.max(a.key.length, b.key.length);
+              for (let i = 0; i < n; i++) {
+                const x = a.key[i] || 0, y = b.key[i] || 0;
+                if (x !== y) return x < y ? -1 : 1;
+              }
+              if (a.unfinished !== b.unfinished) return a.unfinished ? -1 : 1;
+              return 0;
+            }
+            // Human label "alpha 19.4.1" → version relative to the actual major.minor.patch
+            function fromAlphaLabel(m, base) {
+              const key = [...base.key.slice(0, 3), Number(m[1]), Number(m[2] || 0), ...(m[3] ? [Number(m[3])] : [])];
+              return { raw: m[0], key, unfinished: false };
+            }
+
+            function readPatcherVersion(text) {
+              if (!text) return null;
+              const lines = text.split('\n');
+              const i = lines.findIndex(l => /self\.patcher_version\s*:\s*str\s*=/.test(l));
+              if (i < 0) return null;
+              const m = lines[i].match(/=\s*["']([^"']*)["']/);
+              const labelLine = lines.find(l => /self\.patcher_version_label\s*=/.test(l)) || '';
+              const label = (labelLine.match(/=\s*["']([^"']*)["']/) || [])[1] || null; // only if a literal
+              return m ? { value: m[1], line: i + 1, label } : null;
+            }
+
+            // Find version claims in free text (title, branch, commits, changelog)
+            function findClaims(text, actual) {
+              const out = [];
+              if (!text) return out;
+              const norm = text.normalize('NFKC');
+              // 1) Build-style versions like 4.0.0.190005 (build part ≥ 5 digits, so IPs don't match)
+              for (const m of norm.matchAll(/(?<![\d.])(\d+\.\d+\.\d+\.\d{5,}(?:\.\d+)*s?)(?![\d.])/g)) {
+                const v = parseVersion(m[1]); if (v) out.push(v);
+              }
+              // 2) Explicit "v4.1.0" / "version 4.1.0" / "release 4.1.0"
+              for (const m of norm.matchAll(/\b(?:v|version|ver\.?|release)\s*(\d+\.\d+\.\d+(?:\.\d+)*s?)(?![\d.])/gi)) {
+                const v = parseVersion(m[1]); if (v) out.push(v);
+              }
+              // 3) Human labels "alpha 19.5"
+              if (actual) for (const m of norm.matchAll(/\balpha\s*(\d+)(?:\.(\d+))?(?:\.(\d+))?/gi)) out.push(fromAlphaLabel(m, actual));
+              return out;
+            }
+            // Lookalike characters (e.g. fullwidth "４" or Arabic-Indic digits) that
+            // turn into a version only after normalisation
+            const hasLookalikeVersion = t => ((t || '').match(/[\p{Nd}.\uFF0E\u3002]{5,}/gu) || [])
+              .some(tok => /[.\uFF0E\u3002]/.test(tok) && /[^\x00-\x7F]/.test(tok));
+
+            // ---- Gather data -------------------------------------------------
+            const [baseText, headText] = await Promise.all([
+              readFile(owner, repo, VERSION_FILE, pr.base.sha),
+              readFile(headOwner, headRepo, VERSION_FILE, pr.head.sha),
+            ]);
+            const baseInfo = readPatcherVersion(baseText);
+            const headInfo = readPatcherVersion(headText);
+            if (!headInfo) {
+              core.warning(`Could not find patcher_version in ${VERSION_FILE} – skipping.`);
+              return;
+            }
+            const baseV = baseInfo && parseVersion(baseInfo.value);
+            const headV = parseVersion(headInfo.value);
+            const versionLink = `${pr.head.repo.html_url}/blob/${pr.head.sha}/${VERSION_FILE}#L${headInfo.line}`;
+            const actualEn = `the code in [\`${VERSION_FILE}\`](${versionLink}) says \`${headInfo.value}\``;
+            const actualDe = `der Code in [\`${VERSION_FILE}\`](${versionLink}) sagt \`${headInfo.value}\``;
+
+            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: pr.number, per_page: 100 });
+            const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: pr.number, per_page: 100 });
+            const changed = new Set(files.map(f => f.filename));
+            const versionChanged = baseInfo && baseInfo.value !== headInfo.value;
+
+            // ---- 1) Malformed version or lookalike characters ----------------
+            if (!headV) {
+              findings.push({ score: 3,
+                en: `The version string \`${headInfo.value}\` in the PR does not have the normal format (digits and dots, optionally ending in "s"). Unusual characters can make a version look different to people than to the updater.`,
+                de: `Die Versionsangabe \`${headInfo.value}\` im PR hat nicht das normale Format (Ziffern und Punkte, optional mit „s“ am Ende). Ungewöhnliche Zeichen können eine Version für Menschen anders aussehen lassen als für den Updater.`,
+                link: versionLink });
+            }
+            for (const [where, whereDe, text] of [['PR title', 'PR-Titel', pr.title], ['branch name', 'Branch-Name', pr.head.ref]]) {
+              if (hasLookalikeVersion(text)) findings.push({ score: 3,
+                en: `The ${where} contains a version number written with lookalike characters (for example fullwidth or non-Latin digits). This makes a version look real to people while it is a different string.`,
+                de: `Der ${whereDe} enthält eine Versionsnummer aus ähnlich aussehenden Zeichen (z. B. breite oder nicht-lateinische Ziffern). So wirkt eine Version für Menschen echt, obwohl es eine andere Zeichenkette ist.` });
+            }
+
+            // ---- 2) Displayed label differs from the real version ------------
+            if (headInfo.label && headInfo.label !== headInfo.value) {
+              findings.push({ score: 3,
+                en: `\`patcher_version_label\` is set to \`${headInfo.label}\`, but the real \`patcher_version\` is \`${headInfo.value}\`. Users would see a different version than the code actually has.`,
+                de: `\`patcher_version_label\` ist auf \`${headInfo.label}\` gesetzt, aber die echte \`patcher_version\` ist \`${headInfo.value}\`. Nutzer würden eine andere Version sehen, als der Code tatsächlich hat.`,
+                link: versionLink });
+            }
+
+            if (headV) {
+              // ---- 3) Claimed version newer than the real one ----------------
+              const sources = [
+                ['the PR title', 'der PR-Titel', pr.title, 3],
+                ['the branch name', 'der Branch-Name', pr.head.ref, 3],
+                ...commits.map(c => [`commit \`${c.sha.slice(0, 7)}\``, `Commit \`${c.sha.slice(0, 7)}\``, c.commit.message.split('\n')[0], 3]),
+                ['the PR description', 'die PR-Beschreibung', pr.body || '', 1],
+              ];
+              if (changed.has(CHANGELOG)) {
+                const cl = await readFile(headOwner, headRepo, CHANGELOG, pr.head.sha);
+                const top = (cl || '').split('\n').find(l => /^##\s/.test(l)) || '';
+                sources.push(['the top entry of CHANGELOG.md', 'der oberste Eintrag in CHANGELOG.md', top, 3]);
+              }
+              for (const [src, srcDe, text, score] of sources) {
+                // One finding per source: the highest version it claims above the real one
+                const newer = findClaims(text, headV).filter(c => compare(c, headV) > 0);
+                if (!newer.length) continue;
+                const claim = newer.reduce((a, b) => (compare(a, b) >= 0 ? a : b));
+                findings.push({ score,
+                  en: `${src[0].toUpperCase() + src.slice(1)} claims version \`${claim.raw}\`, but ${actualEn}. The PR presents itself as newer than the code it contains.`,
+                  de: `${srcDe[0].toUpperCase() + srcDe.slice(1)} nennt Version \`${claim.raw}\`, aber ${actualDe}. Der PR gibt sich als neuer aus, als der enthaltene Code ist.` });
+              }
+
+              if (baseV) {
+                // ---- 4) Version goes backwards -------------------------------
+                if (compare(headV, baseV) < 0) {
+                  findings.push({ score: 3,
+                    en: `The version goes backwards from \`${baseInfo.value}\` (main) to \`${headInfo.value}\`. An older number can make the updater install an old or different build.`,
+                    de: `Die Version geht von \`${baseInfo.value}\` (main) zurück auf \`${headInfo.value}\`. Eine ältere Nummer kann den Updater dazu bringen, einen alten oder anderen Build zu installieren.`,
+                    link: versionLink });
+                }
+                // ---- 5) Unusually large jump ---------------------------------
+                if (compare(headV, baseV) > 0) {
+                  const d = i => (headV.key[i] || 0) - (baseV.key[i] || 0);
+                  const sameUpTo = i => headV.key.slice(0, i).every((x, j) => x === baseV.key[j]);
+                  const majorJump = d(0) > 1;
+                  const otherJump = (sameUpTo(1) && d(1) > 1) || (sameUpTo(2) && d(2) > 1) || (sameUpTo(3) && d(3) > 1);
+                  if (majorJump || otherJump) findings.push({ score: majorJump ? 3 : 1,
+                    en: `The version jumps from \`${baseInfo.value}\` to \`${headInfo.value}\`, skipping versions. A too-high number makes every older install think this build is a newer update.`,
+                    de: `Die Version springt von \`${baseInfo.value}\` auf \`${headInfo.value}\` und überspringt Versionen. Eine zu hohe Nummer lässt jede ältere Installation diesen Build für ein neueres Update halten.`,
+                    link: versionLink });
+                }
+              }
+            }
+
+            if (versionChanged) {
+              // ---- 6) Version changed by someone who normally doesn't release
+              if (!TRUSTED.includes(pr.author_association)) {
+                findings.push({ score: 2,
+                  en: `The version number is changed from \`${baseInfo.value}\` to \`${headInfo.value}\` by @${pr.user.login}, who is not a maintainer of this repository. Normally only maintainers set the release version.`,
+                  de: `Die Versionsnummer wird von @${pr.user.login}, der kein Maintainer dieses Repositorys ist, von \`${baseInfo.value}\` auf \`${headInfo.value}\` geändert. Normalerweise setzen nur Maintainer die Release-Version.`,
+                  link: versionLink });
+              }
+              // ---- 7) New version number, but no new code ------------------
+              const vf = files.find(f => f.filename === VERSION_FILE);
+              const otherAdded = (vf && vf.patch ? vf.patch.split('\n') : [])
+                .filter(l => l.startsWith('+') && !l.startsWith('+++') && !/patcher_version/.test(l) && l.trim() !== '+');
+              const onlyVersionFiles = [...changed].every(f => f === VERSION_FILE || f === CHANGELOG);
+              if (onlyVersionFiles && otherAdded.length === 0) {
+                findings.push({ score: 1,
+                  en: `The PR changes the version to \`${headInfo.value}\` but contains no other code changes, so the "new" version has the same code as \`${baseInfo.value}\`.`,
+                  de: `Der PR ändert die Version auf \`${headInfo.value}\`, enthält aber sonst keine Code-Änderungen. Die „neue“ Version hat also denselben Code wie \`${baseInfo.value}\`.` });
+              }
+              // ---- 8) New version number on top of outdated code -----------
+              try {
+                const cmp = await github.rest.repos.compareCommitsWithBasehead({
+                  owner, repo, basehead: `${pr.base.sha}...${pr.head.sha}`,
+                });
+                if (cmp.data.behind_by > 0) findings.push({ score: 1,
+                  en: `The branch is ${cmp.data.behind_by} commit(s) behind main, so it is based on older code while it sets a newer version number.`,
+                  de: `Der Branch liegt ${cmp.data.behind_by} Commit(s) hinter main. Er basiert also auf älterem Code, setzt aber eine neuere Versionsnummer.` });
+              } catch (e) { core.info(`Compare failed: ${e.message}`); }
+            }
+
+            // ---- Decide and comment ------------------------------------------
+            const total = findings.reduce((s, f) => s + f.score, 0);
+            const flagged = total >= FLAG_SCORE;
+            findings.sort((a, b) => b.score - a.score);
+
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: pr.number, per_page: 100 });
+            const existing = comments.find(c => c.body && c.body.includes(MARKER));
+            const list = de => findings.map(f => `- ${de ? f.de : f.en}`).join('\n');
+            const short = pr.head.sha.slice(0, 7);
+
+            if (flagged) {
+              const body = [
+                MARKER,
+                '### ⚠️ Possible version spoofing / Mögliche Versionsfälschung',
+                '',
+                `**English:** @albert-mueller, @gandolf243 This PR may be pretending to be a newer version than it actually contains. The check of commit \`${short}\` found:`,
+                '',
+                list(false),
+                '',
+                `Each point compares a version the PR claims with the version that is really in the code, so it can be checked directly. The updater and the installer download URL both use \`patcher_version\`, which is why a wrong number matters. A maintainer will review this before merging.`,
+                '',
+                '---',
+                '',
+                `**Deutsch:** Dieser PR gibt sich möglicherweise als neuere Version aus, als er tatsächlich enthält. Die Prüfung von Commit \`${short}\` hat Folgendes gefunden:`,
+                '',
+                list(true),
+                '',
+                `Jeder Punkt vergleicht eine Version, die der PR angibt, mit der Version, die wirklich im Code steht, damit man es direkt nachprüfen kann. Der Updater und die Download-URL des Installers nutzen beide \`patcher_version\`, deshalb ist eine falsche Nummer relevant. Ein Maintainer prüft das vor dem Mergen.`,
+              ].join('\n');
+              if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+              else await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
+              for (const f of findings) core.warning(f.en);
+              core.setFailed(`Possible version spoofing (score ${total}). See the PR comment.`);
+            } else {
+              for (const f of findings) core.notice(`Below threshold: ${f.en}`);
+              if (existing) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: [
+                  MARKER,
+                  '### ✅ Version check passed / Versionsprüfung bestanden',
+                  '',
+                  `**English:** In commit \`${short}\` the claimed version matches the code (\`${headInfo.value}\`).`,
+                  '',
+                  `**Deutsch:** In Commit \`${short}\` stimmt die angegebene Version mit dem Code überein (\`${headInfo.value}\`).`,
+                ].join('\n') });
+              }
+              core.info(`Version OK: ${headInfo.value}`);
+            }

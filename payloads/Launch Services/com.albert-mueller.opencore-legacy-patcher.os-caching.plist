@@ -7,13 +7,15 @@
 		<string>io.github.albert-mueller.opencore-legacy-patcher-t2</string>
 	</array>
 	<key>Label</key>
-	<string>com.dortania.opencore-legacy-patcher.auto-patch</string>
+	<string>com.albert-mueller.opencore-legacy-patcher.os-caching</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/Library/Application Support/Dortania/OpenCore-Patcher-T2.app/Contents/MacOS/OpenCore-Patcher</string>
-		<string>--auto_patch</string>
+		<string>/Library/Application Support/albert-mueller/OpenCore-Patcher-T2/OpenCore-Patcher-T2.app/Contents/MacOS/OpenCore-Patcher-T2</string>
+		<string>--cache_os</string>
 	</array>
-	<key>RunAtLoad</key>
-	<true/>
+	<key>WatchPaths</key>
+	<array>
+		<string>/System/Volumes/Update/Preflight.plist</string>
+	</array>
 </dict>
 </plist>

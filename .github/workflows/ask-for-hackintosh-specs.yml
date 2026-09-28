@@ -1,0 +1,117 @@
+# .github/workflows/ask-for-hackintosh-specs.yml
+#
+# When an issue is about root patching on a Hackintosh but doesn't list the
+# hardware, ask the reporter for CPU, GPU, motherboard/laptop model and SMBIOS.
+# Security reports are skipped. The bot comment and label are removed
+# automatically once the specs are added (by editing the issue or replying),
+# or if the issue turns out not to be a Hackintosh root-patching report.
+
+name: Ask for Hackintosh specs
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  issues: write
+
+concurrency:
+  group: hackintosh-specs-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    if: >-
+      github.event.issue.pull_request == null &&
+      github.event.issue.state == 'open' &&
+      github.event.issue.user.type != 'Bot' &&
+      (github.event_name != 'issue_comment' ||
+       github.event.comment.user.login == github.event.issue.user.login)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const MARKER = '<!-- hackintosh-specs-bot -->';
+            const LABEL = 'needs-hardware-specs';
+            const { owner, repo } = context.repo;
+            const issue = context.payload.issue;
+            const issue_number = issue.number;
+            const title = issue.title || '';
+            const body = issue.body || '';
+            const labels = (issue.labels || []).map(l => (typeof l === 'string' ? l : l.name).toLowerCase());
+
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 });
+            const existing = comments.find(c => c.user.type === 'Bot' && (c.body || '').includes(MARKER));
+            const authorText = comments
+              .filter(c => c.user.login === issue.user.login)
+              .map(c => c.body || '')
+              .join('\n');
+            const issueText = `${title}\n${body}`;
+            const allText = `${issueText}\n${authorText}`;
+
+            async function cleanUp(reason) {
+              if (existing) await github.rest.issues.deleteComment({ owner, repo, comment_id: existing.id });
+              if (labels.includes(LABEL)) {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name: LABEL }).catch(() => {});
+              }
+              core.info(reason);
+            }
+
+            // ---- 1. Skip security reports and non-bug issues ----------------
+            const SKIP_LABELS = ['security', 'vulnerability', 'enhancement', 'feature request', 'question', 'documentation'];
+            if (labels.some(l => SKIP_LABELS.includes(l))) return cleanUp('Skipped: skip label');
+            const SECURITY_RE = /\b(security|vulnerab\w*|cve-\d{4}-\d+|ghsa-[\w-]+|exploit\w*|rce|remote code execution|code injection|command injection|privilege escalation)\b/i;
+            if (SECURITY_RE.test(issueText)) return cleanUp('Skipped: security report');
+
+            // ---- 2. Is this a Hackintosh root-patching report? --------------
+            const HACKINTOSH_RE = /\b(hackintosh\w*|hackintosch|hackbook|non[- ]apple (pc|hardware|machine)|not an? (real|genuine) mac|custom[- ]built pc|amd hackintosh)\b/i;
+            const ROOT_PATCH_RE = /\b(root[\s-]*patch\w*|post[\s-]*install(ation)? (root )?patch\w*|sys_patch|patchsets?|revert (root )?patches|unpatch\w*)\b/i;
+            if (!HACKINTOSH_RE.test(issueText) || !ROOT_PATCH_RE.test(issueText)) {
+              return cleanUp('Not a Hackintosh root-patching report');
+            }
+
+            // ---- 3. Which specs are there? ----------------------------------
+            const CPU_RE = /\b(i[3579][- ]?\d{3,5}[a-z]{0,2}\d?|core\s*(2\s*(duo|quad)|i[3579]|ultra\s*[3579])|ultra\s*[579]\s*\d{3}[a-z]?|xeon|pentium|celeron|ryzen\s*(threadripper\s*)?\d|threadripper|athlon|fx[- ]\d{4}|[a-z]?\d{4,5}(k|kf|ks|f|t|h|hk|hq|u|x|x3d|g|ge)\b)/i;
+            const GPU_RE = /\b(radeon|rx\s*\d{3,4}\s*(xt|xtx)?|vega\s*\d*|navi|polaris|firepro|geforce|gtx\s*\d{3,4}|rtx\s*\d{4}|gt\s*\d{3,4}|quadro|nvidia|u?hd\s*(graphics\s*)?\d{3,4}|uhd graphics|iris( xe| plus| pro)?|intel (u?hd|iris))\b/i;
+            const BOARD_RE = /\b(motherboard|mainboard|[zbhxq]\d{3}[a-z]?|a[35]\d{2}[a-z]?|asus|rog|tuf|prime|gigabyte|aorus|msi|asrock|biostar|supermicro|dell|optiplex|latitude|precision|xps|inspiron|hp|elitebook|elitedesk|prodesk|probook|lenovo|thinkpad|thinkcentre|ideapad|legion|acer|aspire|surface|intel nuc|nuc\d+)\b/i;
+            const SMBIOS_RE = /\b(iMacPro|iMac|MacPro|Macmini|MacBookPro|MacBookAir|MacBook)\d{1,2},\d\b/;
+
+            const missing = [];
+            if (!CPU_RE.test(allText)) {
+              missing.push('**CPU** – exact model (e.g. `i7-8700K`, `Ryzen 7 5800X`). Run `sysctl -n machdep.cpu.brand_string` in Terminal.');
+            }
+            if (!GPU_RE.test(allText)) {
+              missing.push('**GPU(s)** – every graphics card and the iGPU if enabled (e.g. `RX 580`, `UHD 630`). Run `system_profiler SPDisplaysDataType` in Terminal.');
+            }
+            if (!BOARD_RE.test(allText)) {
+              missing.push('**Motherboard or laptop model** (e.g. `Gigabyte Z390 Aorus Pro`, `Dell Latitude 7490`).');
+            }
+            if (!SMBIOS_RE.test(allText)) {
+              missing.push('**SMBIOS** you\'re using (e.g. `iMac19,1`). Run `sysctl -n hw.model` in Terminal.');
+            }
+
+            if (missing.length === 0) return cleanUp('All specs present');
+
+            // ---- 4. Ask (or update the existing request) --------------------
+            const text = [
+              MARKER,
+              `Hi @${issue.user.login}, since this is about root patching on a Hackintosh, we need to know the hardware — which patches get applied depends on it. Please edit your issue or reply below with:`,
+              '',
+              ...missing.map(m => `- ${m}`),
+              '',
+              'This comment will go away once the specs are added.',
+            ].join('\n');
+
+            if (existing) {
+              if (existing.body !== text) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: text });
+              }
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body: text });
+            }
+            if (!labels.includes(LABEL)) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: [LABEL] });
+            }

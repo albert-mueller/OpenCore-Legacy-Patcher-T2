@@ -51,7 +51,7 @@ echo
 # 4. Action
 echo "=== Revert Action ==="
 echo "To revert to the last sealed snapshot, the following command must be run with root privileges:"
-echo 
+echo
 echo "  sudo bless --mount / --bootefi --last-sealed-snapshot"
 echo
 read -p "TYPE YES TO CONTINUE: " USER_INPUT

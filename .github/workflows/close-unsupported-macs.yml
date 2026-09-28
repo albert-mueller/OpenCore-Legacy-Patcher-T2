@@ -1,0 +1,110 @@
+name: Close issues from unsupported (too old) Macs
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-model:
+    # Never auto-close issues opened by the repo owner
+    if: github.event.issue.user.login != github.repository_owner
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Detect Mac model in issue
+        id: detect
+        env:
+          # Passed via env (never interpolated into the script) to avoid injection
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python3 - <<'PY'
+          import ast, os, pathlib, re
+
+          FAMILIES = ["MacBookAir", "MacBookPro", "MacBook", "Macmini",
+                      "iMacPro", "iMac", "MacPro", "Xserve"]
+          CANON = {f.lower(): f for f in FAMILIES}
+          PATTERN = re.compile(
+              r"\b(" + "|".join(FAMILIES) + r")\s?(\d{1,2})\s?,\s?(\d{1,2})\b", re.I)
+
+          def parse(ident):
+              m = PATTERN.fullmatch(ident)
+              return (CANON[m.group(1).lower()], int(m.group(2)), int(m.group(3))) if m else None
+
+          # Read SupportedSMBIOS straight from the repo so this stays in sync
+          supported = None
+          for path in sorted(pathlib.Path(".").rglob("model_array.py")):
+              for node in ast.parse(path.read_text()).body:
+                  targets = node.targets if isinstance(node, ast.Assign) else \
+                            [node.target] if isinstance(node, ast.AnnAssign) else []
+                  if any(isinstance(t, ast.Name) and t.id == "SupportedSMBIOS" for t in targets):
+                      supported = ast.literal_eval(node.value)
+                      break
+              if supported:
+                  break
+
+          out = open(os.environ["GITHUB_OUTPUT"], "a")
+          if not supported:
+              print("SupportedSMBIOS not found, doing nothing")
+              out.write("close=false\n")
+              raise SystemExit(0)
+
+          minimum = {}
+          for s in supported:
+              p = parse(s)
+              if p and (p[0] not in minimum or p[1:] < minimum[p[0]]):
+                  minimum[p[0]] = p[1:]
+          supported_set = {parse(s) for s in supported if parse(s)}
+
+          text = os.environ.get("ISSUE_TITLE", "") + "\n" + os.environ.get("ISSUE_BODY", "")
+          found = []
+          for m in PATTERN.finditer(text):
+              p = (CANON[m.group(1).lower()], int(m.group(2)), int(m.group(3)))
+              if p not in found:
+                  found.append(p)
+
+          too_old = [p for p in found if p[0] in minimum and p[1:] < minimum[p[0]]]
+          mentions_supported = any(p in supported_set for p in found)
+          print("Detected:", found, "| too old:", too_old)
+
+          # Only close when an old model is mentioned and no supported one is,
+          # so e.g. "moved from my MacBook4,1 to a MacBookPro11,1" stays open
+          if too_old and not mentions_supported:
+              fam, maj, mnr = too_old[0]
+              lo = minimum[fam]
+              out.write("close=true\n")
+              out.write(f"model={fam}{maj},{mnr}\n")
+              out.write(f"minimum={fam}{lo[0]},{lo[1]}\n")
+          else:
+              out.write("close=false\n")
+          PY
+
+      - name: Comment and close
+        if: steps.detect.outputs.close == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+          MODEL: ${{ steps.detect.outputs.model }}
+          MINIMUM: ${{ steps.detect.outputs.minimum }}
+        run: |
+          cat > comment.md <<MSG
+          Hi, thanks for the report!
+
+          It looks like you're using a **${MODEL}**. This model is older than anything OpenCore Legacy Patcher T2 supports (the oldest supported ${MODEL%%[0-9]*} is the **${MINIMUM}**), so we unfortunately can't help with it and are closing this issue.
+
+          Hardware this old lacks CPU and GPU features that modern macOS requires, and it can't be patched around reliably. If you want to run current macOS with full security updates, we'd recommend getting an **Apple silicon (M-series) Mac**. Even an entry-level or refurbished M1 MacBook Air or Mac mini runs macOS 26 natively and is dramatically faster than this machine.
+
+          If the model was detected wrongly (for example, you only mentioned an old Mac in passing), just reply here and a maintainer will reopen the issue.
+          MSG
+          gh label create unsupported-hardware --repo "$GITHUB_REPOSITORY" \
+            --color B60205 --description "Mac is too old to be supported" 2>/dev/null || true
+          gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file comment.md
+          gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --add-label unsupported-hardware
+          gh issue close "$NUMBER" --repo "$GITHUB_REPOSITORY" --reason "not planned"

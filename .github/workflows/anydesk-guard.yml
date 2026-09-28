@@ -1,0 +1,80 @@
+name: AnyDesk credential guard
+
+on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  guard:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const isComment = context.eventName === 'issue_comment';
+            const issue = context.payload.issue;
+            const target = isComment ? context.payload.comment : issue;
+            const text = target.body || '';
+            const author = target.user.login;
+            const { owner, repo } = context.repo;
+
+            // Only inspect posts that mention AnyDesk (keeps false positives low)
+            if (!/any\s*desk|@ad\b/i.test(text)) return;
+
+            // AnyDesk IDs are 9-10 digits, often written as "123 456 789"; aliases look like "name@ad"
+            const idRe = /\b\d{3}[ .\-]?\d{3}[ .\-]?\d{3,4}\b/g;
+            const aliasRe = /\b[\w.\-]+@ad\b/gi;
+            // "password: xyz", "PW = xyz", "Passwort ist xyz", ...
+            const pwRe = /(\b(?:password|passwort|kennwort|passcode|pwd|pw|pass)\b\s*(?:is|ist)?\s*[:=\-–]?\s*)(\S+)/gi;
+
+            let hit = false;
+            const redacted = text
+              .replace(idRe, () => { hit = true; return '[REDACTED ANYDESK ID]'; })
+              .replace(aliasRe, () => { hit = true; return '[REDACTED ANYDESK ALIAS]'; })
+              .replace(pwRe, (m, label) => { hit = true; return label + '[REDACTED]'; });
+
+            if (!hit) return;
+            // Never log the matched values themselves.
+            core.warning(`AnyDesk details redacted in #${issue.number} (${isComment ? 'comment' : 'issue body'}) by @${author}`);
+
+            const note = `> ⚠️ Automated notice: content that looked like AnyDesk access details was removed.`;
+
+            if (isComment) {
+              // Delete instead of edit: an edited comment keeps a public edit history with the original text.
+              await github.rest.issues.deleteComment({ owner, repo, comment_id: target.id });
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: `**@${author} wrote** (redacted copy):\n\n${redacted}\n\n${note}`,
+              });
+            } else {
+              await github.rest.issues.update({
+                owner, repo, issue_number: issue.number,
+                body: `${redacted}\n\n${note}`,
+              });
+              core.warning(`Maintainers: delete the original revision of #${issue.number} via the "edited" menu, the API can't remove edit history.`);
+            }
+
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: issue.number,
+              body: [
+                `@${author} please don't post AnyDesk IDs or passwords in public issues. Anyone can read them, and the original text was already sent to everyone watching this repo by email.`,
+                '',
+                '**Treat these credentials as compromised and do this now:**',
+                '1. In AnyDesk → Settings → Security, change or disable the unattended-access password.',
+                '2. Check the AnyDesk session log for connections you don\'t recognize.',
+                '3. If you need remote help, arrange it privately with a maintainer instead.',
+              ].join('\n'),
+            });
+
+            try {
+              await github.rest.issues.addLabels({
+                owner, repo, issue_number: issue.number,
+                labels: ['security: credentials-redacted'],
+              });
+            } catch (e) { core.info('Could not add label: ' + e.message); }

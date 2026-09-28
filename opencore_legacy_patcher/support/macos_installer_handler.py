@@ -3,6 +3,7 @@ macos_installer_handler.py: Handler for local macOS installers
 """
 
 import logging
+import sys
 import plistlib
 import tempfile
 import subprocess

@@ -157,13 +157,18 @@ class SettingsFrame(wx.Frame):
 
                     setting_info["function"](panel)
 
+                    # Height has to come from the widgets the populate function drew
+                    # itself, so skip the ones that were already on the page. Both the
+                    # measurement and the comparison belong inside the loop: kept out
+                    # of it, only the last child of the page was ever measured (and an
+                    # empty page raised NameError on "child").
                     for child in panel.GetChildren():
                         if child in existing_children:
                             continue
 
-                    bottom = child.GetPosition()[1] + child.GetSize()[1]
-                    if bottom > lowest_height_reached:
-                        lowest_height_reached = bottom
+                        bottom = child.GetPosition()[1] + child.GetSize()[1]
+                        if bottom > lowest_height_reached:
+                            lowest_height_reached = bottom
 
                     continue
                 if setting_info["type"] == "title":
@@ -285,14 +290,27 @@ class SettingsFrame(wx.Frame):
 
             # wx.ScrolledWindow only scrolls once its virtual size exceeds the client
             # size; the pages have no sizer, so it has to be set explicitly.
-            panel.SetVirtualSize((page_width, lowest_height_reached + 50))
+            if isinstance(panel, wx.ScrolledWindow):
+                panel.SetVirtualSize((page_width, lowest_height_reached + 50))
 
-        # Only the visible page is resized on layout, so recalculate on tab change
-        if tab == "Statistics":
-            notebook.Bind(
-                wx.EVT_NOTEBOOK_PAGE_CHANGED,
-                lambda event: (notebook.GetPage(event.GetSelection()).AdjustScrollbars(), event.Skip())
-            )
+        # Only the visible page is resized on layout, so recalculate on tab change.
+        # Not every page scrolls (Statistics is a plain wx.Panel), so the handler has
+        # to check the page type rather than assume every page is a wx.ScrolledWindow.
+        notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self._on_page_changed)
+
+
+    def _on_page_changed(self, event: wx.BookCtrlEvent) -> None:
+        """
+        Recalculates the scrollbars of the page that just became visible
+
+        wx.Notebook only resizes the page that is currently shown, so a page that was
+        populated while hidden still carries a stale client size until it is selected
+        once. Pages that are not a wx.ScrolledWindow have no scrollbars to adjust.
+        """
+        page = event.GetEventObject().GetPage(event.GetSelection())
+        if isinstance(page, wx.ScrolledWindow):
+            page.AdjustScrollbars()
+        event.Skip()
 
 
     def _settings(self) -> dict:
@@ -545,24 +563,24 @@ Hardware Information:
             if isinstance(child, wx.Choice):
                 oc_build_box = child
                 break
-    
+
         oc_build_box.Bind(wx.EVT_CHOICE, self.oc_build_selection)
         if self.constants.build_profile == "standard":
-            oc_build_box.SetStringSelection("🟢 Standard / Safe Build")
+            oc_build_box.SetStringSelection("Standard / Safe Build")
         elif (self.constants.build_profile is None) or (self.constants.build_profile == ""):
             oc_build_box.SetStringSelection("💬 Ask Each Time")
         elif self.constants.build_profile == "test_b":
-            oc_build_box.SetStringSelection("🧪 [LEVEL-B] Experimental GPU")
+            oc_build_box.SetStringSelection("[LEVEL-B] Experimental GPU")
         elif self.constants.build_profile == "test_c":
-             oc_build_box.SetStringSelection("🧪 [LEVEL-C] Experimental Tahoe (Native SMBIOS)")
+             oc_build_box.SetStringSelection("[LEVEL-C] Experimental Tahoe (Native SMBIOS)")
         elif self.constants.build_profile == "test_c_spoofed":
-            oc_build_box.SetStringsSelection("🧪 [LEVEL-C] Experimental Spoof T2 (MacBookPro16,1)")
+            oc_build_box.SetStringsSelection("[LEVEL-C] Experimental Spoof T2 (MacBookPro16,1)")
         elif self.constants.build_profile == "test_d":
-            oc_build_box.SetStringSelection("🧪 [LEVEL-D] All-In-One Tahoe (Wi-Fi + Audio + GPU + T1)")
-    
+            oc_build_box.SetStringSelection("[LEVEL-D] All-In-One Tahoe (Wi-Fi + Audio + GPU + T1)")
+
     def oc_build_selection(self, event: wx.Event) -> None:
         value = event.GetEventObject().GetStringSelection()
-        if value == "🟢 Standard / Safe Build":
+        if value == "Standard / Safe Build":
             logging.info("Updating OC build: Standard")
             self.constants.build_profile = "standard"
             global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "standard")
@@ -572,29 +590,31 @@ Hardware Information:
             self.constants.build_profile = ""
             global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "")
             return
-        elif value == "🧪 [LEVEL-B] Experimental GPU":
+        elif value == "[LEVEL-B] Experimental GPU":
             logging.info("Updating OC build: Level-B")
             self.constants.build_profile = "test_b"
             global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "test_b")
             return
-        elif value == "🧪 [LEVEL-C] Experimental Tahoe (Native SMBIOS)":
+        elif value == "[LEVEL-C] Experimental Tahoe (Native SMBIOS)":
             logging.info("Updating OC build: Level-C")
             self.constants.build_profile = "test_c"
             global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "test_c")
             return
-        elif value == "🧪 [LEVEL-C] Experimental Spoof T2 (MacBookPro16,1)":
+        elif value == "[LEVEL-C] Experimental Spoof T2 (MacBookPro16,1)":
             logging.info("Updating OC build: Level-C (Spoofed)")
             self.constants.build_profile = "test_c_spoofed"
             global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "test_c_spoofed")
             return
-        elif value == "🧪 [LEVEL-D] All-In-One Tahoe (Wi-Fi + Audio + GPU + T1)":
+        elif value == "[LEVEL-D] All-In-One Tahoe (Wi-Fi + Audio + GPU + T1)":
             logging.info("Updating OC build: Level-D")
             self.constants.build_profile = "test_d"
             global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "test_d")
             return
-        
+        else: # behebt eine Sicherheitslücke, die erlaubt Angreifern, das Wert Value auf beliebiges Wert zu setzen, um beliebiges Code auszuführen
+            logging.error("No value is selected. Please specify a proper value. This message could appear if value is set to an arbitary value")
 
-    
+
+
     def on_checkbox(self, event: wx.Event, warning_pop: str = "", override_function: bool = False) -> None:
         """
         """
@@ -971,7 +991,7 @@ Hardware Information:
             # inherit whatever the current one happens to be right now.
             current_dir = os.getcwd()
             logging.info(f"Restarting app: {command} (cwd={current_dir})")
-            
+
             # Prevent OSError: [Errno 5] Input/output error when running from source
             # by detaching stdin/stdout/stderr, as the parent terminal might close
             kwargs = {}
@@ -1027,7 +1047,7 @@ Hardware Information:
         )
         response = pop_up.ShowModal()
         pop_up.Destroy()
-        
+
         if response != wx.ID_YES:
             logging.info("Skipping rebuild KDK")
             return

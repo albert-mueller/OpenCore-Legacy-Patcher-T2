@@ -1,5 +1,5 @@
 CC=clang
-OUTPUT=com.albert-mueller.opencore-legacy-patcher.privileged-helper
+OUTPUT=com.albert-mueller.opencore-patcher-t2.privileged-helper
 
 all: clean release
 

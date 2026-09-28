@@ -453,7 +453,7 @@ class OCSettingsFrame(wx.Frame):
                         "Disable this to not show the",
                         "boot picker every time you",
                         "boot into OpenCore"
-                        
+
                     ],
                 },
                 "Boot Picker Timeout": {
@@ -515,7 +515,7 @@ class OCSettingsFrame(wx.Frame):
                     ],
                 },
             },
-                
+
             "Extras": {
                 "Extra features - recommended for troubleshooting": {
                     "type": "title",
@@ -852,7 +852,7 @@ class OCSettingsFrame(wx.Frame):
         }
 
         return settings
-    
+
 
     # MARK: helper functions
     def _populate_graphics_override(self, panel: wx.Panel) -> None:
@@ -909,7 +909,7 @@ class OCSettingsFrame(wx.Frame):
         self.constants.fu_arguments = None
         global_settings.GlobalEnviromentSettings().write_property("GUI:fu_status", False)
         global_settings.GlobalEnviromentSettings().write_property("GUI:fu_arguments", "PYTHON_NONE_VALUE")
-    
+
 
     def gpu_selection_click(self, event: wx.Event) -> None:
         gpu_choice = event.GetEventObject().GetStringSelection()
@@ -1050,7 +1050,7 @@ class OCSettingsFrame(wx.Frame):
         self.frame_modal.Destroy()
         self.parent.Enable()
 
-        
+
     def on_save(self, event):
         # Must be initialised before the branch below. If a build profile is already set
         # (e.g. an earlier build in the same session), the prompt is skipped entirely and
@@ -1072,7 +1072,7 @@ class OCSettingsFrame(wx.Frame):
                 "Build OpenCore",
                 choices
             )
-                    
+
             if dialog.ShowModal() == wx.ID_OK:
                 selection = dialog.GetSelection()
                 if selection == 0:
@@ -1274,7 +1274,7 @@ class OCSettingsFrame(wx.Frame):
             "Build OpenCore",
             choices
         )
-        
+
         if dialog.ShowModal() == wx.ID_OK:
             selection = dialog.GetSelection()
             if selection == 0:

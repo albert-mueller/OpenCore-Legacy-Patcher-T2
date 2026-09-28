@@ -20,7 +20,7 @@ class DownloadFrame(wx.Frame):
     """
     Update provided frame with download stats
     """
-    def __init__(self, parent: wx.Frame, title: str, global_constants: constants.Constants, download_obj: network_handler.DownloadObject, item_name: str, download_icon = None) -> None:
+    def __init__(self, parent: wx.Frame, title: str, global_constants: constants.Constants, download_obj: network_handler.DownloadObject, item_name: str, download_icon = None, cancel_message: str = None) -> None:
         logging.info("Initializing Download Frame")
         self.constants: constants.Constants = global_constants
         self.title: str = title
@@ -33,6 +33,11 @@ class DownloadFrame(wx.Frame):
             self.download_icon: str = "/System/Library/CoreServices/Installer.app/Contents/Resources/package.icns"
 
         self.user_cancelled: bool = False
+        # Callers can supply their own confirmation text for the Cancel button
+        # (the updater uses this to warn about staying on an outdated build).
+        # Everyone else keeps the generic prompt.
+        self.cancel_message: str = cancel_message or "Are you sure you want to cancel the download?"
+        self.cancel_icon: int = wx.ICON_WARNING if cancel_message else wx.ICON_QUESTION
 
         self.frame_modal = wx.Dialog(parent, title=title, size=(400, 200))
 
@@ -128,7 +133,7 @@ class DownloadFrame(wx.Frame):
         """
         Terminate download
         """
-        if wx.MessageBox("Are you sure you want to cancel the download?", "Cancel Download", wx.YES_NO | wx.ICON_QUESTION | wx.NO_DEFAULT) == wx.YES:
+        if wx.MessageBox(self.cancel_message, "Cancel Download", wx.YES_NO | self.cancel_icon | wx.NO_DEFAULT) == wx.YES:
             logging.info("User cancelled download")
             self.user_cancelled = True
             self.download_obj.stop()

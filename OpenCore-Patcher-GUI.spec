@@ -51,7 +51,7 @@ exe = EXE(pyz,
           a.scripts,
           [],
           exclude_binaries=True,
-          name='OpenCore-Patcher',
+          name='OpenCore-Patcher-T2',
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
@@ -69,12 +69,12 @@ coll = COLLECT(exe,
                strip=False,
                upx=True,
                upx_exclude=[],
-               name='OpenCore-Patcher')
+               name='OpenCore-Patcher-T2')
 
 app = BUNDLE(coll,
              name='OpenCore-Patcher-T2.app',
              icon=str(SPEC_DIR / "payloads/Resources/AppIcons/OC-Patcher.icns"), # Fix: Use the corrected SPEC_DIR variable and Resources path
-             bundle_identifier=constants.Constants().bundle_identifier,
+             bundle_identifier="com.dortania.opencore-legacy-patcher-t2",
              info_plist={
                 "CFBundleName": "OpenCore Legacy Patcher T2",
                 "CFBundleVersion": constants.Constants().patcher_version,

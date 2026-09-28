@@ -1,0 +1,121 @@
+name: PatcherSupportPkg API deprecation notice
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions:
+  issues: write
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check issue and reply
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const text = `${issue.title}\n${issue.body || ""}`;
+
+            // Every build whose constants.py downloaded
+            // Universal-Binaries.dmg from YBronst's (OCLP-Plus) PatcherSupportPkg.
+            // Taken from the patcher_version history in constants.py.
+            const AFFECTED_VERSIONS = [
+              // alpha 13
+              "4.0.0.13021", "4.0.0.13022", "4.0.0.13023",
+              "4.0.0.13030", "4.0.0.13031", "4.0.0.13032",
+              "4.0.0.13040", "4.0.0.13041", "4.0.0.13042", "4.0.0.13043", "4.0.0.13044",
+              "4.0.0.13045", "4.0.0.13046", "4.0.0.13047", "4.0.0.13048", "4.0.0.13050s",
+              // alpha 15.9
+              "4.0.0.15900", "4.0.0.15900.1", "4.0.0.15901s",
+              "4.0.0.15910", "4.0.0.15911", "4.0.0.15912", "4.0.0.15913", "4.0.0.15914", "4.0.0.15915",
+              // alpha 16
+              "4.0.0.16010", "4.0.0.16011", "4.0.0.16011s",
+              "4.0.0.16020", "4.0.0.16021", "4.0.0.16022", "4.0.0.16023", "4.0.0.16024",
+              "4.0.0.16040", "4.0.0.16041", "4.0.0.16042", "4.0.0.16043", "4.0.0.16044",
+              "4.0.0.16045", "4.0.0.16046", "4.0.0.16047", "4.0.0.16048", "4.0.0.16049",
+              "4.0.0.16050", "4.0.0.16051",
+              "4.0.0.16900", "4.0.0.16901", "4.0.0.16901s", "4.0.0.16902", "4.0.0.16903",
+              "4.0.0.16910", "4.0.0.16911", "4.0.0.16912", "4.0.0.16913",
+              // alpha 17
+              "4.0.0.17000", "4.0.0.17000.1",
+              "4.0.0.17001", "4.0.0.17001.1",
+              "4.0.0.17002", "4.0.0.17002.1", "4.0.0.17002.2", "4.0.0.17002.3",
+              "4.0.0.17003",
+              // alpha 18.0 – 18.2.6 (switched to own PatcherSupportPkg in 18.2.6, commit 2d8429f)
+              "4.0.0.18000", "4.0.0.18000.1", "4.0.0.18001",
+              "4.0.0.18002", "4.0.0.18002.1", "4.0.0.18002.2", "4.0.0.18002.3",
+              "4.0.0.18002.4", "4.0.0.18002.5", "4.0.0.18002.6",
+            ];
+
+            const escape = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            // Exact match only: "4.0.0.17002" must not match "4.0.0.17002.9" or "4.0.0.170020"
+            const versionRegex = new RegExp(
+              `(?<![\\d.])(${AFFECTED_VERSIONS.map(escape).join("|")})(?!\\.?\\d)`,
+              "i"
+            );
+            // Display names: "alpha 16", "alpha 17.2.3", "alpha-16", and alpha 18.0 – 18.2.x.
+            // Alpha 13 / 15 are matched by version number only, because their earlier
+            // builds used Dortania's PatcherSupportPkg and still work.
+            const alphaNameRegex = /\balpha[\s._-]*((16|17)(\.\d+)*|18\.[0-2](\.\d+)?)(?!\.?\d)/i;
+
+            const versionMatch = text.match(versionRegex);
+            const affectedVersion = !!versionMatch || alphaNameRegex.test(text);
+
+            // Mentions the DMG or PatcherSupportPkg
+            const mentionsDmg =
+              /universal[\s_-]*binaries(\.dmg)?|patcher[\s_-]*support[\s_-]*pkg/i.test(text);
+
+            // Looks like a download problem
+            const isDownloadProblem =
+              /(download|fetch|retriev|404|403|not\s*found|failed|fail|error|could\s*n[o']?t|unable|stuck|timeout|timed\s*out)/i.test(text);
+
+            if (!(affectedVersion && mentionsDmg && isDownloadProblem)) {
+              core.info("Issue does not match — skipping.");
+              return;
+            }
+
+            // Don't comment twice (e.g. when the issue gets edited)
+            const marker = "<!-- psp-api-deprecation-notice -->";
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+            });
+            if (comments.some(c => c.body && c.body.includes(marker))) {
+              core.info("Notice already posted — skipping.");
+              return;
+            }
+
+            const versionText = versionMatch ? `\`${versionMatch[1]}\`` : "an affected alpha build";
+
+            const body = [
+              marker,
+              `Hi @${issue.user.login}, thanks for the report!`,
+              "",
+              `The version you're using (${versionText}) downloads \`Universal-Binaries.dmg\` from **OCLP-Plus's own PatcherSupportPkg** (YBronst/PatcherSupportPkg). YBronst has deprecated OCLP-Plus, so that PatcherSupportPkg API is no longer available and the download fails on every build that still uses it (alpha 13, 15.9, 16, 17 and 18.0 – 18.2.6).`,
+              "",
+              "Newer releases download the DMG from this project's own PatcherSupportPkg instead. **Please upgrade to the latest release:**",
+              `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/latest`,
+              "",
+              "If the download still fails after upgrading, please reply here with your new version number and the log.",
+            ].join("\n");
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body,
+            });
+
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: ["deprecated-api", "needs-upgrade"],
+              });
+            } catch (e) {
+              core.warning(`Could not add labels: ${e.message}`);
+            }

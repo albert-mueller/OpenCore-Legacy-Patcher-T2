@@ -151,7 +151,7 @@ class OpenCoreLegacyPatcher:
         if "--developer" in sys.argv or getattr(sys, "frozen", False) is False:
             logging.info("True Developer Mode is active (Developer flag or running from source).")
             self.constants.True_Developer_Mode = True
-            
+
             # As per #246, highly dangerous testing flags are enabled only in True Developer Mode
             self.constants.allow_vmware_root_patching = True
 
@@ -215,7 +215,11 @@ class OpenCoreLegacyPatcher:
         # Generate binary data
         launcher_script = None
         launcher_binary = sys.executable
-        if "python" in launcher_binary:
+        # PyInstaller sets sys.frozen in the built app, so a self-built and
+        # installed OpenCore-Patcher-T2.app is never treated as "from source",
+        # even if its path happens to contain "python" (the substring check
+        # alone matches the whole path, e.g. ~/python-projects/.../dist/).
+        if not getattr(sys, "frozen", False) and "python" in launcher_binary:
             # We're running from source.
             # BUGFIX: __file__ here is this module's own path (application_entry.py),
             # which never contains "main.py", so the replace() below never fired -
@@ -246,7 +250,7 @@ class OpenCoreLegacyPatcher:
             # Now that we have commit info, update nightly link securely
             branch = self.constants.commit_info[0]
             branch = branch.replace("refs/heads/", "")
-            
+
             # Fix: Strict regex validation to ensure branch names only contain safe characters
             if re.match(r"^[a-zA-Z0-9_\-\./]+$", branch) and ".." not in branch:
                 self.constants.installer_pkg_url = self.constants.installer_pkg_url.replace("main", branch)
@@ -274,7 +278,7 @@ class OpenCoreLegacyPatcher:
             if global_settings.GlobalEnviromentSettings().write_property("AllowAutoUpdates", False) is True:
                 logging.info("Automatic updates disabled via --disable_auto_update")
             else:
-                logging.warning("Automatic updates are disabled for this launch, but the choice could not be stored")
+                logging.error("Automatic updates are disabled for this launch, but the choice could not be stored")
 
         if self.constants.computer.build_model is None:
             logging.info(f"Initializing build_model to native host: {self.computer.real_model}")
@@ -288,15 +292,15 @@ class OpenCoreLegacyPatcher:
         # behebt eine Sicherheitslücke, indem einen Angreifer könnte der Benutzer daran zwingen, aufs CLI-Modus/Terminal zu wechseln
         else:
             logging.info("Detected arguments, switching to CLI mode")
-            self.constants.cli_mode = True  
-            self.constants.gui_mode = False 
-    
+            self.constants.cli_mode = True
+            self.constants.gui_mode = False
+
             ignore_args = ["--auto_patch", "--gui_patch", "--gui_unpatch", "--update_installed"]
-            
+
             # If none of the specific arguments are in sys.argv
             if not any(x in sys.argv for x in ignore_args):
                 self.constants.current_path = Path.cwd()
-    
+
             # Fix: Deterministic Thread Synchronization.
             # Ensure arguments parsing never runs into race conditions regardless of flags if unpack state is required
             if "--auto_patch" not in sys.argv:
@@ -305,7 +309,7 @@ class OpenCoreLegacyPatcher:
             else:
                 # Explicit guard or logging if auto_patch deliberately overrides synchronization safely
                 logging.info("Proceeding with auto_patch execution orchestration flow.")
-    
+
             arguments.arguments(self.constants)
 
 def main():

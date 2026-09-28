@@ -4,6 +4,7 @@ gui_update.py: Generate UI for updating the patcher
 
 import wx
 import sys
+import time
 import logging
 import threading
 import subprocess
@@ -31,9 +32,9 @@ class UpdateFrame(wx.Frame):
     def __init__(self, parent: wx.Frame, title: str, global_constants: constants.Constants, screen_location: wx.Point, url: str = "", version_label: str = "") -> None:
         # CORRECTED: Always call the super-class constructor first to register the window correctly
         super().__init__(parent, title=title, size=(350, 300), style=wx.DEFAULT_FRAME_STYLE & ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX))
-        
+
         logging.info("Initializing Update Frame")
-        
+
         # Handle the parent/child UI logic after the super-class is initialized
         self.parent: wx.Frame = parent
         # Remember which children were actually visible before hiding them, so a
@@ -128,7 +129,7 @@ class UpdateFrame(wx.Frame):
             wx.Yield()
             time.sleep(self.constants.thread_sleep_interval)
 
-        file_name = "OpenCore-Patcher.pkg.zip" if self.url.endswith(".zip") else "OpenCore-Patcher-T2.pkg"
+        file_name = "OpenCore-Patcher-T2.pkg.zip" if self.url.endswith(".zip") else "OpenCore-Patcher-T2.pkg"
         download_obj = network_handler.DownloadObject(self.url, self.constants.payload_path / file_name)
         download_frame = gui_download.DownloadFrame(
             self.frame,
@@ -136,7 +137,14 @@ class UpdateFrame(wx.Frame):
             global_constants=self.constants,
             download_obj=download_obj,
             item_name=self.version_label,
-            download_icon=str(self.constants.app_icon_path)
+            download_icon=str(self.constants.app_icon_path),
+            cancel_message=(
+                "Are you sure you want to cancel the update?\n\n"
+                "Staying on an older version of OpenCore Legacy Patcher T2 means you "
+                "won't get the latest fixes, which can include security fixes. "
+                "Running outdated software may leave your Mac exposed to known vulnerabilities"
+                "that attackers could exploit."
+            )
         )
 
         if download_obj.download_complete is not True:
@@ -246,7 +254,7 @@ class UpdateFrame(wx.Frame):
 
     def _handle_fatal_failure(self, error_msg: str, title: str, is_cancelled: bool = False) -> None:
         """
-        Executes atomically on the main thread to completely clean up UI elements 
+        Executes atomically on the main thread to completely clean up UI elements
         and handle script termination instantly, preventing thread race conditions.
         """
         if is_cancelled:
@@ -256,11 +264,11 @@ class UpdateFrame(wx.Frame):
 
         self.progress_bar_animation.stop_pulse()
         self.progress_bar.Hide()
-            
+
         # A cancelled install (user dismissed the admin prompt) leaves the system
         # untouched, so return to the main menu instead of taking the app down.
         if is_cancelled and self._return_to_parent():
-            logging.info("Aktualisierung abgebrochen, zurueck zum Hauptmenue")
+            logging.info("Aktualisierung abgebrochen, zurueck zum Hauptmenü")
             logging.info("Update cancelled, returning to the main menu")
             return
 
@@ -280,7 +288,7 @@ class UpdateFrame(wx.Frame):
         installed_label.SetFont(gui_support.font_factory(13, wx.FONTWEIGHT_BOLD))
         installed_label.Centre(wx.HORIZONTAL)
 
-        installed_path_label = wx.StaticText(self.frame, label='/Library/Application Support/Dortania', pos=(-1, installed_label.GetPosition().y + 20))
+        installed_path_label = wx.StaticText(self.frame, label=self._install_directory(), pos=(-1, installed_label.GetPosition().y + 20))
         installed_path_label.SetFont(gui_support.font_factory(13, wx.FONTWEIGHT_NORMAL))
         installed_path_label.Centre(wx.HORIZONTAL)
 
@@ -293,7 +301,7 @@ class UpdateFrame(wx.Frame):
         # Fire and forget launch execution thread
         thread = threading.Thread(target=self._launch_update)
         thread.start()
-        
+
         # Fire non-blocking main loop timer event every 1 second (1000ms)
         self.exit_timer.Start(1000)
 
@@ -326,7 +334,7 @@ class UpdateFrame(wx.Frame):
             logging.error(f"Failed to extract update.")
             logging.exception("Stack Trace:")
             subprocess_wrapper.log(result)
-            
+
             error_str = f"Failed to extract update. Error: {result.stderr.decode('utf-8')}"
             wx.CallAfter(self._handle_fatal_failure, error_str, "Critical Error!")
             # Ensure background thread execution chain halts gracefully
@@ -338,10 +346,10 @@ class UpdateFrame(wx.Frame):
         logging.info(f"Update wird installiert: {self.pkg_download_path}")
         logging.info(f"Installing update: {self.pkg_download_path}")
         result = subprocess_wrapper.run_as_root(["/usr/sbin/installer", "-pkg", str(self.pkg_download_path), "-target", "/"], capture_output=True)
-        
+
         if result.returncode != 0:
             stderr_output = result.stderr.decode("utf-8")
-            
+
             if "User cancelled" in stderr_output:
                 logging.info("User cancelled update")
                 wx.CallAfter(self._handle_fatal_failure, "User cancelled update", "Update Cancelled", is_cancelled=True)
@@ -352,11 +360,11 @@ class UpdateFrame(wx.Frame):
                 logging.error("Auf In-Place-Upgrade wechseln...")
                 logging.error("Switching to in-place upgrade instead...")
                 subprocess.run(["/usr/bin/open", str(self.pkg_download_path)])
-                
+
                 support_url = getattr(self.constants, 'support_url', 'the official repository')
                 fallback_msg = f"Failed to install update automatically. Please visit {support_url} to manually download the package and perform an in-place upgrade."
                 wx.CallAfter(self._handle_fatal_failure, fallback_msg, "Critical Error!")
-            
+
             sys.exit(1)
 
         # Installed successfully - the running build now belongs to the selected
@@ -367,15 +375,33 @@ class UpdateFrame(wx.Frame):
         except Exception as e:
             logging.error(f"Failed to store installed update channel: {e}")
 
+    def _install_directory(self) -> str:
+        """
+        Directory the downloaded update installs into
+
+        Our PKG installs to its own directory; an upstream Dortania ZIP still
+        lands in theirs (see pkg_download_path above).
+        """
+        if self.url.endswith(".zip"):
+            return "/Library/Application Support/Dortania"
+        return "/Library/Application Support/albert-mueller/OpenCore-Patcher-T2"
+
     def _launch_update(self) -> None:
         # Same reasoning as pkg_download_path above: an upstream Dortania nightly
         # install still lands as "OpenCore-Patcher.app", only our own T2 releases
         # install as "OpenCore-Patcher-T2.app" (see package.py's _files mapping).
         _app_name = "OpenCore-Patcher.app" if self.url.endswith(".zip") else "OpenCore-Patcher-T2.app"
         try:
-            logging.info(f"Aktualisierung beginnen: '/Library/Application Support/Dortania/{_app_name}'")
-            logging.info(f"Launching update: '/Library/Application Support/Dortania/{_app_name}'")
-            subprocess.Popen([f"/Library/Application Support/Dortania/{_app_name}/Contents/MacOS/OpenCore-Patcher", "--update_installed"])
+            logging.info(f"Aktualisierung beginnen: '{self._install_directory()}/{_app_name}'")
+            logging.info(f"Launching update: '{self._install_directory()}/{_app_name}'")
+            # T2 builds now ship their executable as OpenCore-Patcher-T2; older T2
+            # releases and Dortania's app still use OpenCore-Patcher, so launch
+            # whichever one the freshly installed bundle actually contains.
+            _macos_dir = f"{self._install_directory()}/{_app_name}/Contents/MacOS"
+            _executable = f"{_macos_dir}/OpenCore-Patcher-T2"
+            if not Path(_executable).exists():
+                _executable = f"{_macos_dir}/OpenCore-Patcher"
+            subprocess.Popen([_executable, "--update_installed"])
         except Exception as e:
             logging.error("Das Starten des Aktualisierung durch den Builtin-Update-Instrument hat fehlgeschlagen.")
             logging.error("Launching the update via the builtin updater failed.")

@@ -105,7 +105,7 @@ class BuildSupport:
         else:
             zip_pattern = f"**/{kext_name.replace('.kext', '')}*.zip"
             potential_zips = list(payload_source_dir.glob(zip_pattern))
-    
+
             if potential_zips:
                 try:
                     with zipfile.ZipFile(potential_zips[0], 'r') as zip_ref:
@@ -133,11 +133,11 @@ class BuildSupport:
 
         # 4. Destination is ALWAYS the build folder's Kexts directory
         destination_path = self.constants.kexts_path / kext_name
-        
+
         try:
             if destination_path.exists():
                 shutil.rmtree(destination_path) if destination_path.is_dir() else destination_path.unlink()
-            
+
             shutil.copytree(source_path, destination_path)
             kext["Enabled"] = True
         except Exception as e:
@@ -246,7 +246,7 @@ class BuildSupport:
         """Clean up files and entries ensuring OpenCore 1.0.7+ Schema Compliance."""
 
         logging.info("- Cleaning up files and verifying configuration schema integrity")
-        
+
         # 1. First Pass: Handle Zip Extraction routines BEFORE stripping configurations
         for kext in list(self.constants.kexts_path.rglob("*.zip")):
             try:
@@ -314,7 +314,7 @@ class BuildSupport:
             "AirPortBrcm4360_Injector.kext",
             "AirPortBrcmNIC_Injector.kext"
         ]
-        
+
         kexts_dir = Path(self.constants.opencore_release_folder / "EFI/OC/Kexts")
         if kexts_dir.exists():
             for kext in kexts_dir.glob("*.kext"):

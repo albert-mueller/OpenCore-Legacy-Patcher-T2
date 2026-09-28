@@ -45,7 +45,7 @@ class CheckBinaryUpdates:
             assert self.constants.special_build is True, "Invalid version number for binary"
             # Special builds will not have a proper version number
             self.binary_version = version.parse("0.0.0")
-        
+
         self.latest_details = None
         self.last_error: Optional[str] = None
 
@@ -133,6 +133,27 @@ class CheckBinaryUpdates:
             logging.info("Automatic updates are disabled in the settings.")
             return None
 
+        # Running from source (OpenCore-Patcher-GUI.command / python3 from the
+        # Terminal): launcher_script is only set in that case, see
+        # application_entry.py. An automatic check would end in
+        # on_update(manual=False) -> gui_update.UpdateFrame, which silently
+        # downloads and installs the packaged PKG - i.e. it installs the app
+        # even when it was never installed, and the source checkout is not
+        # what gets updated anyway. So automatic updates are off for every
+        # from-source session. Deliberately not written to "AllowAutoUpdates":
+        # this depends on how this one process was launched, not on a user
+        # choice, and the installed app (and its auto-patcher/macos-update
+        # daemons) must keep the stored setting. It also has to be checked
+        # here rather than by setting constants.auto_update once at startup,
+        # because GenerateDefaults() re-reads "AllowAutoUpdates" whenever the
+        # target model changes (gui_model_change.py, arguments.py).
+        # Manual checks (Settings > "Check for updates") stay possible - they
+        # always ask first.
+        if self.constants.launcher_script and manual is False:
+            logging.info("Running from source - automatic updates are disabled for this session.")
+            self.last_error = "Running from source - automatic updates are disabled for this session."
+            return None
+
         if manual is False:
             next_update_check = global_settings.GlobalEnviromentSettings().read_property("NextUpdateCheck")
             if next_update_check is not None:
@@ -144,7 +165,7 @@ class CheckBinaryUpdates:
                     logging.error("NextUpdateCheck value is invalid and will be ignored: %r", next_update_check)
                 except Exception as e: # behebt eine Sicherheitslücke, indem einen Angreifer könnte Fehler außerhalb ValueError verursachen, um beliebiges Code auszuführen
                     logging.error("NextUpdateCheck value is invalid and will be ignored: %r", next_update_check)
-        
+
         # Self-heal the Privileged Helper Tool's permissions before doing anything
         # network-related below. No-op (no prompt) unless a repair is actually needed.
         self._ensure_privileged_helper_permissions()
@@ -176,13 +197,13 @@ class CheckBinaryUpdates:
             logging.info("If so, report this issue immediately")
             self.last_error = "Could not reach GitHub. Please check your internet connection."
             return None
-            
+
         response = network_handler.NetworkUtilities().get(repo_latest_release_url)
         releases = response.json()
-        
+
         if not releases or not isinstance(releases, list):
             return None
-            
+
         # GitHub's /releases API returns items sorted by creation date, not by version number.
         # To avoid fetching an older version that was published more recently, we must find the highest version.
         highest_release = None
@@ -191,7 +212,7 @@ class CheckBinaryUpdates:
         for release in releases:
             if "tag_name" not in release:
                 continue
-            
+
             try:
                 rel_ver = version.parse(release["tag_name"])
             except version.InvalidVersion:

@@ -1,4 +1,511 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.190004.6 - 4.0.0 alpha 19.4.6
+This release:
+- adds a dark variant of the app icon (OC-Patcher-Dark.icns) that is used on macOS 26 Tahoe and newer when Dark Mode is active: in the main menu logo, in the Dock while the app is running, and in the app's dialogs (admin prompts, update and auto-patcher dialogs). Switching between Light and Dark Mode while the app is open updates the icon immediately. If the dark icon file is missing, the regular icon is used. Thx @coolkid418 https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/435
+- fixes a bug where when running one of the following files, it says Permission denied:
+
+        - .github/scripts/syntax_check.sh
+        - Build-Project.command
+        - Tools/backup_state.command
+        - Tools/kdk_remove.command
+        - ci_tooling/installer_backups/macOS_Installer_Backup.command
+        - ci_tooling/privileged_helper_tool/create-signing-certificate.sh
+        - ci_tooling/privileged_helper_tool/install.sh
+        - install-OpenCore-T1.command
+        - payloads/Kexts/Tools/ResourceConverter.sh
+        - payloads/Kexts/Update-Kexts.command
+        - payloads/OpenCore/Update-OpenCore.command
+
+- fixes a false positive where some security tools, like CodeQL and other specialized security tools may flag the rejected-attempt log line because it interpolates ADMIN_PASSWORD_MAX_ATTEMPTS, whose name matches the 'password' heuristic. The value is only the retry limit (3), not a credential.
+- fixes a vulnerability where when the Priveleged Helper Tool uses a Debug build, an attacker could execute arbitary commands via Living-off-the-land (LoTL) techniques. https://github.com/Medelcartelinc/OpenCore-Legacy-Patcher-T2/issues/17 . This is fixed by trusting only these commands and nothing else:
+
+
+                        /*
+                            Command allowlist
+                            ------------------------------------------------
+                            The helper used to execute ANY path it was given as root. In a DEBUG build
+                            (no certificate check) that meant any local process could run anything as
+                            root. Every command is now resolved with realpath() and must match one of
+                            the binaries the app actually needs. All entries are SIP-protected system
+                            paths, so they cannot be swapped out by an unprivileged attacker.
+                        
+                            Keep this list in sync with the run_as_root() call sites in the Python app.
+                            A rejected command returns OCLP_PHT_ERROR_COMMAND_NOT_ALLOWED; the app then
+                            falls back to its normal administrator-password prompt for that command.
+                        */
+                        static NSSet<NSString *> *allowedCommands(void) {
+                            static NSSet *set = nil;
+                            static dispatch_once_t once;
+                            dispatch_once(&once, ^{
+                                set = [NSSet setWithArray:@[
+                                    @"/bin/chmod",
+                                    @"/bin/cp",
+                                    @"/bin/launchctl",
+                                    @"/bin/mkdir",
+                                    @"/bin/mv",
+                                    @"/bin/rm",
+                                    @"/bin/sh",
+                                    @"/sbin/mount",
+                                    @"/sbin/umount",
+                                    @"/usr/bin/chflags",
+                                    @"/usr/bin/codesign",
+                                    @"/usr/bin/defaults",
+                                    @"/usr/bin/hdiutil",
+                                    @"/usr/bin/killall",
+                                    @"/usr/bin/kmutil",
+                                    @"/usr/bin/rsync",
+                                    @"/usr/bin/tar",
+                                    @"/usr/bin/touch",
+                                    @"/usr/bin/xar",
+                                    @"/usr/sbin/bless",
+                                    @"/usr/sbin/chown",
+                                    @"/usr/sbin/diskutil",
+                                    @"/usr/sbin/installer",
+                                    @"/usr/sbin/kcditto",
+                                    @"/usr/sbin/kextcache",
+                                ]];
+                            });
+                            return set;
+                        }
+                        
+                        /*
+                            Commands that are a direct "run arbitrary code as root" primitive
+                            (script interpreter, package installer with its own install scripts).
+                            Refused outright in DEBUG builds, because there the caller is not verified.
+                        */
+                        static NSSet<NSString *> *debugForbiddenCommands(void) {
+                            static NSSet *set = nil;
+                            static dispatch_once_t once;
+                            dispatch_once(&once, ^{
+                                set = [NSSet setWithArray:@[
+                                    @"/bin/sh",
+                                    @"/usr/sbin/installer",
+                                ]];
+                            });
+                            return set;
+                        }
+                        
+                        NSString *resolveCommandPath(const char *rawPath) {
+                            // Only absolute paths - never rely on PATH lookup.
+                            if (rawPath == NULL || rawPath[0] != '/') {
+                                return nil;
+                            }
+                            char resolved[PATH_MAX];
+                            if (realpath(rawPath, resolved) == NULL) {
+                                return nil;
+                            }
+                            struct stat st;
+                            if (stat(resolved, &st) != 0 || !S_ISREG(st.st_mode)) {
+                                return nil;
+                            }
+                            return [NSString stringWithUTF8String:resolved];
+                        }
+                        
+                        BOOL isCommandAllowed(NSString *command, NSArray<NSString *> *arguments, NSDictionary *helperSigningInformation) {
+                            if ([allowedCommands() containsObject:command]) {
+                                #ifdef DEBUG
+                                if ([debugForbiddenCommands() containsObject:command]) {
+                                    return NO;
+                                }
+                                #endif
+                        
+                                // /bin/sh is only used to run the generated Installer.sh:
+                                // exactly one argument, and no options such as -c.
+                                if ([command isEqualToString:@"/bin/sh"]) {
+                                    if (arguments.count != 1 || [arguments[0] hasPrefix:@"-"]) {
+                                        return NO;
+                                    }
+                                }
+                                return YES;
+                            }
+                        
+                            // RSRRepair ships inside the app bundle, so its path is not fixed.
+                            // Accept it only if it carries the same signing certificates as this helper.
+                            // (Unsigned DEBUG builds have no certificates, so this is always refused there.)
+                            if ([[command lastPathComponent] isEqualToString:@"RSRRepair"]) {
+                                NSDictionary *commandSigningInformation = getSigningInformationFromPath(command);
+                                NSArray *helperCertificates  = helperSigningInformation[@"certificates"];
+                                NSArray *commandCertificates = commandSigningInformation[@"certificates"];
+                                if (helperCertificates.count > 0 &&
+                                    commandCertificates.count > 0 &&
+                                    [helperCertificates isEqualToArray:commandCertificates]) {
+                                    return YES;
+                                }
+                            }
+                        
+                            return NO;
+                        }
+
+
+## 4.0.0.19004.5 - 4.0.0 alpha 19.4.5
+This release:
+- fixes a bug in constants.py where AppleALC was set to version 1.6.7 instead of 1.9.7
+- fixes a bug where the root patching icon pointed to OC-Patch-Wrench.icns on macOS versions newer than Tahoe, a file that doesn't exist; newer versions now reuse the newest available icon (OC-Patch-25.icns)
+- fixes a bug where the AutoPkg-Assets-T2.pkg download link contained a double slash ("...Patcher-T2//releases/download/...") because repo_link already ends with a slash
+- fixes a crash (TypeError) in icns_resource_path when neither the launcher script nor the launcher binary was known yet; it now falls back to payloads/Resources/AppIcons
+- the special build check now logs the actual error message when the version can't be checked
+- removes an unused import and cleans up minor code issues in constants.py
+
+## 4.0.0.190004.4 - 4.0.0 alpha 19.4.4
+This release:
+- fixes a bug in constants.py where there were duplicated constants for AirportBrcmFixup, WhateverGreen and Lilu, which could lead to installing the wrong version, not injecting it at all or cause erratic/unintended behavior
+- removes the self.experimental_version constant, as it is now dead
+- now, when running the code from source by launching the GUI via a non-compiled application, it will no longer fetch updates automatically - this has led to replacing or installing OpenCore Legacy Patcher T2 automatically on the system.
+- fixes 5 vulnerabilities in ci_tooling/installer_backups/macOS_Installer_Backup.command (the internal CI script that backs up macOS installers from Apple's catalogs and AppleDB) and 1 vulnerability in dmg_mount.py (the process responsible for mounting Universal-Binaries.dmg):
+
+1. Path traversal / arbitrary file write:
+
+        installer_name = f"{installer['Version']} ({installer['Build']})" # <- Version and Build come unvalidated from api.appledb.dev
+        ...
+        result = self._downloader(url=installer["Link"], path=Path(self._os_table[installer['OS']], installer_name), name=installer_name)
+        ...
+        _base_name = f"{_version} ({_build})"
+        ...
+        result = subprocess.run(["/bin/mv", file, Path(directory, _name)]) # <- same unvalidated values used as the rename target
+
+Impact: an attacker controlling or compromising an AppleDB entry could set the version or build to something like ../../../../Users/<user>/Library/LaunchAgents/evil (or an absolute path, which pathlib uses as-is) to write a downloaded file or move a backup anywhere the script can write, including locations that lead to code execution. This vulnerability is fixed by validating every version and build string against a strict allow-list (_safe_component, _safe_build) and by confirming that every download and rename destination resolves inside the backup directory (_inside). Entries that fail validation are skipped.
+
+2. Untrusted download sources and unverified AppleDB downloads:
+
+        installers[item["build"]] = {
+            ...
+            "Link":      entry["url"], # <- any host, any scheme, including plain http://
+            ...
+            "integrity": None,         # <- AppleDB downloads were never verified
+        }
+
+Impact: an attacker could point an AppleDB entry to a server of their own, or intercept a plain HTTP download, to plant a trojaned InstallAssistant.pkg or Restore.ipsw in the installer archive, which is then treated as a known-good Apple installer. This vulnerability is fixed by only accepting HTTPS downloads from Apple CDN hosts (_TRUSTED_HOSTS; plain HTTP on those hosts is upgraded to HTTPS, and URLs with credentials or unexpected ports are rejected), and by verifying AppleDB downloads against the hash published for the source (sha2-256/sha256/sha1) when one is available. Downloads without a hash now print a clear "integrity NOT verified" warning.
+
+3. Chunklist validation bypass:
+
+        if chunk_obj.status == integrity_verification.ChunklistStatus.FAILURE:
+            print(chunk_obj.error_msg)
+            print(f"Validating {name} against chunklist: chunk {chunk_obj.current_chunk} failed")
+            for file in [installer_path, chunklist]:
+                result = subprocess.run(["/bin/rm", "-f", file])
+                ...
+                                                 # <- no return here, execution falls through
+        print(f"Validating {name} against chunklist: chunk {chunk_obj.total_chunks} passed")
+        return True
+
+Impact: a tampered installer that failed chunklist validation was still reported as "passed" and the function returned True, so any code relying on the result would treat the corrupted or malicious installer as valid. Any status other than FAILURE also passed. This vulnerability is fixed by returning False after a failed validation and by only accepting an explicit ChunklistStatus.SUCCESS.
+
+4. Silent overwrites of existing backups:
+
+        result = subprocess.run(["/bin/mv", file, Path(directory, _name)]) # <- mv overwrites the target without asking
+
+Impact: the rename step matches files by substring on the build number, so a crafted or duplicated AppleDB build value could rename several files onto the same name and destroy already verified installers. This vulnerability is fixed by refusing to overwrite any existing file when downloading, when moving empty downloads to "Dead URLs", and when renaming. The /bin/rm and /bin/mv subprocess calls were replaced with Path.unlink() and Path.rename(), and symlinks in the backup directories are skipped.
+
+5. Denial of service via busy-waiting and malformed data:
+
+        while chunk_obj.status == integrity_verification.ChunklistStatus.IN_PROGRESS:
+            print(...) # <- no sleep, pins a CPU core for the whole validation
+        ...
+        while dl_obj.is_active():
+            if dl_obj.get_percent() in percentages_displayed: # <- float compared against a set of ints, almost never matches
+                continue
+        ...
+            "Variant":   "Beta" if item["beta"] else "Public", # <- KeyError on a single malformed entry aborts the whole run
+            ...
+            "Date":      item["released"],
+
+Impact: both polling loops spun without sleeping, pinning a CPU core for the entire multi-GB download or validation and printing thousands of progress lines per second, and a single malformed AppleDB entry (missing beta or released, unexpected version string) crashed the entire backup run. This vulnerability is fixed by sleeping between polls, only printing progress when the percentage changes, and skipping malformed AppleDB entries instead of aborting.
+
+- the installer backup script now refuses to run if the /Volumes/macOS Installers backup volume isn't mounted, so it can no longer fill the boot disk by accident when used with --first-run
+- replaces a mutable default argument in the installer backup script with a tuple
+
+1. Brute force via exceeding the maximum amount of password attempts:
+
+                for i in range(3):
+            key = self._request_decryption_key(i)
+            output = self._run_hdiutil(
+                Path(self.constants.overlay_psp_path_dmg),
+                Path(self.constants.payload_path / "DortaniaInternal"),
+                password=key
+            )
+
+            if output.returncode != 0:
+                logging.info("- Failed to mount DortaniaInternal resources")
+                subprocess_wrapper.log(output)
+                if "Authentication error" not in output.stdout.decode():
+                    self._display_authentication_error()
+                if i == 2: # <- if the attempts are more than 2, an attacker could still have infinite amount of attempts to crack the password
+                    self._display_too_many_attempts()
+                    sys.exit(3)
+                continue
+
+Impact: an attacker could bypass the if i==2 condition by attempting 1 more time to brute force the password of Universal-Binaries.dmg to have infinite amount of attempts to brute force the password. This vulnerability is fixed by changing if i == 2 to if i >=2 to ensure if there are more attempts than 2, it doesn't fall through the cracks.
+
+
+## 4.0.0.190004.3 - 4.0.0 alpha 19.4.3
+This release:
+- fixes a bug where Audio on non-T2 Macs may not work after injecting root patches exactly for the audio
+- removes an extra space after echo in revert_snapshot.command
+
+## 4.0.0.19004.1 - 4.0.0 alpha 19.4.1
+Warning: when updating from 4.0.0.190004 or an earlier release, the updater will fail at the install phase and fall back to an in-place upgrade, in which case here, it reinstalls the app completely rather than updating it.
+This release:
+- moves the install directory from /Library/Application Support/Dortania (shared with Dortania's patcher) to /Library/Application Support/albert-mueller/OpenCore-Patcher-T2, and renames the Privileged Helper Tool to /Library/PrivilegedHelperTools/com.albert-mueller.opencore-patcher-t2.privileged-helper. The PKG installer and uninstaller remove our copies from the old locations (Dortania's own files are left alone, and the Dortania folder is only deleted if it ends up empty); the auto-patcher keeps using an old-location install until the new PKG has been installed
+- from this release onwards, macOS 10.13.6 High Sierra is now a hard minimum requirement
+- fixes a bug where CatalinaBCM5701Ethernet gets injected on non-CatalinaBCM5701Ethernet hardware, including T2 Macs
+- fixes 1 vulnerability:
+gui_update.py:
+
+         self.progress_bar = wx.Gauge(self.frame, range=100, pos=(10, 50), size=(300, 20))
+                self.progress_bar.Centre(wx.HORIZONTAL)
+                self.progress_bar_animation = gui_support.GaugePulseCallback(self.constants, self.progress_bar)
+        
+                # Instantiating timer variables for the exit countdown
+                self.timer_countdown = 5
+                self.exit_timer = wx.Timer(self)
+                self.Bind(wx.EVT_TIMER, self._on_exit_timer_tick, self.exit_timer)
+        
+                # Wait for payloads to mount if they haven't already
+                # Without this, if the GUI starts before the background unpack thread finishes,
+                # self.constants.payload_path will still point to the read-only DMG inside the app bundle
+                # instead of the writable /var/folders/... overlay.
+                while gui_support.PayloadMount(self.constants, self).is_unpack_finished() is False:
+                    wx.Yield()
+                    time.sleep(self.constants.thread_sleep_interval)
+        
+                file_name = "OpenCore-Patcher.pkg.zip" if self.url.endswith(".zip") else "OpenCore-Patcher-T2.pkg" # <- an attacker could upload to GitHub a fake OpenCore-Patcher.pkg.zip that contains alpha 17 or older to launch downgrade attacks
+
+Impact: an attacker could upload OpenCore-Patcher.pkg.zip in a malicious fork or a compromised repository a fake OpenCore-Patcher.pkg.zip that contains alpha 17 or older version to exploit already known vulnerabilities. This vulnerability is fixed by ensuring it checks for OpenCore-Patcher-T2.pkg.zip and not for the old name.
+
+## 4.0.0.190004 - 4.0.0 alpha 19.4
+This release:
+- fixes a bug where upon trying to open the Statistics menu, it displays AttributeError: 'Panel' object has no attribute 'AdjustScrollbars' albeit opening the menu successfully
+- fixes a CI/CD bug where checking for the version number before starting to build the patcher fails on macOS 10.15 Catalina and older due to these macOS versions missing openssl3 - now a check is added if the host has openssl3 and if not, it will try to install openssl3 via Homebrew on newer macOS versions like Big Sur, and MacPorts on macOS Catalina and older. If Homebrew or MacPorts is not installed but the host lacks openssl3, it will throw an immediate error and stop building the app.
+- removes most emojis from gui_settings.py to improve macOS 10.15 Catalina and older versions compatability
+- fixes quite a lot of vulnerabilities:
+sign_notarize.py (the file that handles signing the certificates for OpenCore Legacy Patcher T2):
+
+        class SignAndNotarize:
+        
+            def __init__(self, path: Path, signing_identity: str = None, notarization_apple_id: str = None, notarization_password: str = None, notarization_team_id: str = None, entitlements: str = None) -> None:
+                """
+                Initialize credentials, preferring environment variables to protect memory footprint.
+                """
+                self._path = Path(path).resolve()  # Force absolute path normalization
+                self._entitlements = entitlements
+        
+                # Fallback patterns targeting environment strings natively to mitigate exposure windows
+                self._signing_identity = signing_identity or os.environ.get("MACOS_SIGNING_IDENTITY")
+                self._notarization_apple_id = notarization_apple_id or os.environ.get("NOTARIZATION_APPLE_ID")
+                self._notarization_password = notarization_password or os.environ.get("NOTARIZATION_APP_PASSWORD")
+                self._notarization_team_id = notarization_team_id or os.environ.get("NOTARIZATION_TEAM_ID")
+        
+            def sign_and_notarize(self) -> None:
+                """
+                Sign and Notarize with explicit verification constraints
+                """
+                if not self._signing_identity:
+                    rich.print("[yellow]Signing identity not provided. Skipping signing pipeline.[/yellow]")
+                    return
+        
+                if not self._path.exists():
+                    raise FileNotFoundError(f"Target binary asset payload path missing: {self._path}")
+        
+                rich.print(f"Signing {self._path.name}...") # <- an attacker could sign a malicious application in a random path via this path traversal vulnerability
+        
+                try:
+                    if self._path.suffix.lower() == ".pkg":
+                        signer = macos_pkg_builder.utilities.signing.SignPackage(
+                            identity=self._signing_identity,
+                            pkg=self._path,
+                        )
+                        signer.sign()
+                    else:
+                        extra_args = {"entitlements": self._entitlements} if self._entitlements else {}
+                        signer = mac_signing_buddy.Sign(
+                            identity=self._signing_identity,
+                            file=self._path,
+                            **extra_args,
+                        )
+                        signer.sign()
+                except Exception as e:
+                    # Prevent cascade into un-signed asset submission
+                    raise RuntimeError(f"Cryptographic signature step critically failed: {e}")
+        
+                if all([self._notarization_apple_id, self._notarization_password, self._notarization_team_id]):
+                    rich.print(f"Notarizing {self._path.name} via Apple Developer API...")
+
+Impact: an attacker could exploit this path traversal vulnerability to sign a malicious application inside a random path and exploit the victim's Apple Developer certificate for distributing malware. This could result in a very bad situation where the developer looses the certificate because an attacker has gained access to their computer to abuse for malware operation and brick the Priveleged Helper Tool when the certificates get revoked so the attackers take leverage of this to launch DoS attacks without touching the repository. This vulnerability is fixed by checking if self._path.exists() and only if the path exists, only then it will sign. Otherwise, it will leave the application unsigned.
+
+gui_usb_install.py (used for Test-B type test for OpenCore EFIs):
+
+    def _update_choices(self):
+            if not self.available_efis:
+                self._append_log("No EFI partitions found.")
+                self.status_text.SetLabel("No EFI partitions found.")
+                return
+                
+            choices = list(self.available_efis.keys()) # <- an attacker could bypass the if not self.available_efis to trick the patcher into displaying Select a drive to install OpenCore to crash the app and launch DoS attacks
+            self.disk_choice.SetItems(choices)
+            self.disk_choice.Enable()
+            self.status_text.SetLabel("Select a drive to install OpenCore.")
+            self._append_log("Please select a target drive from the dropdown.")
+
+Impact: an attacker could delete the  if not self.available_efis condition to force the patcher to try to show the Select a drive to install OpenCore, in which case the app would simply crash so the attacker launches DoS attacks. This vulnerability is fixed by ensuring the Select a drive to install OpenCore only if it meets the if self.available_efis condition.
+
+gui_cache_os_update.py (the process that runs sometimes if a macOS update has been detected):
+
+          if not Path(self.constants.kdk_download_path).exists():
+                      logging.error("KDK download path does not exist")
+                      return
+          
+                  self._set_status("Installing Kernel Debug Kit...") # <- an attacker could install a malicious KDK from a random path
+          
+                  self.kdk_install_result = False
+                  def _install_kdk_thread():
+                      self.kdk_install_result = kdk_handler.KernelDebugKitUtilities().install_kdk_dmg(
+                          self.constants.kdk_download_path, only_install_backup=True
+                      )
+          
+                  install_thread = threading.Thread(target=_install_kdk_thread)
+                  install_thread.start()
+                  gui_support.wait_for_thread(install_thread)
+          
+                  if self.kdk_install_result is False:
+                      logging.error("Failed to install KDK")
+                      return
+          
+                  logging.info("KDK installed successfully") # <- an attacker could lie about the KDK installation status
+
+Impact: an attacker could install a malicious KDK, or worse, malware posing as one from a random path via this path traversal vulnerability by deleting the if not Path(self.constants.kdk_download_path).exists() condition. Furthermore, an attacker could lie about the KDK installation status. This is fixed by ensuring the KDK only ever gets installed if the KDK has already been downloaded via the if self.kdk_checksum_result is True and Path(self.constants.kdk_download_path).exists() condition, and only prints KDK installed successfully if the kdkd_install_result is True under an else condition.
+
+        if self.metallib_install_result is False:
+                    logging.error("Failed to install Metallib")
+                    return
+        
+                logging.info("Metallib installed successfully") # <- an attacker could manipulate the Metallibs install status to launch DoS attacks by crashing the process with File not found error
+
+Impact: an attacker could manipulate the Metallibs installation status by deleting the if self.metallib_install_result is False condition so it doesn't return unconditionally to cause the patcher to stop at File not found error to launch DoS attacks. This vulnerability is fixed by showing the Metallib installed successfully message only if elif self.metallib_install_result is True.
+
+gui_settings.py (the application settings menu):
+
+        def oc_build_selection(self, event: wx.Event) -> None:
+                value = event.GetEventObject().GetStringSelection()
+                if value == "Standard / Safe Build":
+                    logging.info("Updating OC build: Standard")
+                    self.constants.build_profile = "standard"
+                    global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "standard")
+                    return
+                elif value == "💬 Ask Each Time":
+                    logging.info("Updating OC build: None")
+                    self.constants.build_profile = ""
+                    global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "")
+                    return
+                elif value == "[LEVEL-B] Experimental GPU":
+                    logging.info("Updating OC build: Level-B")
+                    self.constants.build_profile = "test_b"
+                    global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "test_b")
+                    return
+                elif value == "[LEVEL-C] Experimental Tahoe (Native SMBIOS)":
+                    logging.info("Updating OC build: Level-C")
+                    self.constants.build_profile = "test_c"
+                    global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "test_c")
+                    return
+                elif value == "[LEVEL-C] Experimental Spoof T2 (MacBookPro16,1)":
+                    logging.info("Updating OC build: Level-C (Spoofed)")
+                    self.constants.build_profile = "test_c_spoofed"
+                    global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "test_c_spoofed")
+                    return
+                elif value == "[LEVEL-D] All-In-One Tahoe (Wi-Fi + Audio + GPU + T1)":
+                    logging.info("Updating OC build: Level-D")
+                    self.constants.build_profile = "test_d"
+                    global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "test_d")
+                    return
+            # <- an else condition is missing, an attacker could set a specially crafted value to cause the Settings menu to crash
+
+Impact: an attacker could set a specially crafted value, like set value to s to crash the application or worse, execute arbitary code:
+
+ def oc_build_selection(self, event: wx.Event) -> None:
+                value = s
+                if value == "Standard / Safe Build":
+                    logging.info("Updating OC build: Standard")
+                    self.constants.build_profile = "standard"
+                    global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "standard")
+                    return
+                elif value == "💬 Ask Each Time":
+                    logging.info("Updating OC build: None")
+                    self.constants.build_profile = ""
+                    global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "")
+                    return
+                elif value == "[LEVEL-B] Experimental GPU":
+                    logging.info("Updating OC build: Level-B")
+                    self.constants.build_profile = "test_b"
+                    global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "test_b")
+                    return
+                elif value == "[LEVEL-C] Experimental Tahoe (Native SMBIOS)":
+                    logging.info("Updating OC build: Level-C")
+                    self.constants.build_profile = "test_c"
+                    global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "test_c")
+                    return
+                elif value == "[LEVEL-C] Experimental Spoof T2 (MacBookPro16,1)":
+                    logging.info("Updating OC build: Level-C (Spoofed)")
+                    self.constants.build_profile = "test_c_spoofed"
+                    global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "test_c_spoofed")
+                    return
+                elif value == "[LEVEL-D] All-In-One Tahoe (Wi-Fi + Audio + GPU + T1)":
+                    logging.info("Updating OC build: Level-D")
+                    self.constants.build_profile = "test_d"
+                    global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "test_d")
+                    return
+             elif value == s:
+                    logging.info("Executing arbitary code, exploit successful")
+
+## 4.0.0.190003 - 4.0.0 alpha 19.3
+This release:
+- fixes a bug where uninstalling OpenCore Legacy Patcher T2 could remove OpenCore Legacy Patcher (Dortania) components
+- fixes a bug where when installing OpenCore Legacy Patcher T2, the Priveleged Helper Tool is updated to this project's own one by renaming the Priveleged Helper Tool to my own name
+- improves CI/CD pipeline to ensure they can't push accidentally a release that hasn't updated the constants.py yet to avoid a bug where the patcher could enter an update loop. However, on macOS High Sierra, Mojave and Catalina, this doesn't work out of the box, and unless installing openssl3 via MacPorts or Homebrew, this check will break and not execute at all, because these versions don't have openssl3 out of the box.
+- improves error handling when there are issues detecting root patches or the root volume is modified, and in certain cases, now it explains how to fix the issue
+- fixes a bug where if the SSV is broken, it returns right after False unconditionally. It's not a pure bug, it's also a security issue, and a severe one. An attacker could exploit this so even if the SSV's seal is broken, they could force writing root patches anyways.
+- 
+          if "Broken" in content["Sealed"]:
+                      logging.error("System volume is tainted, unpatching is required")
+                      logging.error("The system volume's seal is broken, unpatching is required to patch again.")
+                      logging.info("If for whatever reason doesn't let you undo the root patches, you need to start a repair upgrade of your operating system.")
+                      return True
+          
+                  return False
+
+Impact: an attacker could corrupt the SSV further even when it is already broken to brick the operating system and cause a DoS attack. This vulnerability is fixed by ensuring it returns ever False only if it doesn't correspond to any of the other if conditions by nesting the return False under else.
+
+And other vulnerabilities are fixed here as well:
+- A vulnerability is confirmed where in the Priveleged Helper Tool if using a Debug build, an attacker could execute arbitary commands from any application. To mitigate this, now the Priveleged Helper Tool is running a release version, waiting on @Medelcartelinc to fix the Debug build vulnerability. It is tested and fully working release build rather than Debug, checked and tested across different virtual machines.
+- and in detect.py fixes also 2 other vulnerabilities, and both are in detect.py:
+
+        """
+        detect.py: Detects patches for a given system
+        """
+        
+        import logging
+        import plistlib
+        import subprocess
+        import py_sip_xnu
+        import sys
+        import packaging.version
+        
+        try:
+            from enum import StrEnum
+        except ImportError:
+            from enum import Enum
+            class StrEnum(str, Enum):
+                pass
+          # <- here's a critical vulnerability - an attacker could trigger an error outside except ImportError
+Impact: an attacker could trigger an error outside except ImportError to intentionally write an invalid syntax inside the try loop to skip importing critical libraries, and crash the process to launch a DoS attack. This is fixed by adding error handling if an unexpected error ever occurs.
+
+            try:
+                        content = plistlib.loads(subprocess.run(["/usr/sbin/diskutil", "info", "-plist", "/"], capture_output=True).stdout)
+                    except plistlib.InvalidFileException:
+                        logging.error("Failed to parse diskutil output, falling back to global seal check")
+                        return utilities.check_seal() is False
+             # <- an attacker could trigger an error outside the except plistb.InvalidFileException error
+
+Impact: an attacker could trigger an error outside the except plistb.InvalidFileException error to manipulate the SSV checks. They could later on abuse it to launch a DoS attack by corrupting the SSV with these manipulated states. This is fixed by adding error handling if an unexpected error occurs.
+
 ## 4.0.0.190002 - 4.0.0 alpha 19.2
 This release fixes a bug where the patcher enters an auto update loop due to a bug that it thinks it's on an older version.
 

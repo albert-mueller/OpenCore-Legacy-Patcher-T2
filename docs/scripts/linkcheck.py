@@ -24,16 +24,16 @@ for file_path in md_files:
         text=True,  # Automatically handles string decoding and newline translation
         cwd=file_path.parent
     )
-    
+
     # Split output by lines (Universal Newlines mode handled by text=True)
     lines = result.stdout.splitlines()
-    
+
     # Filter lines to show only files, structural statuses, and strip out 429 rate limits
     filtered_lines = [
-        line for line in lines 
+        line for line in lines
         if ("FILE: " in line or " → Status: " in line) and " → Status: 429" not in line
     ]
-    
+
     # Print the clean output
     for line in filtered_lines:
         print(line)

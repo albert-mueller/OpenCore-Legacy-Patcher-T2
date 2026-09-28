@@ -62,6 +62,7 @@ class PatcherSupportPkgMount:
             )
         except Exception as e:
             logging.error(f"- Failed to check if DMG is encrypted: {e}")
+            logging.exception("Stack Trace:")
             return True
         output = result.stdout.decode(errors="ignore").lower()
         # hdiutil has printed both "encrypted: YES/NO" and "encrypted: 1/0" across releases.
@@ -154,7 +155,7 @@ class PatcherSupportPkgMount:
                 logging.error(f"- Could not remove incomplete Universal-Binaries.dmg: {error}")
                 return False
             except Exception as e:
-                logging.error(f"- Could not remove incomplete Universal-Binaries.dmg due to an unexpected error {error}.")
+                logging.error(f"- Could not remove incomplete Universal-Binaries.dmg due to an unexpected error: {e}")
                 logging.exception("Stack Trace:")
                 return False
 
@@ -205,7 +206,7 @@ class PatcherSupportPkgMount:
                 subprocess_wrapper.log(output)
                 if "Authentication error" not in output.stdout.decode():
                     self._display_authentication_error()
-                if i == 2:
+                if i >= 2: # behebt eine Sicherheitslücke, die erlaubt Angreifern beim mehr als 2 Versuche, Brute Force-Angriffe zu starten
                     self._display_too_many_attempts()
                     sys.exit(3)
                 continue
@@ -233,6 +234,7 @@ class PatcherSupportPkgMount:
             ).run()
         except Exception as e:
             logging.error(f"- Failed to prompt for decryption key: {e}")
+            logging.exception("Stack Trace:")
             return ""
 
     def _display_authentication_error(self) -> None:

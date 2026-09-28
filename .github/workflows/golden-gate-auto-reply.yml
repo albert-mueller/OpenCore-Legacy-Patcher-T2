@@ -1,0 +1,94 @@
+name: Golden Gate auto-reply
+
+# Replies to issues that ask for macOS 27 "Golden Gate" (or newer) support,
+# explains why it is not possible on Intel/T2 Macs and recommends Apple silicon.
+#
+# - Match in the TITLE      -> comment + label + close as "not planned"
+# - Match only in the BODY  -> comment + label, issue stays open
+#   (so real Tahoe bug reports that merely mention Golden Gate are not closed)
+# - Each issue gets the reply at most once (hidden marker in the comment).
+# - Add the label "bot-ignore" to an issue to exclude it.
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions:
+  issues: write
+
+concurrency:
+  group: golden-gate-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  reply:
+    runs-on: ubuntu-latest
+    if: github.event.issue.user.type != 'Bot'
+    steps:
+      - name: Check issue and reply
+        uses: actions/github-script@v7
+        env:
+          LABEL_NAME: "macOS 27 - not possible"
+          CLOSE_ON_TITLE_MATCH: "true"
+        with:
+          script: |
+            // Issue text is read from the payload inside JS, never interpolated
+            // into the script via a workflow expression, so it cannot inject code.
+            const issue = context.payload.issue;
+            const labels = (issue.labels || []).map(l => l.name);
+            if (labels.includes('bot-ignore')) return;
+
+            // Golden Gate, macOS 27+, Darwin 26+ (Tahoe = macOS 26 / Darwin 25)
+            const pattern = /golden[\s_-]*gate|mac\s*os\s*(?:x\s*)?(?:2[7-9]|[3-9]\d)(?![\d])|darwin\s*(?:2[6-9]|[3-9]\d)(?![\d])/i;
+
+            const title = issue.title || '';
+            const body = issue.body || '';
+            const titleMatch = pattern.test(title);
+            const bodyMatch = pattern.test(body);
+            if (!titleMatch && !bodyMatch) return;
+
+            const marker = '<!-- golden-gate-auto-reply -->';
+            const { owner, repo } = context.repo;
+            const issue_number = issue.number;
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100,
+            });
+            if (comments.some(c => (c.body || '').includes(marker))) return;
+
+            const message = [
+              marker,
+              '### macOS 27 Golden Gate (and newer) cannot be supported',
+              '',
+              'Thanks for asking! Unfortunately, support for macOS 27 Golden Gate or any later version is **not possible** with this patcher, and it will not be added.',
+              '',
+              '**Why:**',
+              '- Golden Gate is the first macOS release that runs **only on Apple silicon** (M1 and newer). macOS 26 Tahoe is the last version for Intel Macs. Refer to this issue in the official OpenCore Legacy Patcher here: https://github.com/dortania/OpenCore-Legacy-Patcher/issues/1183 ',
+              '- Apple no longer ships an Intel (x86_64) build of the operating system: the kernel, kexts, system frameworks and bootloader are Apple silicon (arm64) only.',
+              '- OpenCore Legacy Patcher works by booting an existing **Intel** build of macOS and restoring or patching drivers for older hardware. When there is no Intel build at all, there is nothing to patch — making it run would mean recompiling macOS itself, which is not possible.',
+              '- The T2 chip does not help here: it is a separate security coprocessor running bridgeOS, not a CPU that can run macOS.',
+              '',
+              '**What you can do:**',
+              '- Keep using **macOS 26 Tahoe** on your Intel/T2 Mac — Apple continues to ship security updates for it for some time.',
+              '- If you want Golden Gate, get an **Apple silicon Mac (M-series)**. Every M1 or newer Mac supports it. For the most advanced on-device Apple Intelligence features, an M3 or newer with at least 12 GB of memory is recommended.',
+              '',
+              titleMatch
+                ? '_This issue has been closed automatically. If it is actually about something else (for example a Tahoe bug), please say so and a maintainer will reopen it._'
+                : '_If your issue is about something else (for example a Tahoe bug), you can ignore this note — the issue stays open._',
+            ].join('\n');
+
+            await github.rest.issues.createComment({ owner, repo, issue_number, body: message });
+
+            try {
+              await github.rest.issues.addLabels({
+                owner, repo, issue_number, labels: [process.env.LABEL_NAME],
+              });
+            } catch (e) {
+              core.warning(`Could not add label: ${e.message}`);
+            }
+
+            if (titleMatch && process.env.CLOSE_ON_TITLE_MATCH === 'true' && issue.state === 'open') {
+              await github.rest.issues.update({
+                owner, repo, issue_number, state: 'closed', state_reason: 'not_planned',
+              });
+            }

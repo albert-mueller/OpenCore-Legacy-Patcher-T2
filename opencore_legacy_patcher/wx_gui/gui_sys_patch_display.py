@@ -360,7 +360,7 @@ class SysPatchDisplayFrame(wx.Frame):
 
     def on_start_root_patching(self, patches: dict):
         t1_status = "DETECTED" if getattr(self.constants.computer, 't1_chip', False) else "NOT DETECTED"
-        
+
         gpu_status = "NOT DETECTED"
         if getattr(self.constants.computer, 'dgpu', None):
             dgpu = self.constants.computer.dgpu
@@ -375,7 +375,7 @@ class SysPatchDisplayFrame(wx.Frame):
                     break
         if gpu_status == "NOT DETECTED" and any("AMD Polaris" in p for p in patches if patches[p] is True):
             gpu_status = "DETECTED"
-            
+
         wifi_status = "NOT DETECTED"
         if getattr(self.constants.computer, 'wifi', None):
             wifi = self.constants.computer.wifi
@@ -389,7 +389,7 @@ class SysPatchDisplayFrame(wx.Frame):
             patch_list = "- None"
 
         os_name = "macOS Tahoe 26.x" if self.constants.detected_os >= 25 else f"macOS (Build {self.constants.detected_os_build})"
-        
+
         warning_msg = f"""Target OS: {os_name}
 Model: {self.constants.computer.real_model}
 T1 Security: {t1_status}
@@ -410,7 +410,7 @@ by creating a new APFS snapshot.
             style=wx.OK | wx.CANCEL | wx.ICON_WARNING
         )
         pop_up.SetOKCancelLabels("APPLY ROOT PATCH", "CANCEL")
-        
+
         if pop_up.ShowModal() != wx.ID_OK:
             return
 

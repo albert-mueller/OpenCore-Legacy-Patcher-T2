@@ -3,6 +3,7 @@ analytics_handler.py: Analytics and Crash Reporting Handler
 """
 
 import json
+import logging
 import datetime
 import plistlib
 

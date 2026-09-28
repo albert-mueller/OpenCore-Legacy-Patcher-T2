@@ -45,12 +45,12 @@ def rmtree_handler(func, path, exc: BaseException) -> None:
         # Python 3.13 passes the bare exception instance instead of a tuple
         if isinstance(exc, FileNotFoundError):
             return
-            
+
         # If it's not a FileNotFoundError, we log the failure to the GUI
         logging.error(f"Critical: rmtree_handler cannot start cleanup for path: {path}")
         logging.exception("Stack Trace:") # This prints the full technical error
         raise exc
-        
+
     except Exception as e:
         logging.error(f"Function Error: {e}")
         logging.exception("Stack Trace:") # This prints the full technical error
@@ -58,12 +58,12 @@ def rmtree_handler(func, path, exc: BaseException) -> None:
         sys.exit(3)
 
 class BuildOpenCore:
-        
+
     """
     Core Build Library for generating and validating OpenCore EFI Configurations
     compatible with genuine Macs
     """
-    
+
     def __init__(self, model: str, global_constants: constants.Constants) -> None:
         try:
             self.model: str = model
@@ -90,7 +90,7 @@ class BuildOpenCore:
             logging.info("Please try again later.")
             sys.exit(3)
 
-    
+
     def _build_efi(self) -> None:
         """
         Build EFI folder
@@ -110,7 +110,7 @@ class BuildOpenCore:
             logging.error("We couldn't make sure if you are targeting macOS 27 Golden Gate or newer. Skip checking...")
             logging.exception("Stack Trace:")
             pass
-                
+
         utilities.cls()
         logging.info(f"Building Configuration {'for external' if self.constants.custom_model else 'on model'}: {self.model}")
 
@@ -178,7 +178,7 @@ class BuildOpenCore:
                 support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Booter"]["Patch"], "Comment", "Skip Board ID check")["Enabled"] = True
 
                 logging.info("- Adding T2-specific bypass NVRAM variables")
-                
+
                 if "NVRAM" not in self.config:
                     self.config["NVRAM"] = {"Add": {}, "Delete": {}}
                 if "Delete" not in self.config["NVRAM"]:
@@ -190,7 +190,7 @@ class BuildOpenCore:
                 # Ensure we strictly clean out legacy variables from NVRAM to prevent corecrypto mismatch
                 if "7C436110-AB2A-4BBB-A880-FE41995C9F82" not in self.config["NVRAM"]["Delete"]:
                     self.config["NVRAM"]["Delete"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"] = []
-                
+
                 for target_arg in ["boot-args", "csr-active-config", "amfi-allow-arguments"]:
                     if target_arg not in self.config["NVRAM"]["Delete"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]:
                         self.config["NVRAM"]["Delete"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"].append(target_arg)
@@ -205,11 +205,11 @@ class BuildOpenCore:
                 # Fetch template boot-args, scrub any accidental Lilu flags inherited from template plists
                 raw_args = self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"].get("boot-args", "")
                 scrubbed_args = " ".join([arg for arg in raw_args.split() if not arg.startswith("-lilu")])
-                
+
                 # Append required T2 args safely without compounding spaces
                 t2_args = "-ibtcompatbeta -revbeta revpatch=sbvmm"
                 self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = f"{scrubbed_args} {t2_args}".strip()
-                
+
                 # Ensure RestrictEvents.kext is enabled for T2 VMM / TargetType spoofing
                 support.BuildSupport(self.model, self.constants, self.config).enable_kext(
                     "RestrictEvents.kext", self.constants.restrictevents_version, self.constants.restrictevents_path
@@ -229,9 +229,9 @@ class BuildOpenCore:
                 self.config["NVRAM"] = {"Add": {}}
             if "7C436110-AB2A-4BBB-A880-FE41995C9F82" not in self.config["NVRAM"]["Add"]:
                 self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"] = {"boot-args": ""}
-                
+
             current_boot_args = self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"]
-            
+
             # Target some 2017 Mac models specifically to bypass vt-d/broadcom complications
             # Dies ist benötigt, um WLAN und Bluetooth richtig zu funktionieren auf macOS 26 Tahoe.
             MODELS_NEED_DART = ["iMac18,1", "iMac18,2", "iMac18,3", "MacBookPro14,1", "MacBookPro14,2", "MacBookPro14,3", "MacBookAir6,2"]
@@ -242,7 +242,7 @@ class BuildOpenCore:
 
             if "-lilubetaall" not in current_boot_args:
                 current_boot_args = f"{current_boot_args} -lilubetaall".strip()
-                
+
             self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = current_boot_args
 
         # Call support functions
@@ -269,17 +269,17 @@ class BuildOpenCore:
         # Auch behebt einen Fehler, indem Windows 10/11 per Boot Camp-Installation verschwindet wegen zu viele Malen \EFI\Microsoft\Boot\bootmgfw.efi erstellt werden oder das \EFI\Microsoft\Boot\bootmgfw.efi erstellen in config.plist, auch wenn es schon da steht.
         if self.constants.validate is False:
             logging.info("- Adding bootmgfw.efi BlessOverride")
-            
+
             # Ensure the section exists
             if "BlessOverride" not in self.config["Misc"]:
                 self.config["Misc"]["BlessOverride"] = []
-                
+
             # FIX: Only append if it's not already there
             target_path = "\\EFI\\Microsoft\\Boot\\bootmgfw.efi"
             if target_path not in self.config["Misc"]["BlessOverride"]:
-                self.config["Misc"]["BlessOverride"].append(target_path)    
+                self.config["Misc"]["BlessOverride"].append(target_path)
 
-    
+
     def _generate_base(self) -> None:
         """
         Generate OpenCore base folder and config
@@ -333,7 +333,7 @@ class BuildOpenCore:
         Save config.plist to disk with structural validation to prevent
         plistlib type errors.
         """
-        
+
         def find_bad_key(obj, path="root"):
             if isinstance(obj, dict):
                 for k, v in obj.items():
@@ -354,62 +354,62 @@ class BuildOpenCore:
         try:
             # Ensure the directory exists
             Path(self.constants.plist_path).parent.mkdir(parents=True, exist_ok=True)
-            
+
             with Path(self.constants.plist_path).open("wb") as f:
                 plistlib.dump(self.config, f, sort_keys=True)
             logging.info("Successfully saved config.plist")
-            
+
         except Exception as e:
             logging.error(f"Function Error while saving config: {e}")
             logging.exception("Stack Trace:")
             # Use sys.exit if you want to stop the build on failure
-            sys.exit(3)    
-    
+            sys.exit(3)
+
     def _set_revision(self) -> None:
         """
         Set revision information in config.plist
         """
-    
+
         # --- Safe access to #Revision ---
         rev = self.config.setdefault("#Revision", {})
         rev["Build-Version"] = f"{self.constants.patcher_version} - {date.today()}"
-    
+
         if not self.constants.custom_model:
             rev["Build-Type"] = "OpenCore Built on Target Machine"
             computer_copy = copy.copy(self.constants.computer)
             computer_copy.ioregistry = None
-            
-            # FIX: Convert the binary pickle dump to a string representation 
+
+            # FIX: Convert the binary pickle dump to a string representation
             # so plistlib doesn't try to parse it as an active data structure.
             rev["Hardware-Probe"] = str(pickle.dumps(computer_copy))
         else:
             rev["Build-Type"] = "OpenCore Built for External Machine"
-    
+
         rev["OpenCore-Version"] = (
             f"{self.constants.opencore_version} - "
             f"{'DEBUG' if self.constants.opencore_debug else 'RELEASE'}"
         )
         rev["Original-Model"] = self.model
-    
+
         # --- Hardened NVRAM structure ---
         nvram = self.config.setdefault("NVRAM", {})
         add   = nvram.setdefault("Add", {})
-    
+
         guid_key = "4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102"
         guid     = add.setdefault(guid_key, {})
-    
+
         # Validate type to avoid malicious plist poisoning
         if not isinstance(guid, dict):
             logging.error(f"NVRAM GUID {guid_key} is not a dictionary — refusing to write metadata")
-            logging.exception("Stack Trace:") 
+            logging.exception("Stack Trace:")
             return
-    
+
         # --- Safe writes ---
         guid["OCLP-Version"] = f"{self.constants.patcher_version}"
         guid["OCLP-Model"]   = self.model
 
-    
-    
+
+
     def _build_opencore(self) -> None:
         """
         Kick off the build process
@@ -435,7 +435,7 @@ class BuildOpenCore:
                     profile_name = "TEST-D ALL-IN-ONE (Wi-Fi + Audio + GPU + T1)"
                 else:
                     profile_name = "STANDARD / SAFE"
-                
+
                 target_m = self.model if self.model.startswith("MacBookPro14") else (getattr(self.constants.computer, "real_model", self.model))
                 has_t1 = "14,1" not in target_m
                 logging.info(f"{target_m} (Kaby Lake 2017) detected")
@@ -476,7 +476,7 @@ class BuildOpenCore:
                 smbios.BuildSMBIOS(self.model, self.constants, self.config).set_smbios()
             elif self.constants.allow_oc_everywhere is False or self.constants.allow_native_spoofs is True or (self.constants.custom_serial_number != "" and self.constants.custom_board_serial_number != ""):
                 smbios.BuildSMBIOS(self.model, self.constants, self.config).set_smbios()
-            
+
             # Tahoe Base Boot-args injection
             if self.constants.build_profile in ["standard", "test_c", "test_c_spoofed", "test_d"] or self.model == "MacBookPro14,3":
                 logging.info("Profile TEST: Injecting Tahoe boot-args (cryptex=0).")
@@ -536,11 +536,11 @@ class BuildOpenCore:
             real_model = getattr(self.constants.computer, 'real_model', self.model) if hasattr(self.constants, 'computer') else self.model
             if any(real_model.startswith(m) or self.model.startswith(m) for m in ["MacBookPro14,1", "MacBookPro14,2", "MacBookPro14,3"]):
                 current_boot_args = self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"]
-                
+
                 # Remove unnecessary debug args
                 cleaned = [a for a in current_boot_args.split() if a not in ["debug=0x100", "keepsyms=1"]]
                 current_boot_args = " ".join(cleaned)
-                
+
                 extra_args = []
                 # dart=0: Disables IOMMU/VT-d to prevent peripheral mapping issues
                 if "dart=0" not in current_boot_args:
@@ -551,7 +551,7 @@ class BuildOpenCore:
                 # -amfipassbeta: Pass AMFI checks with AMFIPass
                 if "-amfipassbeta" not in current_boot_args:
                     extra_args.append("-amfipassbeta")
-                
+
                 # Audio codec layout for MacBookPro14,2 and 14,3 (T1)
                 if any(m in real_model or m in self.model for m in ["14,2", "14,3"]):
                     if "alcid=" not in current_boot_args:
@@ -572,7 +572,7 @@ class BuildOpenCore:
                 if has_amd_dgpu or "14,3" in real_model or "14,3" in self.model:
                     if "agdpmod=" not in current_boot_args:
                         extra_args.append("agdpmod=pikera")
-                
+
                 # --- GPU / Performance boot-args (EFI-level only, no macOS modifications) ---
                 #
                 # igfxfw=2       → Force-load Apple GuC firmware on Intel HD 630 / Iris Plus 640.
@@ -601,7 +601,7 @@ class BuildOpenCore:
                     if prefix not in new_args:
                         new_args = f"{new_args} {arg}".strip()
                         logging.info(f"  + Perf: {arg}")
-                
+
                 self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = new_args
                 logging.info(f"- MacBookPro14,x ({real_model}): Optimized boot-args -> {new_args}")
 
@@ -618,7 +618,7 @@ class BuildOpenCore:
             logging.info("Post-build handling")
             support.BuildSupport(self.model, self.constants, self.config).sign_files()
             support.BuildSupport(self.model, self.constants, self.config).validate_pathing()
-            
+
             is_test_profile = getattr(self.constants, "build_profile", "standard") != "standard"
             is_mbp14x = any(self.model == m or (self.constants.computer is not None and getattr(self.constants.computer, "real_model", None) == m) for m in ["MacBookPro14,1", "MacBookPro14,2", "MacBookPro14,3"])
 
@@ -633,7 +633,7 @@ class BuildOpenCore:
                     profile_name = "TEST-D ALL-IN-ONE (Wi-Fi + Audio + GPU + T1 Native Auth)"
                 else:
                     profile_name = "STANDARD / SAFE"
-                
+
                 logging.info("")
                 logging.info("=========================================")
                 logging.info("          BUILD REPORT                   ")
@@ -643,13 +643,13 @@ class BuildOpenCore:
                 is_t1_model = self.model in ["MacBookPro13,2", "MacBookPro13,3", "MacBookPro14,2", "MacBookPro14,3"]
                 t1_info = "NATIVE SOFTWARE KEYSTORE (TAHOE COMPATIBLE)" if is_t1_model else "NOT APPLICABLE (Non-T1 Hardware)"
                 logging.info(f"T1 Auth: {t1_info}")
-                
+
                 wifi_id = "14E4:43BA"
                 if getattr(self.constants, "computer", None) is not None and self.constants.computer.wifi:
                     from opencore_legacy_patcher.support import utilities
                     wifi_id = f"{utilities.friendly_hex(self.constants.computer.wifi.vendor_id).upper()}:{utilities.friendly_hex(self.constants.computer.wifi.device_id).upper()}"
                 logging.info(f"Wi-Fi: {wifi_id}")
-                
+
                 # Read ACTUAL config.plist state — do not trust log alone
                 weg_enabled = False
                 for kext in self.config.get("Kernel", {}).get("Add", []):
@@ -660,7 +660,7 @@ class BuildOpenCore:
                 wegnoegpu_enabled = "-wegnoegpu" in boot_args
                 amd_patches = [patch for patch in self.config["Kernel"]["Patch"] if "AMD" in patch.get("Comment", "")]
                 dart_enabled = "dart=0" in boot_args
-                
+
                 if self.constants.build_profile == "test_b":
                     logging.info(f"WhateverGreen: {'ENABLED' if weg_enabled else 'ERROR — EXPECTED ENABLED'}")
                     logging.info(f"WhateverGreen version: {self.constants.whatevergreen_version}")
@@ -671,7 +671,7 @@ class BuildOpenCore:
                 else:
                     logging.info(f"WhateverGreen: {'NOT ENABLED BY TEST-B' if not weg_enabled else 'WARNING — UNEXPECTEDLY ENABLED'}")
                     logging.info(f"-wegnoegpu: {'NOT ENABLED BY TEST-B' if not wegnoegpu_enabled else 'WARNING — UNEXPECTEDLY ENABLED'}")
-                
+
                 logging.info(f"AMD kernel patches: {len(amd_patches) if amd_patches else 'NONE'}")
                 logging.info(f"dart=0: {'ENABLED' if dart_enabled else 'NOT ENABLED'}")
                 logging.info(f"boot-args: {boot_args}")
@@ -689,12 +689,12 @@ class BuildOpenCore:
                     profile_dir_base = "TEST-D-ALL-IN-ONE"
                 else:
                     profile_dir_base = "Standard-Build"
-                
+
                 if self.model == "MacBookPro14,3":
                     profile_dir_name = profile_dir_base
                 else:
                     profile_dir_name = f"{profile_dir_base}-{self.model}"
-                
+
                 profile_output = Path(self.constants.build_path) / profile_dir_name
                 if profile_output.exists():
                     try:

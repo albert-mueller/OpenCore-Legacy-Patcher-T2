@@ -107,11 +107,11 @@ METAL_ENFORCEMENT_KEYS = ["useMetal", "useIOP"]
 class PatchSysVolume:
     """
     Main patching orchestrator for macOS root volume.
-    
+
     Handles mounting, patching, and snapshotting of the root APFS volume.
     Coordinates between multiple subsystems (kernel cache, KDK, metallib).
     """
-    
+
     def __init__(self, model: str, global_constants: constants.Constants, hardware_details: list = None) -> None:
         self.model = model
         self.constants: constants.Constants = global_constants
@@ -167,7 +167,7 @@ class PatchSysVolume:
     def _mount_root_vol(self) -> bool:
         """
         Mount root volume.
-        
+
         Returns:
             bool: True if mount successful, False otherwise
         """
@@ -187,12 +187,12 @@ class PatchSysVolume:
     def _run_sanity_checks(self) -> bool:
         """
         Run sanity checks before continuing patching.
-        
+
         Verifies:
         - SystemVersion.plist exists on mounted volume
         - Build version matches expected version
         - No system update is in progress
-        
+
         Returns:
             bool: True if all checks pass, False otherwise
         """
@@ -207,7 +207,7 @@ class PatchSysVolume:
         try:
             with open(mounted_system_version, "rb") as plist_file:
                 mounted_data = plistlib.load(plist_file)
-            
+
             if mounted_data.get("ProductBuildVersion") != self.constants.detected_os_build:
                 product_version = mounted_data.get("ProductVersion", "unknown")
                 product_build = mounted_data.get("ProductBuildVersion", "unknown")
@@ -308,7 +308,7 @@ class PatchSysVolume:
     def _merge_kdk_with_root(self, save_hid_cs: bool = False) -> None:
         """
         Merge Kernel Debug Kit (KDK) with the root volume.
-        
+
         If no KDK is present, will call kdk_handler to download and install it.
 
         Parameters:
@@ -333,7 +333,7 @@ class PatchSysVolume:
         Revert APFS snapshot and clean up any changes made to the root and data volume.
         """
         logging.info("- Starting APFS snapshot revert")
-        
+
         if not APFSSnapshot(self.constants.detected_os, self.mount_location).revert_snapshot():
             logging.error("- Failed to revert APFS snapshot")
             return
@@ -374,7 +374,7 @@ class PatchSysVolume:
     def _rebuild_root_volume(self) -> bool:
         """
         Rebuild the root volume.
-        
+
         Steps:
         - Rebuilds the Kernel Collection (if kext patches are present)
         - Creates a new APFS Snapshot
@@ -417,12 +417,12 @@ class PatchSysVolume:
     def _rebuild_kernel_cache(self) -> bool:
         """
         Rebuild the kernel cache.
-        
+
         Returns:
             bool: True if successful, False otherwise
         """
         logging.debug("Rebuilding kernel cache")
-        
+
         try:
             result = kernelcache.RebuildKernelCache(
                 os_version=self.constants.detected_os,
@@ -449,7 +449,7 @@ class PatchSysVolume:
     def _create_new_apfs_snapshot(self) -> bool:
         """
         Create a new APFS snapshot of the root volume.
-        
+
         Returns:
             bool: True if snapshot was created, False if not
         """
@@ -466,12 +466,12 @@ class PatchSysVolume:
     def _clean_skylight_plugins(self) -> None:
         """
         Clean non-Metal's SkylightPlugins folder.
-        
+
         Ensures old plugins aren't lingering from previous installs.
         """
         try:
             skylight_path = Path(self.mount_application_support) / SKYLIGHT_PLUGINS_PATH.split("/")[-1]
-            
+
             if skylight_path.exists():
                 logging.info("- Found SkylightPlugins folder, removing old plugins")
                 subprocess_wrapper.run_as_root_and_verify(
@@ -499,7 +499,7 @@ class PatchSysVolume:
     def _delete_nonmetal_enforcement(self) -> None:
         """
         Remove defaults related to forced OpenGL rendering.
-        
+
         Primarily for development purposes and cleanup.
         """
         for arg in METAL_ENFORCEMENT_KEYS:
@@ -510,7 +510,7 @@ class PatchSysVolume:
                     stderr=subprocess.DEVNULL,
                     timeout=10
                 ).stdout.decode("utf-8").strip()
-                
+
                 if result in ["0", "false", "1", "true"]:
                     logging.info(f"- Removing non-Metal Enforcement Preference: {arg}")
                     subprocess_wrapper.run_as_root(["/usr/bin/defaults", "delete", CORE_DISPLAY_PREF_PATH, arg])
@@ -523,7 +523,7 @@ class PatchSysVolume:
     def _write_patchset(self, patchset: dict) -> None:
         """
         Write patchset information to root volume.
-        
+
         Stores metadata about applied patches for system recovery.
 
         Parameters:
@@ -531,7 +531,7 @@ class PatchSysVolume:
         """
         destination_path = f"{self.mount_location}{CORE_SERVICES_PATH}"
         destination_path_file = f"{destination_path}/{PATCHSET_FILENAME}"
-        
+
         try:
             if sys_patch_helpers.SysPatchHelpers(self.constants).generate_patchset_plist(
                 patchset, PATCHSET_FILENAME, self.kdk_path, self.metallib_path
@@ -556,35 +556,45 @@ class PatchSysVolume:
     def _patch_root_vol(self):
         """
         Main patching orchestrator.
-        
+
         Executes patches and triggers kernel cache rebuild.
         """
         logging.info(f"- Running patches for {self.model}")
         try:
             patches = self.patch_set_dictionary if self.patch_set_dictionary else HardwarePatchsetDetection(self.constants).patches
             self._execute_patchset(patches)
-    
+
             if self.constants.wxpython_variant and self.constants.detected_os >= os_data.os_data.big_sur:
                 needs_daemon = self.requires_kdk_caching or self.requires_metallib_caching
                 InstallAutomaticPatchingServices(self.constants).install_auto_patcher_launch_agent(
                     kdk_caching_needed=needs_daemon
                 )
-    
+
             self._rebuild_root_volume()
         except Exception as e:
             logging.error("We have a problem to execute patches and rebuild the Kernel Cache.")
             logging.exception("Stack Trace:")
+            # Stop here: no kernel collection rebuild and no new APFS snapshot, so the
+            # currently booted snapshot stays the boot target and root_patcher_succeeded
+            # stays False (no "finished successfully" prompt). Previously the root volume
+            # was also left mounted at this point.
+            logging.error("- Root patching aborted, no new snapshot was created. Your current system snapshot is unchanged.")
+            try:
+                self._unmount_root_vol()
+            except Exception:
+                logging.error("- Failed to unmount the root volume")
+                logging.exception("Stack Trace:")
             return
 
 
     def _get_destination_path(self, method_type: PatchType, patch_directory: str) -> str:
         """
         Resolve destination path based on patch method type.
-        
+
         Parameters:
             method_type: Type of patch installation method
             patch_directory: Target directory within the volume
-            
+
         Returns:
             str: Full destination path
         """
@@ -601,7 +611,7 @@ class PatchSysVolume:
     def _handle_patch_removal(self, required_patches: dict, patch: str, kc_support_obj) -> None:
         """
         Handle removal of files as specified in the patchset.
-        
+
         Parameters:
             required_patches: Full patchset dictionary
             patch: Current patch name being processed
@@ -615,11 +625,11 @@ class PatchSysVolume:
                  logging.error("We have issues to handle patch removal, so we couldn't remove the patch.")
                  logging.exception("Stack Trace:")
                  return
-                
+
             for remove_patch_directory in required_patches[patch][method_remove]:
                 logging.info("- Remove Files at: " + remove_patch_directory)
                 destination_folder_path = self._get_destination_path(method_remove, remove_patch_directory)
-                
+
                 for remove_patch_file in required_patches[patch][method_remove][remove_patch_directory]:
                     logging.debug(f"Removing file: {remove_patch_file} from {destination_folder_path}")
                     remove_file(destination_folder_path, remove_patch_file)
@@ -628,7 +638,7 @@ class PatchSysVolume:
     def _handle_patch_installation(self, required_patches: dict, patch: str, source_files_path: str, kc_support_obj) -> None:
         """
         Handle installation of files as specified in the patchset.
-        
+
         Parameters:
             required_patches: Full patchset dictionary
             patch: Current patch name being processed
@@ -646,16 +656,16 @@ class PatchSysVolume:
 
             for install_patch_directory in list(required_patches[patch][method_install]):
                 logging.info(f"- Handling Installs in: {install_patch_directory}")
-                
+
                 for install_file in list(required_patches[patch][method_install][install_patch_directory]):
                     source_folder_path = required_patches[patch][method_install][install_patch_directory][install_file] + install_patch_directory
-                    
+
                     # Check whether to source from root
                     if not required_patches[patch][method_install][install_patch_directory][install_file].startswith("/"):
                         source_folder_path = source_files_path + "/" + source_folder_path
 
                     destination_folder_path = self._get_destination_path(method_install, install_patch_directory)
-                    
+
                     # Handle special cases for data volume extensions
                     if method_install in [PatchType.OVERWRITE_DATA_VOLUME, PatchType.MERGE_DATA_VOLUME]:
                         if install_patch_directory == "/Library/Extensions":
@@ -670,11 +680,11 @@ class PatchSysVolume:
                         install_patch_directory,
                         destination_folder_path
                     )
-                    
+
                     if updated_destination_folder_path != destination_folder_path:
                         if kc_support_obj.check_kexts_needs_authentication(install_file):
                             self.constants.needs_to_open_preferences = True
-                        
+
                         # Update required_patches to reflect the new destination folder path
                         if updated_destination_folder_path not in required_patches[patch][method_install]:
                             required_patches[patch][method_install].update({updated_destination_folder_path: {}})
@@ -682,7 +692,7 @@ class PatchSysVolume:
                             install_file: required_patches[patch][method_install][install_patch_directory][install_file]
                         })
                         required_patches[patch][method_install][install_patch_directory].pop(install_file)
-                        
+
                         destination_folder_path = updated_destination_folder_path
 
                     logging.debug(f"Installing file: {install_file} to {destination_folder_path}")
@@ -704,13 +714,13 @@ class PatchSysVolume:
 
         source_files_path = str(self.constants.payload_local_binaries_root_path)
         required_patches = self._preflight_checks(required_patches, source_files_path)
-        
+
         for patch in required_patches:
             logging.info("- Installing Patchset: " + patch)
-            
+
             # Handle file removals
             self._handle_patch_removal(required_patches, patch, kc_support_obj)
-            
+
             # Handle file installations
             self._handle_patch_installation(required_patches, patch, source_files_path, kc_support_obj)
 
@@ -749,7 +759,7 @@ class PatchSysVolume:
             except Exception as e:
                 logging.error(f"- Failed to disable window server caching: {e}")
                 logging.exception("Stack Trace:")
-        
+
         if "Metal 3802 Common Extended" in required_patches:
             try:
                 sys_patch_helpers.SysPatchHelpers(self.constants).patch_gpu_compiler_libraries(mount_point=self.mount_location)
@@ -757,13 +767,17 @@ class PatchSysVolume:
                 logging.error(f"- Failed to patch GPU compiler libraries: {e}")
                 logging.exception("Stack Trace:")
 
-        # AppleHDA Tahoe: patch binary on system volume and re-sign after installation
+        # AppleHDA Tahoe: patch binary on system volume and re-sign after installation.
+        # Fatal: AppleHDA.kext is already installed at this point, so continuing would
+        # rebuild the kernel collections and seal a snapshot with a kext that cannot
+        # link (or has an invalid signature), and report success with no audio.
         if "Modern Audio" in required_patches:
             try:
                 sys_patch_helpers.SysPatchHelpers(self.constants).tahoe_applehda_patch(self.mount_location)
             except Exception as e:
                 logging.error(f"- Failed to apply AppleHDA Tahoe patch: {e}")
                 logging.exception("Stack Trace:")
+                raise
 
         self._write_patchset(required_patches)
 
@@ -771,12 +785,12 @@ class PatchSysVolume:
     def _resolve_metallib_support_pkg(self, _post_install_retry: bool = False, force_refresh: bool = False) -> str:
         """
         Resolve MetalLibSupportPkg.
-        
+
         Downloads and installs if necessary.
-        
+
         Returns:
             str: Path to resolved metallib support package
-            
+
         Raises:
             Exception: If resolution fails
         """
@@ -786,7 +800,7 @@ class PatchSysVolume:
             self.constants.detected_os_version,
             ignore_installed=force_refresh
         )
-        
+
         if not metallib_obj.success:
             logging.error(f"Failed to find MetalLibSupportPkg: {metallib_obj.error_msg}")
             logging.exception("Stack Trace:")
@@ -835,15 +849,15 @@ class PatchSysVolume:
     def _resolve_dynamic_patchset(self, variant: DynamicPatchset) -> str:
         """
         Resolve dynamic patchset to a path.
-        
+
         Caches results to avoid repeated downloads/installations.
 
         Parameters:
             variant: Dynamic patchset variant to resolve
-            
+
         Returns:
             str: Path to resolved patchset
-            
+
         Raises:
             Exception: If variant is unknown
         """
@@ -868,7 +882,7 @@ class PatchSysVolume:
     def _preflight_checks(self, required_patches: dict, source_files_path: Path) -> dict:
         """
         Run preflight checks before patching.
-        
+
         Validates:
         - All required files exist
         - Dynamic patchsets are resolved
@@ -882,7 +896,7 @@ class PatchSysVolume:
 
         Returns:
             dict: Updated patchset dictionary
-            
+
         Raises:
             Exception: If critical preflight check fails
         """
@@ -898,7 +912,7 @@ class PatchSysVolume:
             ]:
                 if method_type not in required_patches[patch]:
                     continue
-                    
+
                 for install_patch_directory in list(required_patches[patch][method_type]):
                     for install_file in list(required_patches[patch][method_type][install_patch_directory]):
                         is_dynamic_patchset = False
@@ -1043,7 +1057,7 @@ class PatchSysVolume:
     def start_patch(self):
         """
         Entry point for the patching process.
-        
+
         Main orchestrator that:
         1. Determines required patches
         2. Validates patch feasibility
@@ -1053,7 +1067,7 @@ class PatchSysVolume:
         """
         logging.info("- Starting Patch Process")
         logging.info(f"- Determining Required Patch set for Darwin {self.constants.detected_os}")
-        
+
         patchset_obj = HardwarePatchsetDetection(self.constants)
         self.patch_set_dictionary = patchset_obj.patches
         if not self.patch_set_dictionary:
@@ -1104,12 +1118,12 @@ class PatchSysVolume:
     def start_unpatch(self) -> None:
         """
         Entry point for unpatching the root volume.
-        
+
         Reverts APFS snapshot to undo patches.
         """
         logging.info("- Starting Unpatch Process")
         patchset_obj = HardwarePatchsetDetection(self.constants)
-        
+
         if not patchset_obj.can_unpatch:
             logging.error("- Cannot continue with unpatching!!!")
             logging.error("If you continue to encounter this error, consider to start an upgrade in place to fix this error, no data will be lost.")

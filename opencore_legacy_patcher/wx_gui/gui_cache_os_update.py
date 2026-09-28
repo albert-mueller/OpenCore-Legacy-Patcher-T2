@@ -215,7 +215,7 @@ class OSUpdateFrame(wx.Frame):
         """
         resource_list = "\n".join(f"- {name}" for name in download_objects)
         message = (
-            f"OpenCore Legacy Patcher has detected that macOS {self.os_data[0]} ({self.os_data[1]}) is being installed.\n\n"
+            f"OpenCore Legacy Patcher T2 has detected that macOS {self.os_data[0]} ({self.os_data[1]}) is being installed.\n\n"
             f"The following resources are needed after the update and will be downloaded now:\n"
             f"{resource_list}\n\n"
             f"Caching starts automatically in {self._AUTO_CONTINUE_DELAY} seconds."
@@ -250,30 +250,30 @@ class OSUpdateFrame(wx.Frame):
             logging.error("KDK checksum validation failed")
             logging.error(self.kdk_obj.error_msg)
             return
-
-        logging.info("KDK checksum validation passed")
+        elif self.kdk_checksum_result is True: # behebt eine Sicherheitslücke, die erlaubt Angreifern zu behaupten, dass die KDK-Prüfsummevalidierung erfolgreich, obwohl das nicht der Fall ist
+            logging.info("KDK checksum validation passed")
 
         if not Path(self.constants.kdk_download_path).exists():
             logging.error("KDK download path does not exist")
             return
+        if self.kdk_checksum_result is True and Path(self.constants.kdk_download_path).exists(): # behebt eine Sicherheitslücke, die erlaubt Angreifern, Schadsoftware statt Kernel Debug Kit zu installieren
+            self._set_status("Installing Kernel Debug Kit...")
 
-        self._set_status("Installing Kernel Debug Kit...")
+            self.kdk_install_result = False
+            def _install_kdk_thread():
+                self.kdk_install_result = kdk_handler.KernelDebugKitUtilities().install_kdk_dmg(
+                    self.constants.kdk_download_path, only_install_backup=True
+                )
 
-        self.kdk_install_result = False
-        def _install_kdk_thread():
-            self.kdk_install_result = kdk_handler.KernelDebugKitUtilities().install_kdk_dmg(
-                self.constants.kdk_download_path, only_install_backup=True
-            )
+            install_thread = threading.Thread(target=_install_kdk_thread)
+            install_thread.start()
+            gui_support.wait_for_thread(install_thread)
 
-        install_thread = threading.Thread(target=_install_kdk_thread)
-        install_thread.start()
-        gui_support.wait_for_thread(install_thread)
-
-        if self.kdk_install_result is False:
-            logging.error("Failed to install KDK")
-            return
-
-        logging.info("KDK installed successfully")
+            if self.kdk_install_result is False:
+                logging.error("Failed to install KDK")
+                return
+            else: # behebt eine Sicherheitslücke, die erlaubt Angreifern, zu behaupten, dass die KDK erfolgreich installiert wurde, obwohl dies nicht der Fall ist
+                logging.info("KDK installed successfully")
 
 
     def _handle_metallib(self) -> None:
@@ -293,8 +293,8 @@ class OSUpdateFrame(wx.Frame):
         if self.metallib_install_result is False:
             logging.error("Failed to install Metallib")
             return
-
-        logging.info("Metallib installed successfully")
+        elif self.metallib_install_result is True: # behebt eine Sicherheitslücke, die erlaubt Angreifern zu lügen, dass die Metallins installiert wurde, obwohl das ist nicht der Fall
+            logging.info("Metallib installed successfully")
 
 
     def _exit(self) -> None:

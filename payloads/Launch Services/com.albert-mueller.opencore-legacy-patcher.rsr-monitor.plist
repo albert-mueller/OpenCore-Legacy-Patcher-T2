@@ -7,15 +7,16 @@
 		<string>io.github.albert-mueller.opencore-legacy-patcher-t2</string>
 	</array>
 	<key>Label</key>
-	<string>com.dortania.opencore-legacy-patcher.os-caching</string>
+	<string>com.albert-mueller.opencore-legacy-patcher.rsr-monitor</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/Library/Application Support/Dortania/OpenCore-Patcher-T2.app/Contents/MacOS/OpenCore-Patcher</string>
-		<string>--cache_os</string>
+		<string>rm</string>
+		<string>-rf</string>
+		<string>/Library/Extensions/example.kext</string> <!-- Update kext to correct name -->
 	</array>
 	<key>WatchPaths</key>
-	<array>
-		<string>/System/Volumes/Update/Preflight.plist</string>
-	</array>
+    <array>
+      <string>/System/Volumes/Preboot/UUID/cryptex1/OS.dmg</string> <!-- Update UUID to host's booted Preboot folder -->
+    </array>
 </dict>
 </plist>

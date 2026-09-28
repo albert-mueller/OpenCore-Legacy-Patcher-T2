@@ -11,7 +11,7 @@
 
 # MARK: Variables
 # ---------------------------
-helperName="com.albert-mueller.opencore-legacy-patcher.privileged-helper"
+helperName="com.albert-mueller.opencore-patcher-t2.privileged-helper"
 helperPath="/Library/PrivilegedHelperTools/$helperName"
 
 # MARK: Functions
