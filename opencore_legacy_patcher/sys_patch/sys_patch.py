@@ -867,7 +867,6 @@ class PatchSysVolume:
             logging.info("Resolving dynamic patchset")
             if variant == DynamicPatchset.MetallibSupportPkg:
                 return self._resolve_metallib_support_pkg()
-                logging.info("Successfully resolved the dynamic patchset")
             else:
                 logging.error(f"Unknown Dynamic Patchset: {variant}")
                 logging.exception("Stack Trace:")

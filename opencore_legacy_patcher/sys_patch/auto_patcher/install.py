@@ -7,7 +7,6 @@ import logging
 import os
 import plistlib
 import subprocess
-import sys
 import tempfile
 
 from pathlib import Path

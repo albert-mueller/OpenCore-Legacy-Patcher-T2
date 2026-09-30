@@ -4,7 +4,6 @@ url.py: Generate URL for Software Update Catalog securely and deterministically.
 
 import logging
 import plistlib
-import os
 
 from .constants import (
     SeedType,

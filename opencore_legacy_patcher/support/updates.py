@@ -6,7 +6,6 @@ Returns dict with Link and Version of the latest binary update if available
 """
 
 import logging
-import applescript
 
 from urllib.parse import quote
 
@@ -125,13 +124,18 @@ class CheckBinaryUpdates:
     def check_binary_updates(self, manual: bool = False) -> Optional[dict]:
         """
         Check if any updates are available for the OpenCore Legacy Patcher binary.
-        Automatic checks respect the user's auto-update flag and snooze window.
-        Manual checks explicitly bypass those gates so the user can still force
-        a refresh when they choose to.
+        Automatic checks respect the snooze window; manual checks bypass it so
+        the user can still force a refresh when they choose to.
+
+        constants.auto_update is deliberately NOT checked here. It only decides
+        whether a found update is installed silently or offered through the
+        confirmation dialog - that decision belongs to the callers
+        (gui_main_menu.py on_update(), the auto patcher always asks). Gating the
+        check itself on auto_update meant "Turn Off Auto Updates" also turned
+        off automatic update *checks*, contrary to what the setting promises
+        ("the app will still automatically check for updates, but will not
+        apply them automatically").
         """
-        if self.constants.auto_update is False and manual is False:
-            logging.info("Automatic updates are disabled in the settings.")
-            return None
 
         # Running from source (OpenCore-Patcher-GUI.command / python3 from the
         # Terminal): launcher_script is only set in that case, see

@@ -21,8 +21,6 @@ class RoutePayloadDiskImage:
 
     def __init__(self, global_constants: constants.Constants) -> None:
         self.constants: constants.Constants = global_constants
-        # POSIX path - see subprocess_wrapper.applescript_icon_clause() for why the
-        # previous HFS conversion never resolved.
         self._setup_tmp_disk_image()
 
     def _setup_tmp_disk_image(self) -> None:
@@ -45,7 +43,10 @@ class RoutePayloadDiskImage:
                 Path(self.temp_dir.name / Path("payloads")),
                 shadow_path=Path(self.temp_dir.name / Path("payloads_overlay")),
                 password="password",
-                admin_password_prompt=self._request_admin_password,
+                # Reason shown in the native macOS authorization dialog; elevation itself is
+                # handled by utilities.get_admin_permission() (Authorization Services), not by
+                # collecting the password ourselves.
+                admin_password_prompt="OpenCore-Patcher-T2 needs administrator permission to mount its internal payloads.",
                 # Fixed, known-correct password: "Authentication error" here can only mean
                 # the privilege gate/quarantine issue, never a wrong password (see mount_dmg)
                 retry_on_auth_error=True

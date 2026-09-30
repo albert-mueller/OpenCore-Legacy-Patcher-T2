@@ -89,21 +89,6 @@ class IntelHaswell(BaseHardware):
         }
 
 
-    def _framebuffer_only_patches(self) -> dict:
-        """
-        Framebuffer only patches
-        """
-        return {
-            "Intel Haswell": {
-                PatchType.OVERWRITE_SYSTEM_VOLUME: {
-                    "/System/Library/Extensions": {
-                        "AppleIntelFramebufferAzul.kext": self._resolve_monterey_framebuffers(),
-                    },
-                },
-            },
-        }
-
-
     def patches(self) -> dict:
         """
         Patches for Intel Haswell iGPUs

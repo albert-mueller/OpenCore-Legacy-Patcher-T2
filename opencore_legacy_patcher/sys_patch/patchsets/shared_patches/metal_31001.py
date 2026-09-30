@@ -2,11 +2,9 @@
 metal_31001.py: Metal 31001 patches
 """
 
-import packaging.version
 
 from .base import BaseSharedPatchSet
 
-from ..base import PatchType, DynamicPatchset
 
 from ....datasets.os_data import os_data
 

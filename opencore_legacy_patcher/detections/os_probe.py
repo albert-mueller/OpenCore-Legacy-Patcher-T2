@@ -5,8 +5,6 @@ os_probe.py: OS Host information
 import platform
 import plistlib
 import subprocess
-import sys
-import logging
 from pathlib import Path
 
 

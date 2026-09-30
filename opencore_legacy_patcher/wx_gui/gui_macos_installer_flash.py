@@ -8,8 +8,6 @@ import plistlib
 import tempfile
 import threading
 import subprocess
-import sys
-import logging
 
 from pathlib import Path
 

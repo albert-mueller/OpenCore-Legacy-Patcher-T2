@@ -6,8 +6,6 @@ import shutil
 import logging
 import binascii
 import sys
-import os
-import subprocess
 from pathlib import Path
 
 from . import support
@@ -117,16 +115,19 @@ class BuildMiscellaneous:
         block_args = ",".join(self._re_generate_block_arguments())
         patch_args = ",".join(self._re_generate_patch_arguments())
 
+        if self._is_t2_mac():
+            # RestrictEvents must not be injected on T2 Macs: they will use a separate,
+            # dedicated kext (in development). Skip the kext and its revblock/revpatch
+            # NVRAM variables entirely; the EFICheckDisabler fallback below still applies.
+            logging.info("- Skipping RestrictEvents on T2 Mac (dedicated T2 kext pending)")
+            block_args = ""
+            patch_args = ""
+
         if block_args:
             logging.info(f"- Setting RestrictEvents block arguments: {block_args}")
-            if self._is_t2_mac():
-                support.BuildSupport(self.model, self.constants, self.config).enable_kext(
-                    "RestrictEvents.kext", self.constants.restrictevents_t2_version, self.constants.restrictevents_t2_path
-                )
-            else:
-                support.BuildSupport(self.model, self.constants, self.config).enable_kext(
-                    "RestrictEvents.kext", self.constants.restrictevents_version, self.constants.restrictevents_path
-                )
+            support.BuildSupport(self.model, self.constants, self.config).enable_kext(
+                "RestrictEvents.kext", self.constants.restrictevents_version, self.constants.restrictevents_path
+            )
             self._set_nvram_value(OCLP_UUID, "revblock", block_args, overwrite=True)
 
         if block_args and not patch_args:
@@ -134,14 +135,9 @@ class BuildMiscellaneous:
 
         if patch_args:
             logging.info(f"- Setting RestrictEvents patch arguments: {patch_args}")
-            if self._is_t2_mac():
-                support.BuildSupport(self.model, self.constants, self.config).enable_kext(
-                    "RestrictEvents.kext", self.constants.restrictevents_t2_version, self.constants.restrictevents_t2_path
-                )
-            else:
-                support.BuildSupport(self.model, self.constants, self.config).enable_kext(
-                    "RestrictEvents.kext", self.constants.restrictevents_version, self.constants.restrictevents_path
-                )
+            support.BuildSupport(self.model, self.constants, self.config).enable_kext(
+                "RestrictEvents.kext", self.constants.restrictevents_version, self.constants.restrictevents_path
+            )
             self._set_nvram_value(OCLP_UUID, "revpatch", patch_args, overwrite=True)
 
         kext_obj = support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("RestrictEvents.kext")
@@ -425,7 +421,6 @@ class BuildMiscellaneous:
             # Injecting Ventura 13.6 kexts causes ABI/IPC mismatch with Tahoe user-space (securityd, LocalAuthentication, akd),
             # breaking password authorization in System Settings and Apple Account login.
             # Using Native Software Keystore mode allows Tahoe to handle password auth & Apple Account natively via CPU crypto.
-            is_sonoma_or_newer = self.constants.detected_os >= os_data.os_data.sonoma
             is_tahoe_or_newer = self.constants.detected_os >= os_data.os_data.tahoe
             active_profile = getattr(self.constants, "build_profile", "standard")
 
@@ -511,19 +506,6 @@ class BuildMiscellaneous:
             logging.error(f"{self.model} is not a T2 Mac.")
             return
         else:
-            UnsupportedT2Macs = [
-                "MacBookAir8,1",
-                "MacBookAir8,2",
-                "MacBookAir9,1",
-                "MacBookPro15,1",
-                "MacBookPro15,2",
-                "MacBookPro15,3",
-                "MacBookPro15,4",
-                "MacBookPro16,3",
-                "MacBookPro16,4",
-                "Macmini8,1",
-                "iMacPro1,1",
-            ]
             logging.info(f"{self.model} is a T2 Mac.")
             builder = support.BuildSupport(self.model, self.constants, self.config)
             self.config.setdefault("Kernel", {}).setdefault("Patch", [])

@@ -10,7 +10,6 @@ ie. during automated patching
 import logging
 import plistlib
 import os
-import subprocess
 from pathlib import Path
 
 

@@ -2,7 +2,7 @@ import wx
 import logging
 
 from .. import constants
-from . import gui_support, gui_main_menu
+from . import gui_main_menu
 
 class ModeSelectorFrame(wx.Frame):
     def __init__(self, parent: wx.Frame, title: str, global_constants: constants.Constants, screen_location: tuple = None):

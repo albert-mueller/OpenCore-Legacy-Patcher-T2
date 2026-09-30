@@ -3,7 +3,6 @@ gui_oc_settings.py: Settings Frame for the GUI
 """
 
 
-
 from pathlib import Path
 
 import wx
@@ -128,8 +127,6 @@ class OCSettingsFrame(wx.Frame):
         return_button.Bind(wx.EVT_BUTTON, self.on_return)
         return_button.SetFont(gui_support.font_factory(13, wx.FONTWEIGHT_NORMAL))
         sizer.Add(return_button, 0, wx.ALIGN_CENTER | wx.ALL, 0)
-
-
 
 
         sizer.Add(bot_sizer, 0, wx.ALIGN_CENTER | wx.ALL, 10)
@@ -1135,12 +1132,6 @@ class OCSettingsFrame(wx.Frame):
         global_settings.GlobalEnviromentSettings().write_property(f"GUI:{variable}", tmp_value)
 
 
-    def on_choice(self, event: wx.Event, label: str) -> None:
-        """
-        """
-        value = event.GetString()
-        self._update_setting(self.settings[self._find_parent_for_key(label)][label]["variable"], value)
-
     def on_oc_settings_tab_changed(self, event: wx.Event) -> None:
         """
         wx.Notebook only lays out its currently active page, so a scrolled
@@ -1249,7 +1240,6 @@ class OCSettingsFrame(wx.Frame):
 
             index += 1
             self.sip_checkbox.Bind(wx.EVT_CHECKBOX, self.on_sip_value)
-
 
 
     def on_build_and_install_standard(self, event: wx.Event = None):

@@ -36,7 +36,8 @@ misc
 )
 from ..datasets import (
     os_data,
-    smbios_data
+    smbios_data,
+    cpu_data
 )
 
 # von def rmtree_handler(func, path, exc_info) -> None: verabscheiden und zu def rmtree_handler(func, path, exc: BaseException) -> None: wechseln, um Kompabilität mit Python 3.13+ zu verbessern und Python 3.14-Kompabilität zu ermöglichen
@@ -204,16 +205,16 @@ class BuildOpenCore:
 
                 # Fetch template boot-args, scrub any accidental Lilu flags inherited from template plists
                 raw_args = self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"].get("boot-args", "")
-                scrubbed_args = " ".join([arg for arg in raw_args.split() if not arg.startswith("-lilu")])
+                # Also drop dart=0: it is only meant for pre-T2 targets and must not
+                # survive into a T2 config via the template or a previous build.
+                scrubbed_args = " ".join([arg for arg in raw_args.split() if not arg.startswith("-lilu") and arg != "dart=0"])
 
                 # Append required T2 args safely without compounding spaces
                 t2_args = "-ibtcompatbeta -revbeta revpatch=sbvmm"
                 self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = f"{scrubbed_args} {t2_args}".strip()
 
-                # Ensure RestrictEvents.kext is enabled for T2 VMM / TargetType spoofing
-                support.BuildSupport(self.model, self.constants, self.config).enable_kext(
-                    "RestrictEvents.kext", self.constants.restrictevents_version, self.constants.restrictevents_path
-                )
+                # RestrictEvents.kext is intentionally NOT injected on T2 Macs; they will use a
+                # separate, dedicated kext (in development). See misc.py _restrict_events_handling.
 
                 # Ensure WriteFlash is enabled to commit changes to SPI ROM
                 self.config["NVRAM"]["WriteFlash"] = True
@@ -232,13 +233,21 @@ class BuildOpenCore:
 
             current_boot_args = self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"]
 
-            # Target some 2017 Mac models specifically to bypass vt-d/broadcom complications
+            # dart=0 on every pre-T2 target except Core 2 Duo (Penryn and older) Macs:
+            # disables VT-d/DART DMA remapping to avoid IOMMU mapping problems with
+            # legacy (Broadcom) WiFi/Bluetooth on macOS 26 Tahoe.
             # Dies ist benötigt, um WLAN und Bluetooth richtig zu funktionieren auf macOS 26 Tahoe.
-            MODELS_NEED_DART = ["iMac18,1", "iMac18,2", "iMac18,3", "MacBookPro14,1", "MacBookPro14,2", "MacBookPro14,3", "MacBookAir6,2"]
-            if self.model in MODELS_NEED_DART:
-                if "dart=0" not in current_boot_args:
-                    logging.info(f"- Appending dart=0 boot argument for {self.model} hardware target to fix WiFi/Bluetooth issues on macOS Tahoe ({self.model})")
-                    current_boot_args = f"{current_boot_args} dart=0".strip()
+            # Previously limited to a hardcoded list (iMac18,x, MacBookPro14,x, MacBookAir6,2).
+            cpu_gen = smbios_data.smbios_dictionary.get(self.model, {}).get("CPU Generation", None)
+            is_core2_or_older = cpu_gen is not None and cpu_gen <= cpu_data.CPUGen.penryn.value
+            if is_core2_or_older:
+                logging.info(f"- Skipping dart=0 for {self.model} (Core 2 Duo or older)")
+            elif is_t2:
+                # Defensive: this branch is non-T2 only, but never inject dart=0 on a T2 target
+                logging.info(f"- Skipping dart=0 for {self.model} (T2 Mac)")
+            elif "dart=0" not in current_boot_args.split():
+                logging.info(f"- Appending dart=0 boot argument for pre-T2 target {self.model} to fix WiFi/Bluetooth issues on macOS Tahoe")
+                current_boot_args = f"{current_boot_args} dart=0".strip()
 
             if "-lilubetaall" not in current_boot_args:
                 current_boot_args = f"{current_boot_args} -lilubetaall".strip()

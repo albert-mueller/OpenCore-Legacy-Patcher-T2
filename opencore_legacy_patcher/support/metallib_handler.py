@@ -3,11 +3,10 @@ metallib_handler.py: Library for handling Metal libraries
 """
 
 import logging
-import requests
 import subprocess
 import packaging.version
 
-from typing  import cast
+from typing  import cast, Optional
 from pathlib import Path
 
 from .  import network_handler, subprocess_wrapper
@@ -26,6 +25,21 @@ METALLIB_INSTALL_PATH:        str  = "/Library/Application Support/Pyquick/Metal
 METALLIB_INSTALL_PATH_LEGACY: str  = "/Library/Application Support/Dortania/MetallibSupportPkg"
 METALLIB_INSTALL_PATH_HACKDOC:str  = "/Library/Application Support/Hackdoc/MetallibSupportPkg"
 METALLIB_API_LINK:            str  = "https://albert-mueller.github.io/MetallibSupportPkg/manifest.json"
+
+# Every catalog we know of, in priority order. No single one is complete (ours lacks
+# some older Sequoia builds Dortania still lists, the Medelcartelinc mirror lags behind
+# on new Tahoe builds), so all of them are read and merged by build instead of stopping
+# at the first one that answers. When two catalogs list the same build, the earlier
+# one wins - our own API first, so a third-party mirror can never override it.
+METALLIB_API_LINKS: tuple = (
+    # Same catalog as METALLIB_API_LINK, read straight from the repository
+    # (github.com/albert-mueller/albert-mueller.github.io): always the latest commit,
+    # without waiting for GitHub Pages to rebuild, and still reachable if Pages is down.
+    "https://raw.githubusercontent.com/albert-mueller/albert-mueller.github.io/main/MetallibSupportPkg/manifest.json",
+    METALLIB_API_LINK,
+    "https://raw.githubusercontent.com/Medelcartelinc/MetallibSupportPkg/main/deploy/manifest.json",
+    "https://dortania.github.io/MetallibSupportPkg/manifest.json",
+)
 
 METALLIB_ASSET_LIST:   list = None
 
@@ -66,41 +80,79 @@ class MetalLibraryObject:
         self._get_latest_metallib()
 
 
-    def _get_remote_metallibs(self) -> dict:
+    @staticmethod
+    def _valid_entry(entry) -> bool:
         """
-        Get the MetallibSupportPkg list from the API
+        Only accept catalog entries we can actually use: the required keys as
+        strings, a parseable version, and a package hosted on GitHub over HTTPS.
+        """
+        if not isinstance(entry, dict):
+            return False
+        for key in ("build", "version", "url"):
+            if not isinstance(entry.get(key), str) or not entry[key]:
+                return False
+        if not entry["url"].startswith("https://github.com/"):
+            return False
+        try:
+            packaging.version.Version(entry["version"])
+        except (packaging.version.InvalidVersion, TypeError):
+            return False
+        return True
+
+
+    def _get_remote_metallibs(self) -> Optional[list]:
+        """
+        Get the merged MetallibSupportPkg list from all catalogs, newest first
         """
 
         global METALLIB_ASSET_LIST
 
-        logging.info("Pulling metallib list from MetallibSupportPkg API")
         if METALLIB_ASSET_LIST:
             return METALLIB_ASSET_LIST
 
-        api_links = [
-            "https://raw.githubusercontent.com/Medelcartelinc/MetallibSupportPkg/main/deploy/manifest.json",
-            METALLIB_API_LINK,
-            "https://dortania.github.io/MetallibSupportPkg/manifest.json",
-        ]
+        logging.info("Pulling metallib list from MetallibSupportPkg API")
 
-        for link in api_links:
+        merged: dict = {}
+        for link in METALLIB_API_LINKS:
             try:
                 results = network_handler.NetworkUtilities().get(
                     link,
                     headers={
-                        "User-Agent": f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0/OpenCoreLegacyPatcherT2/{self.constants.patcher_version}"
+                        "User-Agent": f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0/OpenCoreLegacyPatcherT2/{self.constants.patcher_version}"
                     },
                     timeout=5
                 )
-                if results and results.status_code == 200:
-                    METALLIB_ASSET_LIST = results.json()
-                    return METALLIB_ASSET_LIST
-            except Exception:
+                if not results or results.status_code != 200:
+                    logging.info(f"- {link}: unavailable")
+                    continue
+                entries = results.json()
+            except Exception as e:
+                logging.info(f"- {link}: unusable ({e.__class__.__name__})")
                 continue
 
-        logging.info("Could not contact MetallibSupportPkg API")
-        return None
+            if not isinstance(entries, list):
+                logging.info(f"- {link}: unexpected format, ignoring")
+                continue
 
+            added = 0
+            for entry in entries:
+                if not self._valid_entry(entry) or entry["build"] in merged:
+                    continue
+                merged[entry["build"]] = entry
+                added += 1
+            logging.info(f"- {link}: {added} new build(s)")
+
+        if not merged:
+            logging.info("Could not contact MetallibSupportPkg API")
+            return None
+
+        # The closest-match search below relies on newest-first order. None of the
+        # catalogs is actually sorted that way, so sort the merged list ourselves.
+        METALLIB_ASSET_LIST = sorted(
+            merged.values(),
+            key=lambda e: (packaging.version.Version(e["version"]), str(e.get("date", ""))),
+            reverse=True,
+        )
         return METALLIB_ASSET_LIST
 
 
@@ -116,7 +168,7 @@ class MetalLibraryObject:
             logging.warning(f"{self.error_msg}")
             return
 
-        self.metallib_installed_path = self._local_metallib_installed()
+        self.metallib_installed_path = self._local_metallib_installed(match=self.host_build)
         if self.metallib_installed_path:
             logging.info(f"metallib already installed ({Path(self.metallib_installed_path).name}), skipping")
             self.metallib_already_installed = True
@@ -139,17 +191,19 @@ class MetalLibraryObject:
                 self.success = True
                 return
 
-            older_version = f"{parsed_version.major}.{parsed_version.minor - 1 if parsed_version.minor > 0 else 0}"
-            logging.info(f"Checking for metallibs matching {older_version}")
-            self.metallib_installed_path = self._local_metallib_installed(match=older_version, check_version=True)
+            older_version = f"{parsed_version.major}.{parsed_version.minor - 1}" if parsed_version.minor > 0 else None
+            if older_version:
+                logging.info(f"Checking for metallibs matching {older_version}")
+                self.metallib_installed_path = self._local_metallib_installed(match=older_version, check_version=True)
             if self.metallib_installed_path:
                 logging.info(f"Found matching metallib: {Path(self.metallib_installed_path).name}")
                 self.metallib_already_installed = True
                 self.success = True
                 return
             else: # <- behebt eine Sicherheitslücke, die erlaubt Angreifern, der if self.metallib_installed_path zu entfernen, um ClickFix-Angriffe zu starten
-                logging.error(f"Couldn't find metallib matching {self.host_version} or {older_version}, please install one manually")
-                self.error_msg = f"Could not contact MetallibSupportPkg API, and no metallib matching {self.host_version} ({self.host_build}) or {older_version} was installed.\nPlease ensure you have a network connection or manually install a metallib."
+                tried = f"{self.host_version} ({self.host_build})" + (f" or {older_version}" if older_version else "")
+                logging.error(f"Couldn't find metallib matching {tried}, please install one manually")
+                self.error_msg = f"Could not contact MetallibSupportPkg API, and no metallib matching {tried} was installed.\nPlease ensure you have a network connection or manually install a metallib."
                 return
 
 
@@ -171,7 +225,7 @@ class MetalLibraryObject:
                     continue
                 if metallib_version.major != parsed_version.major:
                     continue
-                if metallib_version.minor not in range(parsed_version.minor - 1, parsed_version.minor + 1):
+                if metallib_version.minor < parsed_version.minor - 1:
                     continue
 
                 # The metallib list is already sorted by version then date, so the first match is the closest
@@ -212,12 +266,17 @@ class MetalLibraryObject:
         self.success = True
 
 
-    def _local_metallib_installed(self, match: str = None, check_version: bool = False) -> str:
+    def _local_metallib_installed(self, match: str = None, check_version: bool = False) -> Optional[Path]:
         """
         Check if a metallib is already installed
+
+        Package folders are named "<version>-<build>", e.g. "26.6.2-25G83".
+        check_version=False matches the build, check_version=True a version prefix:
+        "26.6" matches "26.6-..." and "26.6.2-...", but not "26.60-..." or a build
+        that happens to contain the string.
         """
 
-        if self.ignore_installed:
+        if self.ignore_installed or not match:
             return None
 
         for install_path in (METALLIB_INSTALL_PATH, METALLIB_INSTALL_PATH_LEGACY, METALLIB_INSTALL_PATH_HACKDOC):
@@ -228,7 +287,8 @@ class MetalLibraryObject:
                 if not metallib_folder.is_dir():
                     continue
                 if check_version:
-                    if match not in metallib_folder.name:
+                    folder_version = metallib_folder.name.split("-", 1)[0]
+                    if folder_version != match and not folder_version.startswith(f"{match}."):
                         continue
                 else:
                     if not metallib_folder.name.endswith(f"-{match}"):
@@ -264,7 +324,7 @@ class MetalLibraryObject:
         return network_handler.DownloadObject(self.metallib_url, metallib_download_path)
 
 
-    def install_metallib(self, metallib: str = None) -> None:
+    def install_metallib(self, metallib: str = None) -> bool:
         """
         Install MetallibSupportPkg PKG
         """
@@ -277,8 +337,10 @@ class MetalLibraryObject:
             logging.info("No installation required, metallib already installed")
             return True
 
+        pkg_path = str(metallib if metallib else self.constants.metallib_download_path)
+
         result = subprocess_wrapper.run_as_root([
-            "/usr/sbin/installer", "-pkg", metallib if metallib else self.constants.metallib_download_path, "-target", "/"
+            "/usr/sbin/installer", "-pkg", pkg_path, "-target", "/"
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if result.returncode != 0:
             subprocess_wrapper.log(result)

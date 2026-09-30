@@ -13,8 +13,7 @@ from ..sys_patch import sys_patch
 
 from ..wx_gui import (
     gui_support,
-    gui_sys_patch_display,
-    gui_update
+    gui_sys_patch_display
 )
 
 from ..datasets import (
@@ -23,7 +22,6 @@ from ..datasets import (
 )
 from ..support import (
     global_settings,
-    network_handler,
     subprocess_wrapper,
 )
 

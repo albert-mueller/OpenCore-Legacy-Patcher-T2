@@ -2,9 +2,7 @@
 sign_notarize.py: Sign and Notarize a file securely
 """
 
-import logging
 import os
-import sys
 from pathlib import Path
 import mac_signing_buddy
 import macos_pkg_builder
@@ -75,7 +73,6 @@ class SignAndNotarize:
                 except Exception as e:
                     rich.print("[red]Apple Notarization dispatch layer failed.[/red]")
                     raise RuntimeError(f"Apple Notarization dispatch layer failed: {e}")
-                    sys.exit(3)
             else:
                 rich.print("[yellow]Notarization credentials not completely provided. Skipping notarization.[/yellow]")
 

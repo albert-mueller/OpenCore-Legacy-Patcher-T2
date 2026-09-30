@@ -7,25 +7,19 @@ import wx.html2
 
 import sys
 import logging
-import subprocess
-import requests
 import markdown2
 import threading
 import webbrowser
-import shutil
-import os
-from pathlib import Path
 from packaging import version
 
+from ..support import image_handler
 from .. import constants
 
 from ..support import (
-    global_settings,
     updates,
     utilities
 )
 from ..datasets import (
-    os_data,
     css_data
 )
 from ..wx_gui import (
@@ -34,7 +28,6 @@ from ..wx_gui import (
     gui_support,
     gui_help,
     gui_settings,
-    gui_sys_patch_display,
     gui_test_info,
     gui_update,
     gui_oc_settings,
@@ -78,7 +71,7 @@ class MainFrame(wx.Frame):
             # Only touch the logo if the icon actually changes. Before Tahoe (and on
             # Tahoe in Light Mode) the path stays the same, so nothing needs redrawing.
             if logo and icon_path != getattr(self, "_logo_icon_path", None):
-                logo.SetBitmap(wx.Bitmap(icon_path, wx.BITMAP_TYPE_ICON))
+                logo.SetBitmap(image_handler.get_bitmap(icon_path))
                 # SetBitmap() resizes the control to the bitmap's native size (up to
                 # 1024x1024 for an .icns), which blew the logo up over the whole window.
                 # Restore the original 128x128 box and re-centre it.
@@ -97,7 +90,7 @@ class MainFrame(wx.Frame):
         """
         # Logo
         # Uses the dark app icon on macOS 26 Tahoe+ in Dark Mode (see constants.app_icon_path)
-        logo = wx.StaticBitmap(self, bitmap=wx.Bitmap(str(self.constants.app_icon_path), wx.BITMAP_TYPE_ICON), pos=(-1, 0), size=(128, 128))
+        logo = wx.StaticBitmap(self, bitmap=image_handler.get_bitmap(self.constants.app_icon_path), pos=(-1, 0), size=(128, 128))
         logo.Centre(wx.HORIZONTAL)
         self.logo = logo
         self._logo_icon_path = str(self.constants.app_icon_path)
@@ -109,7 +102,6 @@ class MainFrame(wx.Frame):
         title_label.SetFont(gui_support.font_factory(25, wx.FONTWEIGHT_BOLD))
         title_label.Centre(wx.HORIZONTAL)
 
-        is_matteo = getattr(self.constants, "app_mode", "albert") == "matteo"
 
         display_version = self.constants.patcher_version
         version_label = wx.StaticText(self, label=f"Version {display_version}", pos=(-1, title_label.GetPosition()[1] + 32))
@@ -181,7 +173,7 @@ class MainFrame(wx.Frame):
 
         for button_name, button_function in menu_buttons.items():
             if "icon" in button_function:
-                icon = wx.StaticBitmap(self, bitmap=wx.Bitmap(button_function["icon"], wx.BITMAP_TYPE_ICON), pos=(button_x - 5, button_y), size=(64, 64))
+                icon = wx.StaticBitmap(self, bitmap=image_handler.get_bitmap(button_function["icon"]), pos=(button_x - 5, button_y), size=(64, 64))
                 if "OpenCore" in button_name or "EXPERIMENTAL" in button_name:
                     icon.SetSize((68, 68))
 
@@ -261,20 +253,6 @@ class MainFrame(wx.Frame):
 
         # Final Window Size adjustment
         self.SetSize((-1, copy_label.GetPosition()[1] + 60))
-
-    def on_return_to_mode_selector(self, event: wx.Event = None):
-        try:
-            self.Hide()
-            from ..wx_gui import gui_mode_selector
-            new_frame = gui_mode_selector.ModeSelectorFrame(parent=None, title=self.title, global_constants=self.constants, screen_location=self.GetPosition())
-            app = wx.GetApp()
-            if hasattr(app, 'frame'):
-                app.frame = new_frame
-                new_frame.Bind(wx.EVT_CLOSE, app.OnCloseFrame)
-            wx.CallAfter(self.Destroy)
-        except Exception as e:
-            logging.error(f"Failed to return to mode selector: {e}")
-            logging.exception("Stack Trace:") # <- Angreifern könnten davon ausnutzen, dass Benutzer nicht das exakte Fehler weißen, um ClickFix-Angriffe zu starten
 
     def _preflight_checks(self, event: wx.Event = None) -> None:
         try:
@@ -424,7 +402,11 @@ class MainFrame(wx.Frame):
             self._report_manual_check(manual, str(remote_version_str), None)
             # A channel switch can install a build with a lower version number, so it
             # always goes through the confirmation dialog, never the silent auto-update.
-            wx.CallAfter(self.on_update, update_dict["Link"], remote_version_str, update_dict["Github Link"], changelog, manual or channel_switch, channel_switch)
+            # With "Turn Off Auto Updates" enabled (auto_update False) the automatic
+            # check still runs, but the result is only offered via the same dialog
+            # instead of being downloaded and installed without asking.
+            ask_first = manual or channel_switch or self.constants.auto_update is False
+            wx.CallAfter(self.on_update, update_dict["Link"], remote_version_str, update_dict["Github Link"], changelog, ask_first, channel_switch)
 
     def _report_manual_check(self, manual: bool, new_version, error) -> None:
         """
@@ -484,7 +466,8 @@ class MainFrame(wx.Frame):
                 global_constants=self.constants,
                 screen_location=self.GetPosition(),
                 url=oclp_url,
-                version_label=oclp_version
+                version_label=oclp_version,
+                changelog=changelog_text
             )
             return
 
@@ -563,7 +546,8 @@ class MainFrame(wx.Frame):
                 global_constants=self.constants,
                 screen_location=self.GetPosition(),
                 url=oclp_url,
-                version_label=oclp_version
+                version_label=oclp_version,
+                changelog=changelog_text
             )
 
         frame.Destroy()
@@ -621,10 +605,6 @@ class MainFrame(wx.Frame):
 
         dialog.Destroy()
 
-    def on_build_and_install_testd(self, event: wx.Event = None):
-        self.constants.build_profile = "test_d"
-        self.on_build_and_install(event)
-
     def on_build_and_install(self, event: wx.Event = None):
         try:
             self.Hide()
@@ -633,16 +613,6 @@ class MainFrame(wx.Frame):
         except Exception as e:
             logging.error(f"We failed to open up Build and Install OpenCore: {e}")
             logging.exception("Stack Trace:")
-
-    def on_root_patches(self, event: wx.Event = None):
-        try:
-            self.Hide()
-            gui_sys_patch_display.SysPatchDisplayFrame(parent=None, title=self.title, global_constants=self.constants, screen_location=self.GetPosition())
-            wx.CallAfter(self.Destroy)
-        except Exception as e:
-            logging.error(f"We failed to open up Root Patches: {e}")
-            logging.exception("Stack Trace:")
-            return
 
     def on_macos_config(self, event: wx.Event = None):
         try:

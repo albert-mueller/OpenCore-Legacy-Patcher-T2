@@ -8,7 +8,6 @@ import logging
 import plistlib
 import zipfile
 import subprocess
-import sys
 
 from pathlib import Path
 

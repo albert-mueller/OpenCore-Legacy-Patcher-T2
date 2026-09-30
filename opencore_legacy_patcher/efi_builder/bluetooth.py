@@ -4,7 +4,6 @@ bluetooth.py: Class for handling Bluetooth Patches, invocation from build.py
 
 import logging
 import binascii
-import sys
 
 from . import support
 

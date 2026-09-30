@@ -4,7 +4,6 @@ utilities.py: Supporting functions for file handling during root volume patching
 
 import logging
 import subprocess
-import sys
 
 from pathlib import Path
 

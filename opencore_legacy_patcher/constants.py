@@ -15,9 +15,9 @@ class Constants:
     def __init__(self) -> None:
         # Patcher Versioning
         # Wenn eine Version mit s endet, es heißt, dass sie noch nicht fertig ist.
-        self.patcher_version:                 str = "4.0.0.190004.6"
+        self.patcher_version:                 str = "4.0.0.190006.1"
         self.patcher_version_label=self.patcher_version
-        self.patcher_support_pkg_version:     str = "2.0.3"  # PatcherSupportPkg
+        self.patcher_support_pkg_version:     str = "2.0.4"  # PatcherSupportPkg
         self.copyright_date:                  str = "Copyright © 2020-2026 Dortania · T2 fork © 2026 Albert Müller"
 
         # Application identity
@@ -65,24 +65,20 @@ class Constants:
         ## Acidanthera
         ## https://github.com/acidanthera
         self.lilu_version:               str = "1.7.2"  #      Lilu
-        self.whatevergreen_version:      str = "1.7.0"  #      WhateverGreen
+        self.whatevergreen_version:      str = "1.7.1"  #      WhateverGreen
         self.whatevergreen_navi_version: str = "1.7.0-Navi"  # WhateverGreen (Navi Patch)
-        self.airportbcrmfixup_version:   str = "2.2.0"  #      AirPortBrcmFixup
+        self.airportbcrmfixup_version:   str = "2.2.1"  #      AirPortBrcmFixup
         self.nvmefix_version:            str = "1.1.3"  #      NVMeFix
-        self.applealc_version:           str = "1.9.7"  #      AppleALC
+        self.applealc_version:           str = "1.9.8"  #      AppleALC
         self.restrictevents_version:     str = "1.1.6"  #      RestrictEvents
         self.featureunlock_version:      str = "1.1.8"  #      FeatureUnlock
         self.debugenhancer_version:      str = "1.1.0"  #      DebugEnhancer
         self.cpufriend_version:          str = "1.3.0"  #      CPUFriend
         self.bluetool_version:           str = "2.7.2"  #      BlueToolFixup (BrcmPatchRAM)
-        self.cslvfixup_version:          str = "2.6.1"  #      CSLVFixup
         self.autopkg_version:            str = "1.0.4"  #      AutoPkgInstaller
         self.cryptexfixup_version:       str = "1.0.5"  #      CryptexFixup
         self.nvme_fix_version:           str = "1.1.3"  #      NVMeFix
         self.kext_updater_version:       str = "3.8.5"  #      KextUpdater
-
-        ## Acidanthera - Albert Mueller Modified
-        self.restrictevents_t2_version: str = "1.1.6-T2"  #RestrictEvents-T2
 
         ## Apple
         ## https://www.apple.com
@@ -177,7 +173,7 @@ class Constants:
         self.validate:                  bool = False  # Enable validation testing for CI
         self.recovery_status:           bool = False  # Detect if booted into RecoveryOS
         self.snooze_updates:            int = 0  #  Snooze updates for a number of days
-        self.auto_update:               bool = True # auto update the app without permission from the user
+        self.auto_update:               bool = True # install found updates without asking; False = still check, but ask first
         self.next_update_check:         str = "" # Value of when the ext update will be
         self.build_profile:             str = "standard"  # "standard" or "test_b" — gates TEST-B GPU modifications
         self.app_mode:                  str = "albert"    # "albert" or "matteo"
@@ -446,9 +442,6 @@ class Constants:
     def restrictevents_path(self):
         return self.payload_kexts_path / Path(f"Acidanthera/RestrictEvents-{self.restrictevents_version}-{self.kext_variant}.zip")
 
-    @property
-    def restrictevents_t2_path(self):
-        return self.payload_kexts_path / Path(f"Acidanthera/RestrictEvents-v{self.restrictevents_t2_version}-{self.kext_variant}.zip")
 
 
     @property
@@ -630,10 +623,6 @@ class Constants:
     @property
     def bluetool_path(self):
         return self.payload_kexts_path / Path(f"Acidanthera/BlueToolFixup-v{self.bluetool_version}-{self.kext_variant}.zip")
-
-    @property
-    def cslvfixup_path(self):
-        return self.payload_kexts_path / Path(f"Acidanthera/CSLVFixup-v{self.cslvfixup_version}.zip")
 
     @property
     def autopkg_path(self):
@@ -911,7 +900,9 @@ class Constants:
     def app_icon_path_png(self):
         if self.use_dark_app_icon:
             dark_icon = self.icns_resource_path / Path("OC-Patcher-Dark.png")
-            if dark_icon.exists():
+            # In the built app the PNG lives in OpenCore-Patcher-T2.assets, not on disk
+            from .support import image_handler
+            if image_handler.exists(dark_icon):
                 return dark_icon
         return self.app_icons_resource_path / Path("OC-Patcher.png")
 

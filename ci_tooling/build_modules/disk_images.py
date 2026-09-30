@@ -3,7 +3,6 @@ disk_images.py: Fetch and generate disk images (Universal-Binaries.dmg, payloads
 """
 
 import os
-import shutil
 import subprocess
 import rich
 from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn

@@ -56,7 +56,7 @@ class T1SecurityChip(BaseHardware):
             # On macOS Tahoe (26.x), legacy Ventura/Sequoia biometrickitd and SharedUtils
             # binaries cause SecurityAgent and WindowServer to crash, resulting in a black
             # screen at login and Touch Bar flashing.
-            # Tahoe T1 password authentication is handled natively / via T1LoginExperimental.
+            # Tahoe handles T1 password authentication natively.
             return {}
 
         return {

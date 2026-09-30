@@ -10,9 +10,7 @@ import logging
 import plistlib
 import threading
 import subprocess
-import os
 import functools
-import webbrowser
 import applescript
 import packaging.version
 
@@ -29,7 +27,6 @@ from ..datasets import (
     os_data,
     smbios_data
 )
-
 
 
 def update_dock_icon(global_constants: constants.Constants) -> None:
@@ -581,21 +578,6 @@ class CheckProperties:
         Fails open (True) if Metal cannot be queried, keeping the native animation.
         """
         return _host_has_metal_device()
-
-    def host_is_solarium(self) -> bool:
-        """
-        Check if running on macOS 26, and if Solarium refresh is enabled
-        """
-
-        if self.constants.detected_os < os_data.os_data.tahoe:
-            return False
-
-        # If we are a release build, we are not Solarium for now
-        if self.constants.commit_info[0].startswith('refs/tags'):
-            return False
-
-        return True
-
 
     def host_has_cpu_gen(self, gen: int) -> bool:
         """

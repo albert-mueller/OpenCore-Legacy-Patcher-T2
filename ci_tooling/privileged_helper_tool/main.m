@@ -82,8 +82,10 @@ BOOL isSBitSet(NSString *path) {
     paths, so they cannot be swapped out by an unprivileged attacker.
 
     Keep this list in sync with the run_as_root() call sites in the Python app.
-    A rejected command returns OCLP_PHT_ERROR_COMMAND_NOT_ALLOWED; the app then
-    falls back to its normal administrator-password prompt for that command.
+    A rejected command returns OCLP_PHT_ERROR_COMMAND_NOT_ALLOWED. The app treats
+    that as final and does NOT retry the command through an administrator-password
+    prompt - otherwise every command refused here would still run as root, just
+    one password dialog later (see _HELPER_REFUSAL_ERRORS in subprocess_wrapper.py).
 */
 static NSSet<NSString *> *allowedCommands(void) {
     static NSSet *set = nil;

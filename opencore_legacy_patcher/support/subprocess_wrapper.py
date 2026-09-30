@@ -83,6 +83,18 @@ _HELPER_PERMANENT_ERRORS = (
     PrivilegedHelperErrorCodes.OCLP_PHT_ERROR_INVALID_CERTIFICATES.value,
 )
 
+# Errors where the helper ran fine, verified its caller, and then deliberately refused the
+# command itself. These are policy decisions, not malfunctions: the command is not on the
+# helper's allowlist (or failed its argument rules, e.g. '/bin/sh -c ...', or resolved to a
+# path that is not a regular file). Re-running such a command through an administrator
+# prompt would turn the allowlist into a mere speed bump - whatever the helper rejects
+# would still end up running as root, one familiar-looking password dialog later. So they
+# are returned to the caller as-is and NEVER fall back to any other elevation path.
+_HELPER_REFUSAL_ERRORS = (
+    PrivilegedHelperErrorCodes.OCLP_PHT_ERROR_COMMAND_NOT_ALLOWED.value,
+    PrivilegedHelperErrorCodes.OCLP_PHT_ERROR_COMMAND_MISSING.value,
+)
+
 
 def _helper_path_is_safe_to_repair() -> bool:
     """
@@ -258,6 +270,15 @@ def run_as_root(*args, **kwargs):
         # and would only cost an extra administrator-password prompt for nothing.
         _helper_error = __resolve_privileged_helper_errors(result.returncode)
         if _helper_error is None:
+            return result
+        if result.returncode in _HELPER_REFUSAL_ERRORS:
+            # The helper refused this specific command on purpose - do NOT retry it through
+            # an administrator prompt (see _HELPER_REFUSAL_ERRORS). Return the helper's own
+            # result so callers see the sentinel code and fail cleanly.
+            logging.error(
+                f"Privileged Helper Tool refused to run {_command[0]} ({_helper_error}), "
+                "not retrying with administrator privileges."
+            )
             return result
         if result.returncode in _HELPER_PERMANENT_ERRORS:
             _privileged_helper_unusable = True
@@ -570,7 +591,7 @@ def mount_dmg(
     mount_point: Path,
     shadow_path: Path = None,
     password: str = None,
-    admin_password_prompt: Optional[Callable[[], str]] = None,
+    admin_password_prompt: Optional[str] = None,
     retry_on_auth_error: bool = False
 ) -> subprocess.CompletedProcess:
     """
@@ -641,7 +662,7 @@ def mount_dmg(
     logging.info("- Unprivileged hdiutil attach failed, retrying with administrator privileges")
     action = cmd[0]
     cmd.remove(action)
-    utilities.get_admin_permission(action=action, args=cmd, reason=admin_password_prompt)
+    return utilities.get_admin_permission(action=action, args=cmd, reason=admin_password_prompt)
 
 
 def verify(process_result: subprocess.CompletedProcess) -> None:

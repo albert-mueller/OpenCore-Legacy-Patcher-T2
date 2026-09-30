@@ -4,7 +4,6 @@ boot_system.py: Boot and System Kernel Collection management
 
 import logging
 import subprocess
-import sys
 
 from ..base.cache import BaseKernelCache
 from ....support  import subprocess_wrapper

@@ -111,19 +111,6 @@ class BuildFrame(wx.Frame):
             pass
 
 
-    def on_build_failure(self) -> None:
-        """
-        Standard error dialog for build failure.
-        """
-        dlg = wx.MessageDialog(
-            self,
-            "An error occurred while building OpenCore.\n\nPlease check the logs in the text box for more information.",
-            "Build Error",
-            style=wx.OK | wx.ICON_ERROR
-        )
-        dlg.ShowModal()
-        dlg.Destroy()
-
     def _generate_elements(self, frame: wx.Frame = None) -> None:
         """
         Generate UI elements for build frame

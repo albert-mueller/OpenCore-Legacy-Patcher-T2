@@ -50,7 +50,7 @@ class InstallerCreation():
         Returns:
             bool: True if successful, False otherwise
         """
-        import tempfile, shutil
+        import tempfile
 
         logging.info("Trying manual extraction fallback (xar + tar) for InstallAssistant.pkg")
 

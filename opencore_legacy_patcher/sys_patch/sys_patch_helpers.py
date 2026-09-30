@@ -6,7 +6,6 @@ import os
 import logging
 import plistlib
 import subprocess
-import sys
 import shutil
 import glob
 import tempfile

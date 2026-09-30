@@ -8,7 +8,7 @@ import requests
 import logging
 import enum
 import hashlib
-from typing import Optional, Union
+from typing import Optional
 from pathlib import Path
 from . import utilities
 
@@ -165,7 +165,6 @@ class DownloadObject:
         speed = self.get_speed()
         return -1 if speed <= 0 else (self.total_file_size - self.downloaded_file_size) / speed
 
-    def get_file_size(self) -> float: return self.total_file_size
     def is_active(self) -> bool: return self.status == DownloadStatus.DOWNLOADING
 
     # --- STABILIZED CORE ---

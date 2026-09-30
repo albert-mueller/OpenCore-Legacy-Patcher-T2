@@ -4,7 +4,6 @@ gui_test_info.py: Dialog for displaying detailed explanations of all OCLP test l
 
 import wx
 import wx.adv
-import logging
 
 from .. import constants
 from . import gui_support

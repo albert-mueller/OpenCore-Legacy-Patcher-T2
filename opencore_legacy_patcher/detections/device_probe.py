@@ -7,12 +7,11 @@ import itertools
 import subprocess
 import plistlib
 import hashlib
-import sys
 import logging
 
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Optional, Type, Union
+from typing import ClassVar, Optional, Type, Union
 
 from . import ioreg
 

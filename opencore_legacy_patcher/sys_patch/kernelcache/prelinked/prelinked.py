@@ -4,7 +4,6 @@ prelinked.py: Prelinked Kernel cache management
 
 import logging
 import subprocess
-import sys
 
 from pathlib import Path
 

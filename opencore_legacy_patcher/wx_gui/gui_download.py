@@ -3,10 +3,16 @@ gui_download.py: Generate UI for downloading files
 """
 
 import wx
+import wx.html2
 import logging
 import time
+import webbrowser
 
+import markdown2
+
+from ..support import image_handler
 from .. import constants
+from ..datasets import css_data
 
 from ..wx_gui import gui_support
 
@@ -20,7 +26,11 @@ class DownloadFrame(wx.Frame):
     """
     Update provided frame with download stats
     """
-    def __init__(self, parent: wx.Frame, title: str, global_constants: constants.Constants, download_obj: network_handler.DownloadObject, item_name: str, download_icon = None, cancel_message: str = None) -> None:
+    # Size of the release notes view shown while an app update downloads
+    CHANGELOG_WIDTH:  int = 610
+    CHANGELOG_HEIGHT: int = 320
+
+    def __init__(self, parent: wx.Frame, title: str, global_constants: constants.Constants, download_obj: network_handler.DownloadObject, item_name: str, download_icon = None, cancel_message: str = None, changelog: str = None) -> None:
         logging.info("Initializing Download Frame")
         self.constants: constants.Constants = global_constants
         self.title: str = title
@@ -39,7 +49,12 @@ class DownloadFrame(wx.Frame):
         self.cancel_message: str = cancel_message or "Are you sure you want to cancel the download?"
         self.cancel_icon: int = wx.ICON_WARNING if cancel_message else wx.ICON_QUESTION
 
-        self.frame_modal = wx.Dialog(parent, title=title, size=(400, 200))
+        # Optional Markdown release notes (the updater passes the changelog of the
+        # release being downloaded). Every other download keeps the compact layout.
+        self.changelog: str = changelog.strip() if isinstance(changelog, str) and changelog.strip() else None
+
+        width = self.CHANGELOG_WIDTH + 40 if self.changelog else 400
+        self.frame_modal = wx.Dialog(parent, title=title, size=(width, 200))
 
         self._generate_elements(self.frame_modal)
 
@@ -51,7 +66,7 @@ class DownloadFrame(wx.Frame):
 
         frame = self if not frame else frame
         icon = self.download_icon
-        icon = wx.StaticBitmap(frame, bitmap=wx.Bitmap(icon, wx.BITMAP_TYPE_ICON), pos=(-1, 20))
+        icon = wx.StaticBitmap(frame, bitmap=image_handler.get_bitmap(icon), pos=(-1, 20))
         icon.SetSize((100, 100))
         icon.Centre(wx.HORIZONTAL)
 
@@ -66,7 +81,13 @@ class DownloadFrame(wx.Frame):
         label_amount.SetFont(gui_support.font_factory(13, wx.FONTWEIGHT_NORMAL))
         label_amount.Centre(wx.HORIZONTAL)
 
-        return_button = wx.Button(frame, label="Cancel", pos=(-1, label_amount.GetPosition()[1] + label_amount.GetSize()[1] + 10))
+        button_y = label_amount.GetPosition()[1] + label_amount.GetSize()[1] + 10
+        if self.changelog:
+            changelog_view = self._generate_changelog_view(frame, button_y + 5)
+            if changelog_view is not None:
+                button_y = changelog_view.GetPosition()[1] + changelog_view.GetSize()[1] + 15
+
+        return_button = wx.Button(frame, label="Cancel", pos=(-1, button_y))
         return_button.Bind(wx.EVT_BUTTON, lambda event: self.terminate_download())
         return_button.Centre(wx.HORIZONTAL)
 
@@ -127,6 +148,46 @@ class DownloadFrame(wx.Frame):
                 widget.Destroy()
             except RuntimeError:
                 continue
+
+
+    def _generate_changelog_view(self, frame: wx.Dialog, y: int):
+        """
+        Show the release notes of the version being downloaded below the progress
+        bar. Returns the view, or None if it could not be created - the download
+        itself must never fail because of the release notes.
+        """
+        try:
+            # safe_mode="escape": the release notes come from GitHub (remote input),
+            # so raw HTML in them is shown as text instead of being rendered.
+            html_markdown = markdown2.markdown(self.changelog, extras=["tables"], safe_mode="escape")
+            html_code = f'''
+<html>
+    <head>
+        <style>
+            {css_data.updater_css}
+        </style>
+    </head>
+    <body class="markdown-body">
+        {html_markdown.replace("<a href=", "<a target='_blank' href=")}
+    </body>
+</html>
+'''
+            web_view = wx.html2.WebView.New(frame, pos=(-1, y), size=(self.CHANGELOG_WIDTH, self.CHANGELOG_HEIGHT), style=wx.BORDER_SUNKEN)
+            web_view.SetPage(html_code, "")
+            web_view.Bind(wx.html2.EVT_WEBVIEW_NEWWINDOW, self._on_changelog_link)
+            web_view.EnableContextMenu(False)
+            web_view.Centre(wx.HORIZONTAL)
+            return web_view
+        except Exception as e:
+            logging.error(f"Could not show the changelog in the download window: {e}")
+            return None
+
+
+    def _on_changelog_link(self, event) -> None:
+        """
+        Open links from the release notes in the browser instead of the view
+        """
+        webbrowser.open(event.GetURL())
 
 
     def terminate_download(self) -> None:

@@ -66,34 +66,6 @@ class Analytics:
         self._post_analytics_data()
 
 
-    def send_crash_report(self, log_file: Path) -> None:
-        if ANALYTICS_SERVER == "":
-            return
-        if SITE_KEY == "":
-            return
-        if global_settings.GlobalEnviromentSettings().read_property("DisableCrashAndAnalyticsReporting") is True:
-            return
-        if not log_file.exists():
-            return
-        if self.constants.commit_info[0].startswith("refs/tags"):
-            # Avoid being overloaded with crash reports
-            return
-
-        commit_info = self.constants.commit_info[0].split("/")[-1] + "_" + self.constants.commit_info[1].split("T")[0] + "_" + self.constants.commit_info[2].split("/")[-1]
-
-        crash_data= {
-            "KEY":                 SITE_KEY,
-            "APPLICATION_VERSION": self.version,
-            "APPLICATION_COMMIT":  commit_info,
-            "OS_VERSION":          self.os,
-            "MODEL":               self.model,
-            "TIMESTAMP":           self.date,
-            "CRASH_LOG":           log_file.read_text()
-        }
-
-        network_handler.NetworkUtilities().post(CRASH_URL, json = crash_data)
-
-
     def _get_country(self) -> str:
         # Get approximate country from .GlobalPreferences.plist
         path = "/Library/Preferences/.GlobalPreferences.plist"
@@ -149,6 +121,5 @@ class Analytics:
         if SITE_KEY == "":
             return
         network_handler.NetworkUtilities().post(ANALYTICS_SERVER, json = self.data)
-
 
 

@@ -21,7 +21,6 @@ from .. import constants
 from . import subprocess_wrapper
 
 
-
 class InitializeLoggingSupport:
     """
     Initialize logging framework for program
@@ -276,15 +275,6 @@ class InitializeLoggingSupport:
 
         sys.excepthook = custom_excepthook
         threading.excepthook = custom_thread_excepthook
-
-
-    def _restore_original_excepthook(self) -> None:
-        """
-        Restore original traceback handlers
-        """
-
-        sys.excepthook = self.original_excepthook
-        threading.excepthook = self.original_thread_excepthook
 
 
     def _display_debug_properties(self) -> None:

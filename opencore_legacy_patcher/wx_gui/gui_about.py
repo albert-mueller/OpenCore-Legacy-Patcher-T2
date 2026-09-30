@@ -8,6 +8,7 @@ import re
 import logging
 from pathlib import Path
 from .. import constants
+from ..support import image_handler
 
 
 
@@ -38,8 +39,23 @@ class AboutFrame(wx.Frame):
 
         self.load_markdown()
 
+    README_IMAGE_URL = "https://raw.githubusercontent.com/dortania/OpenCore-Legacy-Patcher/macos-next/docs/images/OC-Patcher.png"
+
+    def _inline_readme_images(self, markdown_text: str) -> str:
+        """
+        Swap the README's remote logo for an embedded data: URI so the About
+        frame works offline, from source and from the built app alike.
+        """
+        try:
+            icon = getattr(getattr(self, "constants", None), "app_icon_path_png", "OC-Patcher.png")
+            return markdown_text.replace(self.README_IMAGE_URL, image_handler.get_data_uri(icon))
+        except Exception as e:
+            logging.warning(f"Could not inline README image: {e}")
+            return markdown_text
+
     def load_markdown(self):
         markdown_text = Path("./README.md").read_text(encoding="utf-8")
+        markdown_text = self._inline_readme_images(markdown_text)
 
         # Call your custom function here.
         html_body = self.render_markdown(markdown_text)

@@ -254,21 +254,21 @@ jobs:
             if (flagged) {
               const body = [
                 MARKER,
-                '### ⚠️ Possible version spoofing / Mögliche Versionsfälschung',
+                '### ⚠️ Possible version spoofing or usage of versions with known vulnerabilities that attackers may exploit / Mögliche Versionsfälschung oder Benutzung von Versionen mit bekannten Sicherheitslücken, die Angreifern ausnutzen können',
                 '',
-                `**English:** @albert-mueller, @gandolf243 This PR may be pretending to be a newer version than it actually contains. The check of commit \`${short}\` found:`,
+                `**English:** @albert-mueller, @gandolf243 This PR may be pretending to be a newer version than it actually contains, or it may be a version with known vulnerabilities that have been already fixed. The check of commit \`${short}\` found:`,
                 '',
                 list(false),
                 '',
-                `Each point compares a version the PR claims with the version that is really in the code, so it can be checked directly. The updater and the installer download URL both use \`patcher_version\`, which is why a wrong number matters. A maintainer will review this before merging.`,
+                `Each point compares a version the PR claims with the version that is really in the code, so it can be checked directly. The updater and the installer download URL both use \`patcher_version\`, which is why a wrong number matters. A maintainer will review this before merging. To address this issue, please update your fork or branch's codebase to the latest available version.`,
                 '',
                 '---',
                 '',
-                `**Deutsch:** Dieser PR gibt sich möglicherweise als neuere Version aus, als er tatsächlich enthält. Die Prüfung von Commit \`${short}\` hat Folgendes gefunden:`,
+                `**Deutsch:** Dieser PR gibt sich möglicherweise als neuere Version aus, als er tatsächlich enthält, oder erhält Version mit bekannten Sicherheitslücken, die Angreifern ausnutzen können. Die Prüfung von Commit \`${short}\` hat Folgendes gefunden:`,
                 '',
                 list(true),
                 '',
-                `Jeder Punkt vergleicht eine Version, die der PR angibt, mit der Version, die wirklich im Code steht, damit man es direkt nachprüfen kann. Der Updater und die Download-URL des Installers nutzen beide \`patcher_version\`, deshalb ist eine falsche Nummer relevant. Ein Maintainer prüft das vor dem Mergen.`,
+                `Jeder Punkt vergleicht eine Version, die der PR angibt, mit der Version, die wirklich im Code steht, damit man es direkt nachprüfen kann. Der Updater und die Download-URL des Installers nutzen beide \`patcher_version\`, deshalb ist eine falsche Nummer relevant. Ein Maintainer prüft das vor dem Mergen. Um dieses Problem zu beheben, bitte aktualisieren Sie den Fork oder Branch-Codebasis auf die letzte verfügbare Version.`,
               ].join('\n');
               if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
               else await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });

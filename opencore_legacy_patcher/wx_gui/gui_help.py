@@ -116,7 +116,7 @@ class HelpFrame(wx.Frame):
         # self.constants.detected_os is this codebase's own Darwin-major
         # OS enum (see datasets/os_data.py) rather than platform.mac_ver(),
         # which is what the rest of the app already uses for OS gating
-        # (see e.g. gui_support.py's host_is_non_metal()/host_is_solarium())
+        # (see e.g. gui_support.py's host_is_non_metal())
         # - and it sidesteps mac_ver()'s well-known Big Sur "10.16"
         # misreport quirk entirely.
         if self.constants.detected_os >= os_data.os_data.big_sur:
