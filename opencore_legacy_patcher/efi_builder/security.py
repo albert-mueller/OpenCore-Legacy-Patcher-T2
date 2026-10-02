@@ -314,6 +314,12 @@ class BuildSecurity:
                 if self._requires_t2_graphics_injection():
                     self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args", "-amfipassbeta igfxonln=1 igfxfw=2 forceRenderStandby=0 agdpmod=vit9696")
 
+                if self.is_tahoe_target:
+                    logging.info("- Injecting SpoofVMM for macOS Tahoe bypass on T2")
+                    support.BuildSupport(self.model, self.constants, self.config).enable_kext(
+                        "SpoofVMM.kext", self.constants.spoofvmm_version, self.constants.spoofvmm_path
+                    )
+
                 if self.constants.t2_installer_workaround is True:
                     logging.info("- Enabling T2 Installer Workarounds (VESA Mode & AMFI bypass)")
                     self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args", "-radvesa -igfxvesa -amfipassbeta")
@@ -404,6 +410,6 @@ class BuildSecurity:
             self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args", "-amfipassbeta ipc_control_port_options=0")
             current_args = self._read_nvram_string(APPLE_NVRAM_UUID, "boot-args")
             if "amfi=0x80" in current_args:
-                if not self._is_t2_mac():
+                if not self._is_t2_mac() and not self.constants.disable_amfi:
                     cleaned_args = " ".join([arg for arg in current_args.split() if arg != "amfi=0x80"])
                     self.config["NVRAM"]["Add"][APPLE_NVRAM_UUID]["boot-args"] = cleaned_args

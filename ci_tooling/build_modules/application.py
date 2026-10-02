@@ -19,7 +19,8 @@ class GenerateApplication:
 
     def __init__(self, reset_pyinstaller_cache: bool = False, git_branch: str = None,
                  git_commit_url: str = None, git_commit_date: str = None,
-                 analytics_key: str = None, analytics_endpoint: str = None) -> None:
+                 analytics_key: str = None, analytics_endpoint: str = None,
+                 update_channel: str = None) -> None:
         """
         Initialize
         """
@@ -31,6 +32,10 @@ class GenerateApplication:
         self._git_branch = git_branch
         self._git_commit_url = git_commit_url
         self._git_commit_date = git_commit_date
+
+        # Default update channel baked into Info.plist ("UpdateChannel"), read by
+        # support/defaults.py at launch. None keeps the app on "official".
+        self._update_channel = update_channel
 
         self._analytics_key = analytics_key
         self._analytics_endpoint = analytics_endpoint
@@ -222,6 +227,11 @@ class GenerateApplication:
             "Commit URL": _git_commit,
             "Commit Date": _git_commit_date
         }
+
+        if self._update_channel:
+            _plist["UpdateChannel"] = self._update_channel
+        else:
+            _plist.pop("UpdateChannel", None)
 
         with open(_file, "wb") as f:
             plistlib.dump(_plist, f, sort_keys=True)

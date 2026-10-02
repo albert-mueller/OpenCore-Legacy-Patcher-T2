@@ -8,6 +8,8 @@ from .. import support
 
 from ... import constants
 
+from ...support import utilities
+
 from ...detections import device_probe
 
 from ...datasets import (
@@ -101,6 +103,34 @@ class BuildWiredNetworking:
             support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("CatalinaIntelI210Ethernet.kext")["MinKernel"] = "23.0.0"
 
 
+    def _bcm5701_handling(self) -> None:
+        """
+        CatalinaBCM5701Ethernet.kext Handling
+
+        Single injection point for CatalinaBCM5701Ethernet.kext, used by both
+        on-model detection and the SMBIOS based fallback.
+
+        Only ever injected on non-T2 Macs. Some T2 models (e.g. Macmini8,1,
+        iMac20,1) list a "Broadcom" Ethernet chipset in smbios_data, which
+        previously caused this kext to be injected on them; the guard below
+        stops that for both the on-model and the SMBIOS fallback path.
+        Checks the build target (self.model, honouring custom_model) so a T2
+        host can still build for a non-T2 Mac that does need it.
+        """
+        if utilities.is_t2_mac(self.model, self.constants):
+            logging.info(f"- Skipping CatalinaBCM5701Ethernet.kext on T2 model {self.model}")
+            return
+
+        if not self.model in smbios_data.smbios_dictionary:
+            return
+
+        support.BuildSupport(self.model, self.constants, self.config).enable_kext("CatalinaBCM5701Ethernet.kext", self.constants.bcm570_version, self.constants.bcm570_path)
+        # Pre-Ivy Bridge: always required due to Big Sur's BCM5701 requiring VT-D support
+        # Ivy Bridge and newer: only from macOS 15 Sequoia, which dropped AppleBCM5701Ethernet completely
+        if smbios_data.smbios_dictionary[self.model]["CPU Generation"] >= cpu_data.CPUGen.ivy_bridge.value:
+            support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("CatalinaBCM5701Ethernet.kext")["MinKernel"] = "24.0.0"
+
+
     def _on_model(self) -> None:
         """
         On-Model Hardware Detection Handling
@@ -110,14 +140,7 @@ class BuildWiredNetworking:
             if isinstance(controller, device_probe.BroadcomEthernet) and controller.chipset == device_probe.BroadcomEthernet.Chipsets.AppleBCM5701Ethernet:
                 if not self.model in smbios_data.smbios_dictionary:
                     continue
-                if smbios_data.smbios_dictionary[self.model]["CPU Generation"] < cpu_data.CPUGen.ivy_bridge.value:
-                    # Required due to Big Sur's BCM5701 requiring VT-D support
-                    # Applicable for pre-Ivy Bridge models
-                    support.BuildSupport(self.model, self.constants, self.config).enable_kext("CatalinaBCM5701Ethernet.kext", self.constants.bcm570_version, self.constants.bcm570_path)
-                else:
-                    # macOS 15 Sequoia dropped AppleBCM5701Ethernet completely.
-                    support.BuildSupport(self.model, self.constants, self.config).enable_kext("CatalinaBCM5701Ethernet.kext", self.constants.bcm570_version, self.constants.bcm570_path)
-                    support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("CatalinaBCM5701Ethernet.kext")["MinKernel"] = "24.0.0"
+                self._bcm5701_handling()
             elif isinstance(controller, device_probe.IntelEthernet):
                 if not self.model in smbios_data.smbios_dictionary:
                     continue
@@ -154,14 +177,7 @@ class BuildWiredNetworking:
             return
 
         if smbios_data.smbios_dictionary[self.model]["Ethernet Chipset"] == "Broadcom":
-            if smbios_data.smbios_dictionary[self.model]["CPU Generation"] < cpu_data.CPUGen.ivy_bridge.value:
-                # Required due to Big Sur's BCM5701 requiring VT-D support
-                # Applicable for pre-Ivy Bridge models
-                support.BuildSupport(self.model, self.constants, self.config).enable_kext("CatalinaBCM5701Ethernet.kext", self.constants.bcm570_version, self.constants.bcm570_path)
-            else:
-                # macOS 15 Sequoia dropped AppleBCM5701Ethernet completely.
-                support.BuildSupport(self.model, self.constants, self.config).enable_kext("CatalinaBCM5701Ethernet.kext", self.constants.bcm570_version, self.constants.bcm570_path)
-                support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("CatalinaBCM5701Ethernet.kext")["MinKernel"] = "24.0.0"
+            self._bcm5701_handling()
         elif smbios_data.smbios_dictionary[self.model]["Ethernet Chipset"] == "Nvidia":
             support.BuildSupport(self.model, self.constants, self.config).enable_kext("nForceEthernet.kext", self.constants.nforce_version, self.constants.nforce_path)
         elif smbios_data.smbios_dictionary[self.model]["Ethernet Chipset"] == "Marvell":

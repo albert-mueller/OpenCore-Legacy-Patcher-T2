@@ -157,7 +157,7 @@ class UpdateFrame(wx.Frame):
                 "Are you sure you want to cancel the update?\n\n"
                 "Staying on an older version of OpenCore Legacy Patcher T2 means you "
                 "won't get the latest fixes, which can include security fixes. "
-                "Running outdated software may leave your Mac exposed to known vulnerabilities"
+                "Running outdated software may leave your Mac exposed to known vulnerabilities "
                 "that attackers could exploit."
             )
         )

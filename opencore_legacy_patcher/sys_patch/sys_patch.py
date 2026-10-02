@@ -1080,7 +1080,6 @@ class PatchSysVolume:
             return
 
         logging.info("- Patcher is capable of patching")
-        logging.info("If you see a prompt that says Enter password to access Universal-Binaries.dmg, don't enter your user password! Enter the password for Universal-Binaries.dmg instead, which is password. If this fails, report this issue.")
         if not PatcherSupportPkgMount(self.constants).mount():
             logging.error("- Critical resources missing, cannot continue with patching!!!")
             return

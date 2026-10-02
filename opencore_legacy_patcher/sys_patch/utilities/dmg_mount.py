@@ -32,19 +32,15 @@ class PatcherSupportPkgMount:
         self.icon_path = self.constants.app_icon_path
         subprocess_wrapper.set_admin_prompt_icon(self.icon_path)
 
-    def _request_admin_password(self, message: str = subprocess_wrapper.ADMIN_PASSWORD_PROMPT_MESSAGE) -> str:
-        """Prompt for the local administrator password. See subprocess_wrapper.request_admin_password().
-
-        Only reached when the session has no cached password yet - subprocess_wrapper
-        asks once and reuses the answer for every later privileged step (Issue #356).
-        """
-        return subprocess_wrapper.request_admin_password(self.icon_path, message=message)
-
     def _run_hdiutil(self, dmg_path: Path, mount_point: Path, shadow_path: Path = None, password: str = None, retry_on_auth_error: bool = False) -> subprocess.CompletedProcess:
         """Helper to standardize hdiutil execution using -stdinpass, with elevation on failure"""
         return subprocess_wrapper.mount_dmg(
             dmg_path, mount_point, shadow_path=shadow_path, password=password,
-            admin_password_prompt=self._request_admin_password,
+            # Reason string for the native Authorization Services dialog - mount_dmg() hands
+            # this to utilities.get_admin_permission() as 'reason', so it must be a str.
+            # A bound method here raised "encoding without a string argument" (see c7ae533,
+            # which fixed the same thing in reroute_payloads.py but missed this call site).
+            admin_password_prompt="OpenCore-Patcher-T2 needs administrator permission to mount Universal-Binaries.dmg.",
             retry_on_auth_error=retry_on_auth_error
         )
 
@@ -52,8 +48,7 @@ class PatcherSupportPkgMount:
         """Whether hdiutil considers the image encrypted, ie. whether it will prompt for a passphrase at all.
 
         Deliberately fail-open: if the check cannot be run or its wording changes,
-        assume encrypted and show the notice. A superfluous notice is harmless,
-        a missing one leaves the user staring at an unanswerable system prompt.
+        assume encrypted and supply the passphrase anyway.
         """
         try:
             result = subprocess.run(
@@ -67,24 +62,6 @@ class PatcherSupportPkgMount:
         output = result.stdout.decode(errors="ignore").lower()
         # hdiutil has printed both "encrypted: YES/NO" and "encrypted: 1/0" across releases.
         return not ("encrypted: no" in output or "encrypted: 0" in output)
-
-    def _display_universal_binaries_password_notice(self) -> None:
-        """Heads-up dialog shown before falling back to hdiutil's own passphrase prompt.
-
-        Only reached when the built-in passphrase did not unlock the image. hdiutil
-        then asks for it through a bare macOS system prompt that names only the disk
-        image and gives no indication of what to type, which reads like an
-        unexplained password request in the middle of root patching. State the
-        passphrase ourselves beforehand so the prompt is answerable.
-        """
-        if self.constants.cli_mode is True:
-            return
-        try:
-            applescript.AppleScript(
-                f'display dialog "OpenCore Legacy Patcher could not unlock Universal-Binaries.dmg automatically.\\n\\nIf macOS asks for a password for this disk image, the password is:\\n\\n{UNIVERSAL_BINARIES_PASSPHRASE}" buttons {{"OK"}} default button "OK" with title "OpenCore Legacy Patcher"{subprocess_wrapper.applescript_icon_clause(self.icon_path)}'
-            ).run()
-        except Exception as e:
-            logging.error(f"- Failed to display Universal-Binaries.dmg password notice: {e}")
 
     def _mount_universal_binaries_dmg(self) -> bool:
         """Mount PatcherSupportPkg's Universal-Binaries.dmg"""
@@ -104,22 +81,14 @@ class PatcherSupportPkgMount:
         )
 
         if output.returncode != 0:
-            logging.info("- Failed to mount Universal-Binaries.dmg, retrying with interactive passphrase entry")
+            # No interactive fallback: the built-in passphrase is the only one the image
+            # is built with, and an unlocked-but-unprivileged mount is already retried
+            # elevated by mount_dmg(). Re-running hdiutil without -stdinpass only put up
+            # macOS' own "Enter password to access Universal-Binaries.dmg" prompt, which
+            # users confused with the administrator password prompt.
+            logging.info("- Failed to mount Universal-Binaries.dmg")
             subprocess_wrapper.log(output)
-
-            # Fall back to hdiutil asking the user directly - covers an image built
-            # with a different passphrase than the one hardcoded above. Tell them
-            # what to type first, otherwise the system prompt is unanswerable.
-            self._display_universal_binaries_password_notice()
-            output = self._run_hdiutil(
-                dmg_path, mount_point, shadow_path=shadow_path,
-                retry_on_auth_error=True
-            )
-
-            if output.returncode != 0:
-                logging.info("- Failed to mount Universal-Binaries.dmg")
-                subprocess_wrapper.log(output)
-                return False
+            return False
 
         logging.info("- Mounted Universal-Binaries.dmg")
         return True

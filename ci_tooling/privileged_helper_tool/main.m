@@ -72,14 +72,19 @@ BOOL isSBitSet(NSString *path) {
     return (attributes.filePosixPermissions & S_ISUID) != 0;
 }
 
+#ifdef DEBUG
 /*
-    Command allowlist
+    Command allowlist (DEBUG builds ONLY)
     ------------------------------------------------
-    The helper used to execute ANY path it was given as root. In a DEBUG build
-    (no certificate check) that meant any local process could run anything as
-    root. Every command is now resolved with realpath() and must match one of
-    the binaries the app actually needs. All entries are SIP-protected system
-    paths, so they cannot be swapped out by an unprivileged attacker.
+    A DEBUG build skips the certificate check, so any local process can talk
+    to this helper. To limit the damage, every command in a DEBUG build is
+    resolved with realpath() and must match one of the binaries the app
+    actually needs. All entries are SIP-protected system paths, so they cannot
+    be swapped out by an unprivileged attacker.
+
+    Release builds do NOT use this list: there the caller is verified by its
+    signing certificates (see main()), and any command it passes is executed.
+    Everything in this block is compiled out of release builds entirely.
 
     Keep this list in sync with the run_as_root() call sites in the Python app.
     A rejected command returns OCLP_PHT_ERROR_COMMAND_NOT_ALLOWED. The app treats
@@ -139,6 +144,8 @@ static NSSet<NSString *> *debugForbiddenCommands(void) {
     return set;
 }
 
+#endif /* DEBUG */
+
 NSString *resolveCommandPath(const char *rawPath) {
     // Only absolute paths - never rely on PATH lookup.
     if (rawPath == NULL || rawPath[0] != '/') {
@@ -155,13 +162,13 @@ NSString *resolveCommandPath(const char *rawPath) {
     return [NSString stringWithUTF8String:resolved];
 }
 
+#ifdef DEBUG
+
 BOOL isCommandAllowed(NSString *command, NSArray<NSString *> *arguments, NSDictionary *helperSigningInformation) {
     if ([allowedCommands() containsObject:command]) {
-        #ifdef DEBUG
         if ([debugForbiddenCommands() containsObject:command]) {
             return NO;
         }
-        #endif
 
         // /bin/sh is only used to run the generated Installer.sh:
         // exactly one argument, and no options such as -c.
@@ -189,6 +196,7 @@ BOOL isCommandAllowed(NSString *command, NSArray<NSString *> *arguments, NSDicti
 
     return NO;
 }
+#endif /* DEBUG */
 
 
 int main(int argc, const char * argv[]) {
@@ -232,8 +240,8 @@ int main(int argc, const char * argv[]) {
 
         #ifdef DEBUG
         // Certificate check is skipped in debug mode, so any local process can
-        // talk to this helper. The command allowlist below (with the extra
-        // DEBUG restrictions) is what limits the damage.
+        // talk to this helper. The DEBUG-only command allowlist below is what
+        // limits the damage.
         // DO NOT USE IN PRODUCTION - prefer a self-signed release build.
         #else
         // Check Certificates
@@ -260,9 +268,13 @@ int main(int argc, const char * argv[]) {
             [arguments addObject:argument];
         }
 
+        #ifdef DEBUG
+        // Only DEBUG builds restrict the command set - release builds already
+        // verified the caller's signing certificates above.
         if (!isCommandAllowed(command, arguments, processSigningInformation)) {
             return OCLP_PHT_ERROR_COMMAND_NOT_ALLOWED;
         }
+        #endif
 
         NSTask *task = [[NSTask alloc] init];
         [task setLaunchPath:command];

@@ -24,12 +24,9 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 os.chdir(SCRIPT_DIR)
 
 
-OPENSSL3_PREFIXES = [
-    Path("/opt/homebrew/opt/openssl@3"),  # Apple Silicon Homebrew
-    Path("/usr/local/opt/openssl@3"),     # Intel Homebrew
-]
-BREW_CANDIDATES = ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
-
+# OpenSSL 3 comes from MacPorts only. Homebrew is not used: it now only supports macOS
+# on Apple Silicon, so it is unavailable on the Intel/T2 Macs this project is built on.
+#
 # MacPorts' openssl3 port keeps headers, libs and pkgconfig files together under
 # libexec/openssl3 and symlinks the dylibs into /opt/local/lib.
 MACPORTS_OPENSSL3_PREFIXES = [
@@ -38,56 +35,15 @@ MACPORTS_OPENSSL3_PREFIXES = [
 ]
 MACPORTS_PORT = "/opt/local/bin/port"
 
-# Homebrew no longer supports macOS 10.15 Catalina and older (Darwin 19 and below), so
-# the build uses MacPorts there instead. The Darwin version is used rather than the macOS
-# version: Python built against an older SDK can report Big Sur as "10.16".
-MACPORTS_MAX_DARWIN = 19
-
-
-def _darwin_major() -> int:
-    try:
-        return int(os.uname().release.split(".")[0])
-    except (ValueError, IndexError):
-        return 0
-
-
-def _use_macports() -> bool:
-    return _darwin_major() <= MACPORTS_MAX_DARWIN
-
 
 def _openssl3_prefix_is_valid(prefix: Path) -> bool:
     return (prefix / "lib" / "libssl.3.dylib").exists() and (prefix / "lib" / "libcrypto.3.dylib").exists()
-
-
-def _find_brew() -> "str | None":
-    brew = shutil.which("brew")
-    if brew:
-        return brew
-    for candidate in BREW_CANDIDATES:
-        if Path(candidate).exists():
-            return candidate
-    return None
 
 
 def _find_port() -> "str | None":
     if Path(MACPORTS_PORT).exists():
         return MACPORTS_PORT
     return shutil.which("port")
-
-
-def _brew_command(brew: str, *args: str) -> list:
-    """
-    Homebrew refuses to run as root. When the build was started with sudo, run it as the
-    user who invoked sudo instead, so the keg ends up owned by that user like a normal install.
-    """
-    if os.geteuid() == 0:
-        sudo_user = os.environ.get("SUDO_USER")
-        if not sudo_user or sudo_user == "root":
-            rich.print("[red]Error: OpenSSL 3 is missing and Homebrew cannot install it as root.[/red]")
-            rich.print("[yellow]      Run 'brew install openssl@3' as a normal user, then build again.[/yellow]")
-            sys.exit(3)
-        return ["/usr/bin/sudo", "-u", sudo_user, brew, *args]
-    return [brew, *args]
 
 
 def _print_failed_install(command: str, result: subprocess.CompletedProcess) -> None:
@@ -107,7 +63,7 @@ def _install_openssl3_macports() -> Path:
     """
     Install MacPorts' openssl3 port
 
-    Unlike Homebrew, MacPorts has to install as root. The order is:
+    MacPorts has to install as root. The order is:
     already root -> run directly; cached sudo credentials -> 'sudo -n'; otherwise ask for the
     admin password through a macOS authentication dialog. An interactive sudo password prompt
     is avoided on purpose: the rich Live spinner in the main thread would draw over it.
@@ -115,7 +71,6 @@ def _install_openssl3_macports() -> Path:
     port = _find_port()
     if port is None:
         rich.print("[red]Error: OpenSSL 3 not found and MacPorts is not installed.[/red]")
-        rich.print("[yellow]      On macOS 10.15 Catalina and older the build uses MacPorts instead of Homebrew.[/yellow]")
         rich.print("[yellow]      Install MacPorts (https://www.macports.org/install.php), then run 'sudo port install openssl3'.[/yellow]")
         sys.exit(3)
 
@@ -146,34 +101,9 @@ def _install_openssl3_macports() -> Path:
     return prefix
 
 
-def _install_openssl3_homebrew(brew: "str | None") -> Path:
-    if brew is None:
-        rich.print("[red]Error: OpenSSL 3 not found and Homebrew is not installed.[/red]")
-        rich.print("[yellow]      Install Homebrew (https://brew.sh), then run 'brew install openssl@3'.[/yellow]")
-        sys.exit(3)
-
-    rich.print("[yellow]OpenSSL 3 not found, installing openssl@3 via Homebrew...[/yellow]")
-    # Output is captured instead of streamed: raw subprocess output would tear up the
-    # rich Live spinner running in the main thread. It is printed when the install fails.
-    result = subprocess.run(_brew_command(brew, "install", "openssl@3"), capture_output=True, text=True)
-    if result.returncode != 0:
-        _print_failed_install("brew install openssl@3", result)
-        sys.exit(3)
-
-    result = subprocess.run(_brew_command(brew, "--prefix", "openssl@3"), capture_output=True, text=True)
-    prefix = Path(result.stdout.strip())
-    if result.returncode != 0 or _openssl3_prefix_is_valid(prefix) is False:
-        rich.print("[red]Error: openssl@3 was installed, but libssl.3.dylib/libcrypto.3.dylib were not found.[/red]")
-        sys.exit(3)
-    return prefix
-
-
 def ensure_openssl3(allow_install: bool = True) -> "Path | None":
     """
-    Make sure OpenSSL 3 is present on the build machine
-
-    macOS 10.15 Catalina and older: MacPorts' openssl3 port only.
-    macOS 11 Big Sur and newer:     Homebrew's openssl@3 only.
+    Make sure OpenSSL 3 is present on the build machine, using MacPorts' openssl3 port
 
     'openssl version' is deliberately not used: on macOS it reports Apple's bundled LibreSSL,
     which says nothing about whether OpenSSL 3 is installed. The dylibs are checked instead.
@@ -184,35 +114,16 @@ def ensure_openssl3(allow_install: bool = True) -> "Path | None":
     if sys.platform != "darwin":
         return None
 
-    macports = _use_macports()
-
-    if macports:
-        prefix = _first_valid_prefix(MACPORTS_OPENSSL3_PREFIXES)
-        if prefix is not None:
-            return prefix
-        brew = None
-    else:
-        prefix = _first_valid_prefix(OPENSSL3_PREFIXES)
-        if prefix is not None:
-            return prefix
-
-        brew = _find_brew()
-        # Homebrew installed to a custom prefix
-        if brew:
-            try:
-                result = subprocess.run(_brew_command(brew, "--prefix", "openssl@3"), capture_output=True, text=True, timeout=60)
-                if result.returncode == 0 and _openssl3_prefix_is_valid(Path(result.stdout.strip())):
-                    return Path(result.stdout.strip())
-            except (OSError, subprocess.SubprocessError):
-                pass
+    prefix = _first_valid_prefix(MACPORTS_OPENSSL3_PREFIXES)
+    if prefix is not None:
+        return prefix
 
     if allow_install is False:
-        manual = "sudo port install openssl3" if macports else "brew install openssl@3"
         rich.print("[red]Error: OpenSSL 3 not found and --no-install-openssl was passed.[/red]")
-        rich.print(f"[yellow]      Install it with '{manual}', then build again.[/yellow]")
+        rich.print("[yellow]      Install it with 'sudo port install openssl3', then build again.[/yellow]")
         sys.exit(3)
 
-    prefix = _install_openssl3_macports() if macports else _install_openssl3_homebrew(brew)
+    prefix = _install_openssl3_macports()
     rich.print(f"[green]Installed OpenSSL 3 at {prefix}[/green]")
     return prefix
 
@@ -251,8 +162,6 @@ def verify_python_ssl() -> None:
 
 
 CA_BUNDLE_CANDIDATES = [
-    Path("/opt/homebrew/etc/openssl@3/cert.pem"),                # Homebrew openssl@3 (Apple Silicon)
-    Path("/usr/local/etc/openssl@3/cert.pem"),                   # Homebrew openssl@3 (Intel)
     Path("/opt/local/libexec/openssl3/etc/openssl/cert.pem"),    # MacPorts openssl3
     Path("/opt/local/share/curl/curl-ca-bundle.crt"),            # MacPorts curl-ca-bundle
     Path("/opt/local/etc/openssl/cert.pem"),                     # MacPorts
@@ -269,7 +178,7 @@ def configure_ca_certificates() -> None:
     CERTIFICATE_VERIFY_FAILED ("unable to get local issuer certificate"), which made the
     release guard skip the version check. When the default context has no CA certificates,
     SSL_CERT_FILE is pointed at a known bundle: certifi's if installed, otherwise the one from
-    Homebrew/MacPorts OpenSSL 3 or macOS itself. Set before any HTTPS context is created, so
+    MacPorts OpenSSL 3 or macOS itself. Set before any HTTPS context is created, so
     urllib (release guard) and every subprocess started by the build pick it up.
     An SSL_CERT_FILE the user set is left alone.
     """
@@ -457,7 +366,8 @@ def main() -> None:
     parser.add_argument("--reset-pyinstaller-cache", action="store_true")
     parser.add_argument("--no-auto-detect-identity", action="store_true", help="Never pick a signing identity from the keychain automatically")
     parser.add_argument("--ignore-release", action="store_true", help="Build even when the version does not line up with the latest release")
-    parser.add_argument("--no-install-openssl", action="store_true", help="Fail instead of installing OpenSSL 3 (MacPorts on 10.15 and older, Homebrew otherwise) when it is missing")
+    parser.add_argument("--no-install-openssl", action="store_true", help="Fail instead of installing OpenSSL 3 via MacPorts when it is missing")
+    parser.add_argument("--update-channel", type=str, default=None, choices=["official", "medelcartelinc"], help="Set the default update channel for this build")
 
     # Steps
     parser.add_argument("--run-as-individual-steps", action="store_true")
@@ -469,6 +379,12 @@ def main() -> None:
 
     # Passwort-Sicherheit: Umgebungsvariable hat Vorrang vor CLI-Argument
     notarization_password = os.environ.get("NOTARIZATION_PASSWORD") or args.notarization_password
+
+    # The channel is embedded into the app's Info.plist by GenerateApplication.
+    # An environment variable set here only lives as long as this build process,
+    # the finished app never sees it - which is why the flag used to have no effect.
+    if args.update_channel:
+        rich.print(f"[cyan]Default update channel for this build: {args.update_channel}[/cyan]")
 
     # Resolved once, so the app and the helper tool can never end up signed with two different
     # certificates - which would make the helper reject the app at runtime.
@@ -507,6 +423,7 @@ def main() -> None:
                 git_branch=args.git_branch,
                 git_commit_url=args.git_commit_url,
                 git_commit_date=args.git_commit_date,
+                update_channel=args.update_channel,
             ).generate()
 
             check_file_exists(Path("dist/OpenCore-Patcher-T2.app"))

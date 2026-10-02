@@ -12,7 +12,7 @@
 ---
 
 ### 👑 Authorship & Contributions
-This repository is the dedicated development fork led by **albert-mueller (Albert Müller)**. While building upon work by Dortania, Acidanthera, and Albert Müller, this fork independently engineered the critical solutions that make macOS 26 Tahoe fully usable on legacy and T1/T2 hardware:
+This repository is the dedicated development fork led by **albert-mueller (Albert Müller)**. While building upon work by Dortania, Acidanthera, this fork independently engineered the critical solutions that make macOS 26 Tahoe fully usable on legacy and T1/T2 hardware:
 
 1. **T1 Security & Native Login**: Engineered the Native Software Keystore login flow on macOS Tahoe for `MacBookPro14,1`, `MacBookPro14,2`, and `MacBookPro14,3` (retaining Apple ID/iCloud, resolving Keychain panics).
 2. **Broadcom Wi-Fi Restoration**: Unblocked the `IOSkywalkFamily` kernel stack in the EFI builder and root patcher on macOS 15 & 26 Tahoe, restoring full Wi-Fi functionality on Broadcom chipsets (`14E4:43BA`).
@@ -49,7 +49,7 @@ fixes a vulnerability where an attacker or bad Hackintosh user could trick a Hac
 > **Progress:**
 
 - [X] Installer boots
-- [ ] MacBookAir8,1 and MacBookAir8,2 can boot the installer
+- [X] MacBookAir8,1 and MacBookAir8,2 can boot the installer
 - [X] Internal hard drive mounts properly on T2 Macs
 - [ ] ability to reach the desktop
 - [ ] Post install - issues with second stage
@@ -78,33 +78,6 @@ Thanks to recent testing and optimizations, the following models are fully opera
  
 * **Unsupported T2 Macs, such as 2018 Mac mini**
     * requires some testing and work to get reliably to the desktop
-
----
-
-### ❓ Frequently Asked Questions (FAQ) & Community Feedback
-
-Here are solutions and verified reports from our community threads:
-
-#### Q: Does macOS 26 Tahoe work smoothly on MacBook Pro 2017 models?
-* **Yes!** Both `MacBookPro14,1` (13" Function Keys) and `MacBookPro14,3` (15" Touch Bar & T1) are confirmed fully functional on macOS 26 Tahoe with full hardware graphics acceleration, audio, and Broadcom Wi-Fi.
-* **Community Report**: See [@azeeproject's test report in Discussion #281](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/discussions/281#discussioncomment-18310692) and the [Wi-Fi fix confirmation in #18311204](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/discussions/281#discussioncomment-18311204).
-
-#### Q: How is the Dual GPU and T1 chip handled on MacBook Pro 15" 2017 (`MacBookPro14,3`)?
-* **Dual GPU**: Automatic GPU switching works smoothly between Intel HD 630 and AMD Radeon Pro 555/560 using `agdpmod=pikera` and the `radpg=15` power-gating fix to prevent stuttering.
-* **T1 Chip & Security**: Retains native password login and Apple Account / iCloud syncing. Headphone jack and speakers work with `alcid=13`.
-
-#### Q: I got `NameError: name 'AMDOpenCL' is not defined` during Root Patching. How do I fix it?
-* **Resolution**: This bug in legacy AMD GCN root patching was resolved in release `4.0.0.18002.8` and newer.
-* **Community Reference**: See discussion with [@WhiteLighter78 in Issue #194](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/194#issuecomment-5555940904).
-
-#### Q: Are MacBook Pro 2016 Touch Bar & T1 models (`MacBookPro13,2` / `MacBookPro13,3`) supported on Tahoe?
-* **Resolution**: Yes, Touch Bar and keyboard/trackpad control operate natively; login authentication is handled via the Native Software Keystore pipeline.
-* **Community Reference**: See discussion with [@TheRaddish1313 in Issue #284](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/284#issuecomment-5556099892).
-
-#### Q: Why did Wi-Fi not turn on after updating to Tahoe?
-* **Resolution**: Ensure you are running **4.0.0.18002.9** or newer. Rebuild and install OpenCore EFI to your disk, reboot, and run the **Post-Install Root Patch** ("Networking: Modern Wireless"). The new release unblocks `IOSkywalkFamily` drivers on macOS 15/26.
-
----
 
 Noteworthy features of OpenCore Legacy Patcher:
 
@@ -163,8 +136,11 @@ To run the project from source, see here: [Build and run from source](./SOURCE.m
 
 * [Matteo](https://github.com/Medelcartelinc)
     * Adding support for T1 Macs on Tahoe
-    * developing patches for T1 and non-T1 Macs for macOS 26 Tahoe
+    * writing patches for T1 and non-T1 Macs for macOS 26 Tahoe
     * fixing some bugs, testing and documenting issues
+* [zkennedy137](https://github.com/zkennedy137)
+    * testing, documenting, and fixing issues with unsupported T2 Macs
+    * writing the Spoof-VMM kext so unsupported T2 Macs can get further at booting macOS 26 and 15 on unsupported hardware
 * [gandolf243](https://github.com/gandolf243)
     * UI redesign
     * fixing some bugs, testing and documenting issues

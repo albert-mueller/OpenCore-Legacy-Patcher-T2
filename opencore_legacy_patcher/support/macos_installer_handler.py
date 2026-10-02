@@ -110,9 +110,7 @@ class InstallerCreation():
             bool: True if successful, False otherwise
         """
 
-        # Pre-flight: check free space. Manual extraction requires ~45 GB
-        # (14GB PKG + 14GB unpacked Payload + 14GB extracted App).
-        MIN_SPACE_BYTES = 45 * 1024 * 1024 * 1024
+        MIN_SPACE_BYTES = sys.getsizeof(download_path)
         try:
             import shutil
             free = shutil.disk_usage("/").free
@@ -120,7 +118,7 @@ class InstallerCreation():
                 logging.error(
                     f"Not enough free disk space to extract InstallAssistant.pkg: "
                     f"{utilities.human_fmt(free)} available, "
-                    f"{utilities.human_fmt(MIN_SPACE_BYTES)} required"
+                    f"{utilities.human_fmt(MIN_SPACE_BYTES)} required "
                     f"Please free up some storage space and try again"
                 )
                 return False

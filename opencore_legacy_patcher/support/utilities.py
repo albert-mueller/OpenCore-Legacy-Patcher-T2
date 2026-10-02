@@ -27,11 +27,17 @@ from ..datasets import (
 )
 
 
-def is_t2_mac(model: str, global_constants) -> bool:
-    """Return True if the current model has a T2 security chip."""
-    if model in model_array.T2Macs:
-        return True
-    return "T2_CHIP" in global_constants.device_properties.get(model, {}).get("Features", [])
+def is_t2_mac(model: str, global_constants=None) -> bool:
+    """
+    Return True if the given model has a T2 security chip.
+
+    model_array.T2Macs is the single source of truth. The previous fallback
+    read global_constants.device_properties, an attribute Constants never had,
+    so every non-T2 model raised AttributeError instead of returning False
+    (breaking e.g. CatalinaBCM5701Ethernet.kext injection on non-T2 Macs).
+    global_constants is kept only for call-site compatibility.
+    """
+    return model in model_array.T2Macs
 
 def hexswap(input_hex: str):
     hex_pairs = [input_hex[i : i + 2] for i in range(0, len(input_hex), 2)]
@@ -588,13 +594,29 @@ def get_admin_permission(action: str = "/usr/bin/whoami", args: list =None, reas
     * confirm_button: the name of the OK button that is desplayed to the user if the default doesn't work
     * deny_button: the name of the Cancel button that is desplayed to the user if the default doesn't work
     """
+    if not isinstance(reason, str) or not reason:
+        # A non-str here (e.g. a bound method) used to raise "encoding without a string argument"
+        logging.warning(f"get_admin_permission() called with invalid reason {type(reason).__name__}, using default prompt")
+        reason = "OpenCore-Patcher-T2 needs your administrative permission"
+    # Callers hand us whatever they built their argv from: str, bytes, and very often
+    # pathlib.Path (e.g. install.py: ["/bin/mkdir", "-p", mount_path / "EFI"]).
+    # bytes(<Path>, encoding="utf-8") raises "TypeError: encoding without a string
+    # argument", which aborted every elevated command containing a Path as soon as the
+    # Privileged Helper Tool was unusable. Normalise everything to bytes instead.
+    def _as_arg_bytes(value) -> bytes:
+        if isinstance(value, (bytes, bytearray)):
+            return bytes(value)
+        if isinstance(value, (str, os.PathLike)):
+            return os.fsencode(value)
+        return str(value).encode("utf-8")
+
+    action_bytes = _as_arg_bytes(action)
     if args is None:
-        return_args = action
-    else:
         byte_args: list = []
-        for arg in args:
-            byte_args.append(bytes(arg, encoding="utf-8"))
-        return_args = f"{action} {str(byte_args)}"
+        return_args = [os.fsdecode(action_bytes)]
+    else:
+        byte_args = [_as_arg_bytes(arg) for arg in args]
+        return_args = [os.fsdecode(action_bytes)] + [os.fsdecode(arg) for arg in byte_args]
     status, auth_ref = Security.AuthorizationCreate(
         None,
         None,
@@ -641,10 +663,10 @@ def get_admin_permission(action: str = "/usr/bin/whoami", args: list =None, reas
         if status != Security.errAuthorizationSuccess:
             return subprocess.CompletedProcess(args=return_args, returncode=2, stderr=f"AuthorizationCopyRights failed with status {status}")
 
-        if args is None or args == "":
+        if not byte_args:
             status, _ = Security.AuthorizationExecuteWithPrivileges(
                 auth_ref,
-                bytes(action, encoding="utf-8"),
+                action_bytes,
                 Security.kAuthorizationFlagDefaults,
                 b'',
                 None,
@@ -652,7 +674,7 @@ def get_admin_permission(action: str = "/usr/bin/whoami", args: list =None, reas
         else:
             status, _ = Security.AuthorizationExecuteWithPrivileges(
                 auth_ref,
-                bytes(action, encoding="utf-8"),
+                action_bytes,
                 Security.kAuthorizationFlagDefaults,
                 byte_args,
                 None,

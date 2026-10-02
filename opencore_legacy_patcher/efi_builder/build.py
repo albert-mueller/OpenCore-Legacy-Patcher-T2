@@ -146,10 +146,13 @@ class BuildOpenCore:
                     "ProtectSecureBoot": True,
                     "ForceBooterSignature": True,
                 })
-                self.config.setdefault("PlatformInfo", {})["Automatic"] = False
-                self.config.setdefault("PlatformInfo", {})["UpdateSMBIOS"] = False
-                self.config.setdefault("PlatformInfo", {})["UpdateDataHub"] = False
-                self.config.setdefault("PlatformInfo", {})["UpdateNVRAM"] = False
+                # On Tahoe+, T2 requires SMBIOS spoofing for SpoofVMM
+                smbios_spoof = (self.constants.detected_os >= 15)
+                
+                self.config.setdefault("PlatformInfo", {})["Automatic"] = smbios_spoof
+                self.config.setdefault("PlatformInfo", {})["UpdateSMBIOS"] = smbios_spoof
+                self.config.setdefault("PlatformInfo", {})["UpdateDataHub"] = smbios_spoof
+                self.config.setdefault("PlatformInfo", {})["UpdateNVRAM"] = smbios_spoof
                 self.config.setdefault("PlatformInfo", {})["UpdateSMBIOSMode"] = "Custom"
                 self.config.setdefault("PlatformInfo", {})["CustomMemory"] = False
                 self.config.setdefault("PlatformInfo", {})["UseRawUuidEncoding"] = False
@@ -166,10 +169,11 @@ class BuildOpenCore:
                     "ROM": b"",
                 })
                 self.config.setdefault("Kernel", {}).setdefault("Quirks", {}).update({
-                    "CustomSMBIOSGuid": False,
+                    "CustomSMBIOSGuid": smbios_spoof,
                     "DisableLinkeditJettison": True,
                     "PanicNoKextDump": True,
                     "DisableIoMapper": False,
+                    "DisableIoMapperMapping": True,
                 })
                 self.config.setdefault("Misc", {}).setdefault("Security", {})["SecureBootModel"] = "Disabled"
                 self.config.setdefault("UEFI", {}).setdefault("ProtocolOverrides", {})["DataHub"] = False
@@ -516,7 +520,7 @@ class BuildOpenCore:
                     if prefix not in current_boot_args:
                         current_boot_args = f"{current_boot_args} {arg}".strip()
                 # Clean out any leftover amfi=0x80 to ensure Apple Account & entitlements are functional
-                if self.model not in model_array.T2Macs:
+                if self.model not in model_array.T2Macs and not self.constants.disable_amfi:
                     cleaned = [a for a in current_boot_args.split() if a != "amfi=0x80"]
                     current_boot_args = " ".join(cleaned)
                 self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = current_boot_args
@@ -572,13 +576,20 @@ class BuildOpenCore:
                 # probe ran, and it describes the *host*, so it must not be trusted when building
                 # for a custom model.
                 host_computer = getattr(self.constants, "computer", None)
-                has_amd_dgpu = (
+                has_amd_navi_dgpu = (
                     not self.constants.custom_model
                     and host_computer is not None
                     and getattr(host_computer, "dgpu", None) is not None
                     and host_computer.dgpu.vendor_id == 0x1002  # AMD
+                    and getattr(host_computer.dgpu, "arch", None)
+                    and host_computer.dgpu.arch.value == "Navi"
                 )
-                if has_amd_dgpu or "14,3" in real_model or "14,3" in self.model:
+                # Inject agdpmod=pikera ONLY when a Navi dGPU is confirmed present.
+                # Polaris and Vega dGPUs must NOT receive pikera — they need vit9696,
+                # which is already handled by graphics_audio.py per device.
+                # The MBP14,3 broad override is intentionally removed here because it
+                # caused black screens on Polaris/Vega dGPU variants of that model.
+                if has_amd_navi_dgpu:
                     if "agdpmod=" not in current_boot_args:
                         extra_args.append("agdpmod=pikera")
 

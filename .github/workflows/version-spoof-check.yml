@@ -1,9 +1,13 @@
-name: PR Version Spoofing Check
+name: PR Outdated Version Check
 
-# Catches PRs that claim to be a newer version than the code they contain,
-# e.g. a title, branch, commit or changelog saying "4.0.0.190005" while
-# constants.py still says "4.0.0.190004", or a version number that jumps,
-# goes backwards or uses lookalike characters.
+# Catches PRs that are based on an outdated version, which may still contain
+# known, already fixed vulnerabilities. Examples: a title, branch, commit or
+# changelog naming "4.0.0.190005" while constants.py still says "4.0.0.190004",
+# a branch behind main, or a version number that goes backwards, jumps or
+# uses lookalike characters and so hides how old the code really is.
+#
+# The comment marker and concurrency group still say "version-spoof" on purpose,
+# so existing bot comments keep being found and updated.
 #
 # pull_request_target runs THIS file from the base branch, so a PR cannot
 # change the check. No PR code is checked out or executed – everything is
@@ -25,7 +29,7 @@ jobs:
   check-version:
     runs-on: ubuntu-latest
     steps:
-      - name: Compare claimed and actual version
+      - name: Check for outdated version
         uses: actions/github-script@v8
         with:
           script: |
@@ -149,21 +153,21 @@ jobs:
             // ---- 1) Malformed version or lookalike characters ----------------
             if (!headV) {
               findings.push({ score: 3,
-                en: `The version string \`${headInfo.value}\` in the PR does not have the normal format (digits and dots, optionally ending in "s"). Unusual characters can make a version look different to people than to the updater.`,
-                de: `Die Versionsangabe \`${headInfo.value}\` im PR hat nicht das normale Format (Ziffern und Punkte, optional mit „s“ am Ende). Ungewöhnliche Zeichen können eine Version für Menschen anders aussehen lassen als für den Updater.`,
+                en: `The version string \`${headInfo.value}\` in the PR does not have the normal format (digits and dots, optionally ending in "s"). Unusual characters make it impossible to reliably tell whether this build is outdated.`,
+                de: `Die Versionsangabe \`${headInfo.value}\` im PR hat nicht das normale Format (Ziffern und Punkte, optional mit „s“ am Ende). Durch ungewöhnliche Zeichen lässt sich nicht zuverlässig erkennen, ob dieser Build veraltet ist.`,
                 link: versionLink });
             }
             for (const [where, whereDe, text] of [['PR title', 'PR-Titel', pr.title], ['branch name', 'Branch-Name', pr.head.ref]]) {
               if (hasLookalikeVersion(text)) findings.push({ score: 3,
-                en: `The ${where} contains a version number written with lookalike characters (for example fullwidth or non-Latin digits). This makes a version look real to people while it is a different string.`,
-                de: `Der ${whereDe} enthält eine Versionsnummer aus ähnlich aussehenden Zeichen (z. B. breite oder nicht-lateinische Ziffern). So wirkt eine Version für Menschen echt, obwohl es eine andere Zeichenkette ist.` });
+                en: `The ${where} contains a version number written with lookalike characters (for example fullwidth or non-Latin digits). This can hide which version the PR is really based on and whether it is outdated.`,
+                de: `Der ${whereDe} enthält eine Versionsnummer aus ähnlich aussehenden Zeichen (z. B. breite oder nicht-lateinische Ziffern). Dadurch ist nicht klar erkennbar, auf welcher Version der PR wirklich basiert und ob sie veraltet ist.` });
             }
 
             // ---- 2) Displayed label differs from the real version ------------
             if (headInfo.label && headInfo.label !== headInfo.value) {
               findings.push({ score: 3,
-                en: `\`patcher_version_label\` is set to \`${headInfo.label}\`, but the real \`patcher_version\` is \`${headInfo.value}\`. Users would see a different version than the code actually has.`,
-                de: `\`patcher_version_label\` ist auf \`${headInfo.label}\` gesetzt, aber die echte \`patcher_version\` ist \`${headInfo.value}\`. Nutzer würden eine andere Version sehen, als der Code tatsächlich hat.`,
+                en: `\`patcher_version_label\` is set to \`${headInfo.label}\`, but the real \`patcher_version\` is \`${headInfo.value}\`. Users would see a different version than the one this build really is, which can hide that it is outdated.`,
+                de: `\`patcher_version_label\` ist auf \`${headInfo.label}\` gesetzt, aber die echte \`patcher_version\` ist \`${headInfo.value}\`. Nutzer würden eine andere Version sehen, als dieser Build tatsächlich ist. Dadurch kann verborgen bleiben, dass er veraltet ist.`,
                 link: versionLink });
             }
 
@@ -186,16 +190,16 @@ jobs:
                 if (!newer.length) continue;
                 const claim = newer.reduce((a, b) => (compare(a, b) >= 0 ? a : b));
                 findings.push({ score,
-                  en: `${src[0].toUpperCase() + src.slice(1)} claims version \`${claim.raw}\`, but ${actualEn}. The PR presents itself as newer than the code it contains.`,
-                  de: `${srcDe[0].toUpperCase() + srcDe.slice(1)} nennt Version \`${claim.raw}\`, aber ${actualDe}. Der PR gibt sich als neuer aus, als der enthaltene Code ist.` });
+                  en: `${src[0].toUpperCase() + src.slice(1)} names version \`${claim.raw}\`, but ${actualEn}. The code in this PR is older than the version it names.`,
+                  de: `${srcDe[0].toUpperCase() + srcDe.slice(1)} nennt Version \`${claim.raw}\`, aber ${actualDe}. Der Code in diesem PR ist älter als die genannte Version.` });
               }
 
               if (baseV) {
                 // ---- 4) Version goes backwards -------------------------------
                 if (compare(headV, baseV) < 0) {
                   findings.push({ score: 3,
-                    en: `The version goes backwards from \`${baseInfo.value}\` (main) to \`${headInfo.value}\`. An older number can make the updater install an old or different build.`,
-                    de: `Die Version geht von \`${baseInfo.value}\` (main) zurück auf \`${headInfo.value}\`. Eine ältere Nummer kann den Updater dazu bringen, einen alten oder anderen Build zu installieren.`,
+                    en: `The version goes backwards from \`${baseInfo.value}\` (main) to \`${headInfo.value}\`. Merging this would replace the current version with an older one, and the updater could install an outdated build.`,
+                    de: `Die Version geht von \`${baseInfo.value}\` (main) zurück auf \`${headInfo.value}\`. Ein Merge würde die aktuelle Version durch eine ältere ersetzen, und der Updater könnte einen veralteten Build installieren.`,
                     link: versionLink });
                 }
                 // ---- 5) Unusually large jump ---------------------------------
@@ -205,8 +209,8 @@ jobs:
                   const majorJump = d(0) > 1;
                   const otherJump = (sameUpTo(1) && d(1) > 1) || (sameUpTo(2) && d(2) > 1) || (sameUpTo(3) && d(3) > 1);
                   if (majorJump || otherJump) findings.push({ score: majorJump ? 3 : 1,
-                    en: `The version jumps from \`${baseInfo.value}\` to \`${headInfo.value}\`, skipping versions. A too-high number makes every older install think this build is a newer update.`,
-                    de: `Die Version springt von \`${baseInfo.value}\` auf \`${headInfo.value}\` und überspringt Versionen. Eine zu hohe Nummer lässt jede ältere Installation diesen Build für ein neueres Update halten.`,
+                    en: `The version jumps from \`${baseInfo.value}\` to \`${headInfo.value}\`, skipping versions. A too-high number makes every older install treat this build as a newer update, even if its code is outdated.`,
+                    de: `Die Version springt von \`${baseInfo.value}\` auf \`${headInfo.value}\` und überspringt Versionen. Eine zu hohe Nummer lässt jede ältere Installation diesen Build für ein neueres Update halten, auch wenn sein Code veraltet ist.`,
                     link: versionLink });
                 }
               }
@@ -227,8 +231,8 @@ jobs:
               const onlyVersionFiles = [...changed].every(f => f === VERSION_FILE || f === CHANGELOG);
               if (onlyVersionFiles && otherAdded.length === 0) {
                 findings.push({ score: 1,
-                  en: `The PR changes the version to \`${headInfo.value}\` but contains no other code changes, so the "new" version has the same code as \`${baseInfo.value}\`.`,
-                  de: `Der PR ändert die Version auf \`${headInfo.value}\`, enthält aber sonst keine Code-Änderungen. Die „neue“ Version hat also denselben Code wie \`${baseInfo.value}\`.` });
+                  en: `The PR changes the version to \`${headInfo.value}\` but contains no other code changes, so the "new" version still has the same, older code as \`${baseInfo.value}\`.`,
+                  de: `Der PR ändert die Version auf \`${headInfo.value}\`, enthält aber sonst keine Code-Änderungen. Die „neue“ Version hat also weiterhin denselben, älteren Code wie \`${baseInfo.value}\`.` });
               }
               // ---- 8) New version number on top of outdated code -----------
               try {
@@ -236,9 +240,213 @@ jobs:
                   owner, repo, basehead: `${pr.base.sha}...${pr.head.sha}`,
                 });
                 if (cmp.data.behind_by > 0) findings.push({ score: 1,
-                  en: `The branch is ${cmp.data.behind_by} commit(s) behind main, so it is based on older code while it sets a newer version number.`,
-                  de: `Der Branch liegt ${cmp.data.behind_by} Commit(s) hinter main. Er basiert also auf älterem Code, setzt aber eine neuere Versionsnummer.` });
+                  en: `The branch is ${cmp.data.behind_by} commit(s) behind main, so it is based on outdated code that may miss recent fixes, while it sets a new version number.`,
+                  de: `Der Branch liegt ${cmp.data.behind_by} Commit(s) hinter main. Er basiert also auf veraltetem Code, dem neuere Fixes fehlen können, setzt aber eine neue Versionsnummer.` });
               } catch (e) { core.info(`Compare failed: ${e.message}`); }
+            }
+
+            // ---- Fixed vulnerabilities between the older and the newer version
+            // Lists every security fix CHANGELOG.md records after the older of the
+            // two versions, up to and including the newer one (normally main = latest).
+            // Entries are never cut off: code samples are kept, and if everything does
+            // not fit into one comment (GitHub's limit is 65536 characters), the list
+            // continues in follow-up comments.
+            const COMMENT_LIMIT = 64000;   // a bit below GitHub's 65536 limit
+            const MAX_PARTS     = 10;      // never spam a PR with more comments than this
+            const SECURITY_LINE = /vulnerab|exploit|privilege escalation|arbitr?ary (?:code|command)|security (?:issue|flaw|hole)|^security:|sicherheitsl[üu]cke/i;
+            function parseChangelog(text) {
+              const sections = [];
+              let cur = null;
+              text.split('\n').forEach((l, i) => {
+                if (/^##\s/.test(l)) {
+                  const m = l.match(/\d+\.\d+\.\d+\.\d+(?:\.\d+)*s?/);
+                  const v = m && parseVersion(m[0]);
+                  cur = v ? { v, title: l.replace(/^##\s*/, '').trim(), line: i + 1, lines: [] } : null;
+                  if (cur) sections.push(cur);
+                } else if (cur) cur.lines.push(l);
+              });
+              return sections;
+            }
+            function securityItems(lines) {
+              // 1) Rebuild paragraphs: a bullet, numbered point or "Impact:" line starts a
+              //    new one, wrapped lines are joined back onto it. Code samples are kept
+              //    and attached to the paragraph right before them.
+              const paras = [];
+              let cur = null, code = null; // code = { lang, lines, fenced }
+              const flush = () => {
+                if (cur) { cur.text = cur.text.replace(/\s+/g, ' ').trim(); if (cur.text) paras.push(cur); }
+                cur = null;
+              };
+              const endCode = () => {
+                if (!code) return;
+                let ls = code.lines;
+                while (ls.length && !ls[0].trim()) ls.shift();
+                while (ls.length && !ls[ls.length - 1].trim()) ls.pop();
+                if (!code.fenced) {
+                  const ind = Math.min(...ls.filter(l => l.trim()).map(l => l.length - l.trimStart().length));
+                  ls = ls.map(l => l.slice(Math.min(ind, l.length - l.trimStart().length)));
+                }
+                const target = paras[paras.length - 1];
+                if (ls.length && target) (target.code = target.code || []).push({ lang: code.lang, text: ls.join('\n') });
+                code = null;
+              };
+              // Code samples are often pasted without ``` fences, at any indentation.
+              // An indented line that starts like Python code opens a code block; it
+              // lasts until a line at the left margin or a shallow "- text" bullet.
+              const CODE_START = new RegExp([
+                String.raw`^#`, String.raw`^"""`, String.raw`^@\w`,
+                String.raw`^(?:if|elif|for|while|with)\s.*:\s*(?:#.*)?$`,
+                String.raw`^(?:else|try|finally)\s*:`, String.raw`^except\b.*:\s*(?:#.*)?$`,
+                String.raw`^return(?:\s+\S+)?\s*(?:#.*)?$`, String.raw`^raise\s+\w`,
+                String.raw`^(?:import\s+\w|from\s+[\w.]+\s+import\s)`,
+                String.raw`^[A-Za-z_][\w.]*(?:\[[^\]]*\])?\s*[-+*/|]?=[^=]`,
+                String.raw`^[\w.]+\(.*\)\s*(?:#.*)?$`,
+                String.raw`^(?:async\s+)?def\s+\w+\s*\(`, String.raw`^class\s+\w+\s*[(:]`,
+              ].join('|'));
+              for (const raw of lines) {
+                const fence = raw.match(/^\s*```+\s*([\w+-]*)/);
+                if (fence) {
+                  if (code && code.fenced) { endCode(); continue; }
+                  endCode(); flush();
+                  code = { lang: fence[1] || '', lines: [], fenced: true };
+                  continue;
+                }
+                if (code && code.fenced) { code.lines.push(raw); continue; }
+                const t = raw.trim();
+                if (!t) { if (code) code.lines.push(''); else flush(); continue; }
+                const indent = raw.length - raw.trimStart().length;
+                const plainBullet = /^[-*]\s+[A-Za-z]/.test(t);
+                if (code) {
+                  if (indent < 2 || (plainBullet && indent <= 4)) endCode();
+                  else { code.lines.push(raw); continue; }
+                }
+                // Deeply indented lines are code samples, unless they are a plain "- text" bullet
+                if ((indent >= 8 && !plainBullet) || (indent >= 2 && CODE_START.test(t)) || /^(?:async\s+)?def\s|^class\s/.test(t)) {
+                  flush();
+                  code = { lang: '', lines: [raw], fenced: false };
+                  continue;
+                }
+                if (t.startsWith('<')) { flush(); continue; }
+                if (/^[-*]$/.test(t)) { flush(); continue; } // empty bullet
+                const dash = t.match(/^[-*]\s+/);
+                if (dash || /^\d+[.)]\s/.test(t) || /^Impact:/i.test(t) || !cur || cur.text.endsWith(':')) {
+                  flush();
+                  cur = { indent, top: !!dash, text: dash ? t.slice(dash[0].length) : t };
+                } else {
+                  cur.text += ' ' + t;
+                }
+              }
+              endCode(); flush(); endCode();
+              // 2) Keep security paragraphs. A bullet like "fixes the following vulnerabilities:"
+              //    also keeps everything listed under it, up to the next bullet at its level.
+              const out = [];
+              let group = null;
+              for (const p of paras) {
+                if (group && p.top && p.indent <= group.indent) group = null;
+                if (group) { out.push({ depth: 1, text: p.text, code: p.code }); continue; }
+                if (SECURITY_LINE.test(p.text)) {
+                  out.push({ depth: 0, text: p.text, code: p.code });
+                  if (p.top && p.text.endsWith(':')) group = { indent: p.indent };
+                } else if (/^Impact:/i.test(p.text) && out.length) {
+                  out.push({ depth: 1, text: p.text, code: p.code });
+                }
+              }
+              return out; // full text, never shortened
+            }
+            // Changelog text can come from the PR side, so neutralise mentions and markup
+            const sanitize = s => s.replace(/@/g, '@\u200b').replace(/<(?=[A-Za-z!\/?])/g, '&lt;');
+            // Code goes into a fence that is longer than any run of backticks inside it,
+            // so changelog content can never close the fence and inject markup.
+            function codeBlock(c, pad) {
+              const run = Math.max(0, ...(c.text.match(/`+/g) || []).map(r => r.length));
+              const f = '`'.repeat(Math.max(3, run + 1));
+              const lang = /^[\w+-]{1,20}$/.test(c.lang) ? c.lang : '';
+              const lines = c.text.split('\n').length;
+              return [
+                `${pad}<details><summary>Code (${lines} line${lines === 1 ? '' : 's'})</summary>`,
+                '',
+                `${pad}${f}${lang}`,
+                ...c.text.split('\n').map(l => (l ? pad + l : '')),
+                `${pad}${f}`,
+                '',
+                `${pad}</details>`,
+                '',
+              ].join('\n');
+            }
+            function renderItem(it) {
+              const bullet = it.depth ? '  - ' : '- ';
+              const pad = ' '.repeat(bullet.length);
+              return [`${bullet}${sanitize(it.text)}`, ...(it.code || []).map(c => '\n' + codeBlock(c, pad))].join('\n');
+            }
+            // Returns { head, blocks, summary } or null. Each block is the full text
+            // of one version; nothing is cut.
+            async function fixedVulnerabilities() {
+              if (!headV || !baseV || compare(headV, baseV) === 0) return null;
+              const headNewer = compare(headV, baseV) > 0;
+              const older = headNewer ? baseInfo.value : headInfo.value;
+              const newer = headNewer ? headInfo.value : baseInfo.value;
+              const olderV = headNewer ? baseV : headV, newerV = headNewer ? headV : baseV;
+              const covers = t => t && parseChangelog(t).some(s => compare(s.v, newerV) >= 0);
+              // Prefer the base branch's changelog; fall back to the PR's only if needed
+              let text = await readFile(owner, repo, CHANGELOG, pr.base.sha);
+              let src = `${pr.base.repo.html_url}/blob/${pr.base.sha}/${CHANGELOG}`;
+              if (!covers(text)) {
+                const h = await readFile(headOwner, headRepo, CHANGELOG, pr.head.sha);
+                if (covers(h)) { text = h; src = `${pr.head.repo.html_url}/blob/${pr.head.sha}/${CHANGELOG}`; }
+              }
+              if (!text) return null;
+              const hits = parseChangelog(text)
+                .filter(s => compare(s.v, olderV) > 0 && compare(s.v, newerV) <= 0)
+                .map(s => ({ ...s, items: securityItems(s.lines) }))
+                .filter(s => s.items.length);
+              const head = [
+                `### 🔒 Fixed vulnerabilities from \`${older}\` to \`${newer}\` / Behobene Sicherheitslücken von \`${older}\` bis \`${newer}\``,
+                '',
+                `**English:** These security fixes are recorded in [\`${CHANGELOG}\`](${src}) for the versions after \`${older}\` up to \`${newer}\`, so code based on \`${older}\` does not have them.`,
+                '',
+                `**Deutsch:** Diese Sicherheitskorrekturen stehen in [\`${CHANGELOG}\`](${src}) für die Versionen nach \`${older}\` bis \`${newer}\`. Code auf Basis von \`${older}\` enthält sie also nicht. Die Einträge sind aus dem Changelog übernommen und daher auf Englisch.`,
+                '',
+              ].join('\n');
+              if (!hits.length) return { head, blocks: [], src, empty: `_No security fixes found in ${CHANGELOG} for this range. / Für diesen Bereich wurden in ${CHANGELOG} keine Sicherheitskorrekturen gefunden._` };
+              const total = hits.reduce((n, s) => n + s.items.filter(i => !i.depth).length, 0);
+              const blocks = hits.map(s => ({
+                title: `**[${sanitize(s.title)}](${src}?plain=1#L${s.line})**`,
+                link: `[${sanitize(s.title)}](${src}?plain=1#L${s.line})`,
+                items: s.items.map(renderItem),
+              }));
+              return { head, blocks, src, summary: `${hits.length} version(s) with security fixes / ${hits.length} Version(en) mit Sicherheitskorrekturen (${total} item(s) / Einträge)` };
+            }
+
+            // Split the vulnerability list into comment-sized parts. A version is only
+            // split between items, and an item only if it alone is larger than a whole
+            // comment (then its code samples are moved to their own chunks).
+            function chunkBlocks(blocks, firstRoom, room) {
+              const pieces = [];
+              for (const b of blocks) {
+                const whole = [b.title, ...b.items, ''].join('\n');
+                if (whole.length <= room) { pieces.push(whole); continue; }
+                let buf = b.title;
+                for (const it of b.items) {
+                  const parts = it.length <= room - 200 ? [it] : it.split(/\n(?=\s*<details><summary>Code)/);
+                  for (const p of parts) {
+                    if ((buf + '\n' + p).length > room - 200 && buf !== b.title) {
+                      pieces.push(buf + '\n');
+                      buf = `${b.title} _(continued / Fortsetzung)_`;
+                    }
+                    buf += '\n' + p;
+                  }
+                }
+                pieces.push(buf + '\n');
+              }
+              const parts = [[]];
+              let size = 0, limit = firstRoom;
+              for (const p of pieces) {
+                if (size + p.length + 1 > limit && parts[parts.length - 1].length) {
+                  parts.push([]); size = 0; limit = room;
+                }
+                parts[parts.length - 1].push(p); size += p.length + 1;
+              }
+              return parts.map(p => p.join('\n'));
             }
 
             // ---- Decide and comment ------------------------------------------
@@ -247,44 +455,99 @@ jobs:
             findings.sort((a, b) => b.score - a.score);
 
             const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: pr.number, per_page: 100 });
-            const existing = comments.find(c => c.body && c.body.includes(MARKER));
+            // Only our own comments – anybody can paste the marker into a comment
+            const ours = comments.filter(c => c.body && c.user && c.user.type === 'Bot' && c.user.login === 'github-actions[bot]');
+            const existing = ours.find(c => c.body.includes(MARKER));
+            const partMarker = n => `<!-- version-spoof-bot part ${n} -->`;
+            const existingParts = new Map();
+            for (const c of ours) {
+              const m = c.body.match(/<!-- version-spoof-bot part (\d+) -->/);
+              if (m && !existingParts.has(Number(m[1]))) existingParts.set(Number(m[1]), c);
+            }
             const list = de => findings.map(f => `- ${de ? f.de : f.en}`).join('\n');
             const short = pr.head.sha.slice(0, 7);
 
+            // Posts part 1 (the main comment) plus any follow-ups, updating existing
+            // comments in place and removing follow-ups that are no longer needed.
+            async function publish(bodies) {
+              if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: bodies[0] });
+              else await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body: bodies[0] });
+              for (let i = 1; i < bodies.length; i++) {
+                const n = i + 1, old = existingParts.get(n);
+                if (old) await github.rest.issues.updateComment({ owner, repo, comment_id: old.id, body: bodies[i] });
+                else await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body: bodies[i] });
+              }
+              for (const [n, c] of existingParts) {
+                if (n > bodies.length) await github.rest.issues.deleteComment({ owner, repo, comment_id: c.id });
+              }
+            }
+
             if (flagged) {
-              const body = [
+              let vuln = null;
+              try { vuln = await fixedVulnerabilities(); } catch (e) { core.info(`Vulnerability list failed: ${e.message}`); }
+              const main = [
                 MARKER,
-                '### ⚠️ Possible version spoofing or usage of versions with known vulnerabilities that attackers may exploit / Mögliche Versionsfälschung oder Benutzung von Versionen mit bekannten Sicherheitslücken, die Angreifern ausnutzen können',
+                '### ⚠️ Possible use of an outdated version with known vulnerabilities / Mögliche Verwendung einer veralteten Version mit bekannten Sicherheitslücken',
                 '',
-                `**English:** @albert-mueller, @gandolf243 This PR may be pretending to be a newer version than it actually contains, or it may be a version with known vulnerabilities that have been already fixed. The check of commit \`${short}\` found:`,
+                `**English:** @albert-mueller, @gandolf243 This PR appears to be based on an outdated version that may contain known, already fixed vulnerabilities that attackers could exploit. The check of commit \`${short}\` found:`,
                 '',
                 list(false),
                 '',
-                `Each point compares a version the PR claims with the version that is really in the code, so it can be checked directly. The updater and the installer download URL both use \`patcher_version\`, which is why a wrong number matters. A maintainer will review this before merging. To address this issue, please update your fork or branch's codebase to the latest available version.`,
+                `Each point lists the version found in this PR next to the version it was checked against, so it can be verified directly. The updater and the installer download URL both use \`patcher_version\`, so an outdated value means users could be pointed to an old, vulnerable release. A maintainer will review this before merging. To resolve this, please update your fork or branch to the latest available version.`,
                 '',
                 '---',
                 '',
-                `**Deutsch:** Dieser PR gibt sich möglicherweise als neuere Version aus, als er tatsächlich enthält, oder erhält Version mit bekannten Sicherheitslücken, die Angreifern ausnutzen können. Die Prüfung von Commit \`${short}\` hat Folgendes gefunden:`,
+                `**Deutsch:** Dieser PR basiert wahrscheinlich auf einer veralteten Version, die bekannte, bereits behobene Sicherheitslücken enthalten könnte, die Angreifer ausnutzen können. Die Prüfung von Commit \`${short}\` hat Folgendes gefunden:`,
                 '',
                 list(true),
                 '',
-                `Jeder Punkt vergleicht eine Version, die der PR angibt, mit der Version, die wirklich im Code steht, damit man es direkt nachprüfen kann. Der Updater und die Download-URL des Installers nutzen beide \`patcher_version\`, deshalb ist eine falsche Nummer relevant. Ein Maintainer prüft das vor dem Mergen. Um dieses Problem zu beheben, bitte aktualisieren Sie den Fork oder Branch-Codebasis auf die letzte verfügbare Version.`,
+                `Jeder Punkt zeigt die in diesem PR gefundene Version neben der Version, mit der sie verglichen wurde, damit man es direkt nachprüfen kann. Der Updater und die Download-URL des Installers nutzen beide \`patcher_version\`. Ein veralteter Wert kann Nutzer daher auf eine alte, verwundbare Version verweisen. Ein Maintainer prüft das vor dem Mergen. Um das Problem zu beheben, aktualisieren Sie bitte Ihren Fork oder Branch auf die neueste verfügbare Version.`,
               ].join('\n');
-              if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
-              else await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
+
+              const bodies = [];
+              if (!vuln) bodies.push(main);
+              else if (!vuln.blocks.length) bodies.push([main, '', '---', '', vuln.head, vuln.empty].join('\n'));
+              else {
+                const open = `<details open><summary>${vuln.summary}</summary>\n`;
+                const contHead = n => `${partMarker(n)}\n### 🔒 Fixed vulnerabilities (continued, part ${n}) / Behobene Sicherheitslücken (Fortsetzung, Teil ${n})\n\n<details open><summary>${vuln.summary}</summary>\n`;
+                const footer = '\n_Continued in the next comment. / Fortsetzung im nächsten Kommentar._\n</details>';
+                const firstHead = [main, '', '---', '', vuln.head, open].join('\n');
+                const overhead = contHead(MAX_PARTS).length + footer.length + 50;
+                let chunks = chunkBlocks(vuln.blocks, COMMENT_LIMIT - firstHead.length - footer.length - 50, COMMENT_LIMIT - overhead);
+                let omitted = [];
+                if (chunks.length > MAX_PARTS) {
+                  // Too much for MAX_PARTS comments: keep whole versions in order and
+                  // name the remaining ones with a link instead of cutting text.
+                  const keep = chunks.slice(0, MAX_PARTS);
+                  const shownText = keep.join('\n');
+                  omitted = vuln.blocks.filter(b => !shownText.includes(b.title));
+                  chunks = keep;
+                }
+                chunks.forEach((c, i) => {
+                  const last = i === chunks.length - 1;
+                  const tail = last
+                    ? [
+                        omitted.length ? `\n_${omitted.length} more version(s) with security fixes, too long to list here – see / ${omitted.length} weitere Version(en) mit Sicherheitskorrekturen, zu lang für diese Liste – siehe:_\n${omitted.map(b => `- ${b.link}`).join('\n')}` : '',
+                        '</details>',
+                      ].join('\n')
+                    : footer;
+                  bodies.push([(i === 0 ? firstHead : contHead(i + 1)), c, tail].join('\n'));
+                });
+              }
+              await publish(bodies);
               for (const f of findings) core.warning(f.en);
-              core.setFailed(`Possible version spoofing (score ${total}). See the PR comment.`);
+              core.setFailed(`Possible use of an outdated version (score ${total}). See the PR comment.`);
             } else {
               for (const f of findings) core.notice(`Below threshold: ${f.en}`);
               if (existing) {
-                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: [
+                await publish([[
                   MARKER,
                   '### ✅ Version check passed / Versionsprüfung bestanden',
                   '',
-                  `**English:** In commit \`${short}\` the claimed version matches the code (\`${headInfo.value}\`).`,
+                  `**English:** Commit \`${short}\` uses an up-to-date version (\`${headInfo.value}\`).`,
                   '',
-                  `**Deutsch:** In Commit \`${short}\` stimmt die angegebene Version mit dem Code überein (\`${headInfo.value}\`).`,
-                ].join('\n') });
+                  `**Deutsch:** Commit \`${short}\` verwendet eine aktuelle Version (\`${headInfo.value}\`).`,
+                ].join('\n')]);
               }
               core.info(`Version OK: ${headInfo.value}`);
             }
