@@ -384,13 +384,15 @@ class PatchSysVolume:
             bool: True if successful, False if not
         """
 
-        # Rebuild kernel cache if kext-level patches were applied.
-        # This MUST happen before the APFS snapshot so the new .kc files
-        # are included in the sealed snapshot that boots.
-        if not self.skip_root_kmutil_requirement:
-            if not self._rebuild_kernel_cache():
-                logging.error("- Kernel cache rebuild failed, aborting snapshot")
-                return False
+        # Always rebuild the kernel cache before the APFS snapshot.
+        # When skip_root_kmutil_requirement is True (Ventura+ without KDK),
+        # RebuildKernelCache selects the Auxiliary-KC-only path; skipping the
+        # call entirely leaves a stale AuxKC whose BootKC UUID no longer
+        # matches, which surfaces at boot as RSRHelper "KC UUID mismatch".
+        # Matches upstream Dortania behaviour.
+        if not self._rebuild_kernel_cache():
+            logging.error("- Kernel cache rebuild failed, aborting snapshot")
+            return False
 
         if not self._create_new_apfs_snapshot():
             return False

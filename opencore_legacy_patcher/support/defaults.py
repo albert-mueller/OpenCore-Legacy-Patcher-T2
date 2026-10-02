@@ -97,6 +97,7 @@ class GenerateDefaults:
         self._smbios_probe()
         self._check_amfipass_supported()
         self._load_gui_defaults()
+        self._enforce_secure_boot_consistency()
 
 
     def _general_probe(self) -> None:
@@ -594,6 +595,23 @@ class GenerateDefaults:
         self.constants.disable_amfi = False
         self.constants.disable_cs_lv = False
 
+
+    def _enforce_secure_boot_consistency(self) -> None:
+        """
+        Keep secure_status consistent with sip_status after GUI settings are loaded.
+
+        _load_gui_defaults() runs last and copies every "GUI:*" key over the probed
+        values, so a stored "GUI:secure_status" = True could re-enable SecureBootModel
+        on a machine whose probes had just lowered SIP for root patching. Root patching
+        breaks the .im4m signature of the Kernel Collections, so that combination can
+        never boot (Apple's boot.efi resets into Recovery, Issue #465). T2 Macs are
+        handled separately by BuildSecurity and always run with SecureBootModel disabled.
+        """
+        if self.constants.secure_status is False:
+            return
+        if self.constants.sip_status is False or self.constants.custom_sip_value:
+            logging.info("- SIP is lowered for root patching, disabling SecureBootModel (overrides stored GUI setting)")
+            self.constants.secure_status = False
 
     def _load_gui_defaults(self) -> None:
         """

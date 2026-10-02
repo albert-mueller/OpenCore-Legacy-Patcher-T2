@@ -1665,7 +1665,7 @@
 				<key>ExecutablePath</key>
 				<string>Contents/MacOS/BroadcomVTD</string>
 				<key>MaxKernel</key>
-				<string></string>
+				<string>25.99.99</string>
 				<key>MinKernel</key>
 				<string>25.0.0</string>
 				<key>PlistPath</key>

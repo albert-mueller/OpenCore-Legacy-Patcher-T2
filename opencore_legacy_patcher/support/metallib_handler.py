@@ -37,8 +37,8 @@ METALLIB_API_LINKS: tuple = (
     # without waiting for GitHub Pages to rebuild, and still reachable if Pages is down.
     "https://raw.githubusercontent.com/albert-mueller/albert-mueller.github.io/main/MetallibSupportPkg/manifest.json",
     METALLIB_API_LINK,
-    "https://raw.githubusercontent.com/Medelcartelinc/MetallibSupportPkg/main/deploy/manifest.json",
     "https://dortania.github.io/MetallibSupportPkg/manifest.json",
+    "https://raw.githubusercontent.com/Medelcartelinc/MetallibSupportPkg/main/manifest.json",
 )
 
 METALLIB_ASSET_LIST:   list = None
