@@ -13,10 +13,11 @@ name: Check config.plist format
 # and read as data - no PR code is checked out or executed.
 
 on:
+  # No `paths` filter for PRs: with one, the check never shows up on PRs that
+  # don't touch the plist (and a required check would wait forever). PRs that
+  # don't change config.plist pass right away instead - see "Fetch" below.
   pull_request_target:
-    types: [opened, synchronize, reopened]
-    paths:
-      - "payloads/Config/config.plist"
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
     paths:
@@ -51,8 +52,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           mkdir -p "$RUNNER_TEMP/pr"
+          # Only check the plist if this PR changes it - otherwise it's main's
+          # plist, and that is checked on every push to main.
+          # (If the file list can't be fetched, check the plist anyway.)
+          if files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename') \
+              && ! printf '%s\n' "$files" | grep -qx "payloads/Config/config.plist"; then
+            echo "This PR doesn't change payloads/Config/config.plist - nothing to check"
+            touch "$RUNNER_TEMP/pr/unchanged"
+            exit 0
+          fi
           if ! gh api -H "Accept: application/vnd.github.raw" \
               "repos/$HEAD_REPO/contents/payloads/Config/config.plist?ref=$HEAD_SHA" \
               > "$RUNNER_TEMP/pr/config.plist"; then
@@ -68,7 +79,10 @@ jobs:
           else
             target="payloads/Config/config.plist"
           fi
-          if [ -f "$target" ]; then
+          if [ -f "$RUNNER_TEMP/pr/unchanged" ]; then
+            echo "payloads/Config/config.plist is not changed by this PR" > "$RUNNER_TEMP/result.txt"
+            rc=0
+          elif [ -f "$target" ]; then
             python3 .github/scripts/check_plist_format.py "$target" > "$RUNNER_TEMP/result.txt" 2>&1
             rc=$?
           else

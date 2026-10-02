@@ -26,14 +26,11 @@ name: Check SecureBootModel for root patching
 #   190007 got out.
 
 on:
+  # No `paths` filter for PRs: with one, PRs that don't touch the builder get
+  # no check at all (nothing on the PR, and a required check would wait
+  # forever). The "Decide what to check" step skips the expensive part instead.
   pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      - "opencore_legacy_patcher/**"
-      - "payloads/Config/**"
-      - "requirements.txt"
-      - ".github/scripts/check_secure_boot_model.py"
-      - ".github/workflows/secure-boot-model-check.yml"
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
     paths:
@@ -66,10 +63,51 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
+      pull-requests: read
     steps:
+      # PRs that change nothing the builder or the check depends on pass right
+      # away - their EFI builds are identical to main's, which is checked on push.
+      - name: Decide what to check
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename'); then
+            echo "::warning::Couldn't list the PR's files - checking everything"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          relevant=$(printf '%s\n' "$files" | grep -E '^(opencore_legacy_patcher/|payloads/Config/|requirements\.txt$|\.github/scripts/check_secure_boot_model\.py$|\.github/workflows/secure-boot-model-check\.yml$)' || true)
+          if [ -n "$relevant" ]; then
+            echo "Relevant changes:"; printf '  %s\n' $relevant
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "This PR doesn't change the EFI builder, payloads/Config or the check - nothing to check"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Nothing to check
+        if: steps.scope.outputs.run != 'true'
+        run: |
+          out="$RUNNER_TEMP/secure-boot-model"
+          mkdir -p "$out"
+          # A clean result, so an earlier complaint on this PR is resolved
+          echo '{"fatal": null, "cases": {}, "new": [], "known": [], "errors": [], "not_relevant": true}' > "$out/result.json"
+          echo "rc=0" > "$out/rc"
+          echo "## SecureBootModel / root patching check" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "✅ This PR doesn't change the EFI builder, \`payloads/Config\` or the check - nothing to check." >> "$GITHUB_STEP_SUMMARY"
+
       # Trusted copy: the base branch for PRs, otherwise the pushed/released commit.
       # The check script is always taken from here.
       - uses: actions/checkout@v4
+        if: steps.scope.outputs.run == 'true'
         with:
           ref: ${{ github.event.pull_request.base.sha || github.sha }}
           path: trusted
@@ -78,20 +116,23 @@ jobs:
       # The PR (merged with its base, as GitHub tests it). Its code is executed
       # by the check - fine here, this job can't write anything.
       - uses: actions/checkout@v4
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.scope.outputs.run == 'true'
         with:
           path: pr
           persist-credentials: false
 
       - uses: actions/setup-python@v5
+        if: steps.scope.outputs.run == 'true'
         with:
           python-version: "3.12"
 
       - name: Install dependencies
+        if: steps.scope.outputs.run == 'true'
         run: python3 -m pip install --quiet --disable-pip-version-check $CHECK_DEPS
 
       - name: Check SecureBootModel
         id: check
+        if: steps.scope.outputs.run == 'true'
         env:
           EVENT: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -136,7 +177,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Fail if root patching can run with Secure Boot on
-        if: steps.check.outputs.rc != '0'
+        if: steps.check.outputs.rc != '' && steps.check.outputs.rc != '0'
         run: |
           if [ "${{ steps.check.outputs.rc }}" = "2" ]; then
             echo "::error::The SecureBootModel check could not run - see the log above"

@@ -20,11 +20,11 @@ name: Check Python for errors
 # nothing from it is imported or executed.
 
 on:
+  # No `paths` filter for PRs: with one, a PR that doesn't touch Python never
+  # gets a check at all (nothing shows up on the PR, and a required check would
+  # wait forever). The check is cheap and only fails on problems the PR adds.
   pull_request_target:
-    types: [opened, synchronize, reopened]
-    paths:
-      - "**.py"
-      - "**.command"
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
     paths:
