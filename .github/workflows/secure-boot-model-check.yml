@@ -1,0 +1,254 @@
+name: Check SecureBootModel for root patching
+
+# Fails when an EFI build could combine root patching with Apple Secure Boot
+# (SecureBootModel != Disabled). Root patching rebuilds the Kernel Collections,
+# which breaks their .im4m signature - with Secure Boot still on, boot.efi
+# rejects BootKernelExtensions.kc (Err(0x1A)) and the Mac resets into Recovery.
+# That is what shipped in 4.0.0.190007 (Issue #465).
+#
+# .github/scripts/check_secure_boot_model.py runs the real EFI builder and the
+# real root-patch gate for every supported model (see the script for the cases).
+#
+# Pull requests:
+#   This workflow runs on `pull_request`, so it has a read-only token and no
+#   write access - it has to, because the check imports and runs the PR's
+#   builder code. The check script itself always comes from the base branch,
+#   so a PR can't change what is checked. The result is uploaded as an
+#   artifact; secure-boot-model-comment.yml (workflow_run, trusted) reads it as
+#   data and posts/updates the PR comment. Problems that already exist on the
+#   base branch are listed separately and don't fail the PR.
+#
+# Outside pull requests (push to main, releases, weekly, manual):
+#   The whole tree is checked and the result is kept in one tracking issue
+#   ("SecureBootModel check: root patching with Secure Boot on main"). It is
+#   updated on every run and closed automatically once everything passes.
+#   A check that can't run at all is reported too - a silent check is how
+#   190007 got out.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "opencore_legacy_patcher/**"
+      - "payloads/Config/**"
+      - "requirements.txt"
+      - ".github/scripts/check_secure_boot_model.py"
+      - ".github/workflows/secure-boot-model-check.yml"
+  push:
+    branches: [main]
+    paths:
+      - "opencore_legacy_patcher/**"
+      - "payloads/Config/**"
+      - "requirements.txt"
+      - ".github/scripts/check_secure_boot_model.py"
+      - ".github/workflows/secure-boot-model-check.yml"
+  release:
+    types: [published]
+  schedule:
+    - cron: "30 6 * * 1"   # Mondays 06:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: secure-boot-model-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # What the builder imports besides the macOS-only modules (pyobjc, wx, ...),
+  # which the script replaces with inert stubs on Linux.
+  CHECK_DEPS: "requests packaging py_sip_xnu markdown markdown2"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      # Trusted copy: the base branch for PRs, otherwise the pushed/released commit.
+      # The check script is always taken from here.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: trusted
+          persist-credentials: false
+
+      # The PR (merged with its base, as GitHub tests it). Its code is executed
+      # by the check - fine here, this job can't write anything.
+      - uses: actions/checkout@v4
+        if: github.event_name == 'pull_request'
+        with:
+          path: pr
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python3 -m pip install --quiet --disable-pip-version-check $CHECK_DEPS
+
+      - name: Check SecureBootModel
+        id: check
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set +e
+          out="$RUNNER_TEMP/secure-boot-model"
+          mkdir -p "$out"
+          script="trusted/.github/scripts/check_secure_boot_model.py"
+
+          if [ ! -f "$script" ]; then
+            # The base branch doesn't have the check yet (e.g. the PR that adds it)
+            echo "::notice::$script doesn't exist on the base branch yet - nothing to check"
+            echo "skipped" > "$out/skipped"
+            echo "rc=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$EVENT" = "pull_request" ]; then
+            python3 "$script" --root pr --baseline trusted \
+              --json "$out/result.json" --summary "$out/summary.md"
+            rc=$?
+            # Only used to find the PR again - the commenter re-checks it against the API
+            printf '{"number": %s, "head_sha": "%s"}\n' "$PR_NUMBER" "$PR_HEAD_SHA" > "$out/pr.json"
+          else
+            python3 "$script" --root trusted \
+              --json "$out/result.json" --summary "$out/summary.md"
+            rc=$?
+          fi
+          echo "rc=$rc" > "$out/rc"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          [ -f "$out/summary.md" ] && cat "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: secure-boot-model-result
+          path: ${{ runner.temp }}/secure-boot-model/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Fail if root patching can run with Secure Boot on
+        if: steps.check.outputs.rc != '0'
+        run: |
+          if [ "${{ steps.check.outputs.rc }}" = "2" ]; then
+            echo "::error::The SecureBootModel check could not run - see the log above"
+          else
+            echo "::error::Root patching can be combined with Apple Secure Boot - see the summary"
+          fi
+          exit 1
+
+  # Outside PRs: keep the result in one tracking issue.
+  report:
+    needs: check
+    if: >-
+      always() && needs.check.result != 'skipped' && needs.check.result != 'cancelled' &&
+      github.event_name != 'pull_request' &&
+      (github.ref == 'refs/heads/main' || github.event_name == 'release')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: secure-boot-model-result
+          path: ${{ runner.temp }}/result
+
+      - name: Update tracking issue
+        uses: actions/github-script@v8
+        env:
+          CHECK_RESULT: ${{ needs.check.result }}
+        with:
+          script: |
+            const fs = require('fs');
+            const MARKER = '<!-- secure-boot-model-main-report -->';
+            const TITLE = 'SecureBootModel check: root patching with Secure Boot on main';
+            const MAX = 150;
+            const { owner, repo } = context.repo;
+            const dir = `${process.env.RUNNER_TEMP}/result`;
+            const sha = context.sha, short = sha.slice(0, 7);
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const isRelease = context.eventName === 'release';
+            const tag = isRelease ? context.payload.release.tag_name : null;
+            const where = isRelease ? `release \`${tag}\` (${short})` : `\`main\` (at ${short})`;
+
+            if (fs.existsSync(`${dir}/skipped`)) return;
+
+            let result = null;
+            try { result = JSON.parse(fs.readFileSync(`${dir}/result.json`, 'utf8')); } catch {}
+            const fatal = !result ? `no result was produced (check job: ${process.env.CHECK_RESULT})` : result.fatal;
+            const problems = result && Array.isArray(result.new) ? result.new : [];
+            const errors = result && Array.isArray(result.errors) ? result.errors : [];
+
+            const esc = s => String(s).replace(/[|`<>\[\]]/g, c => ({ '|': '\\|', '`': "'", '<': '&lt;', '>': '&gt;', '[': '\\[', ']': '\\]' }[c])).replace(/@/g, '@\u200b').slice(0, 500);
+
+            // Only our own issue - anybody can paste the marker into an issue
+            const issues = await github.paginate(github.rest.issues.listForRepo, { owner, repo, state: 'all', creator: 'github-actions[bot]', per_page: 100 });
+            const ours = issues.filter(i => !i.pull_request && i.body && i.body.includes(MARKER));
+            const existing = ours.find(i => i.state === 'open') || ours[0];
+
+            if (!fatal && !problems.length) {
+              if (existing && existing.state === 'open') {
+                await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body:
+                  `✅ ${where}: root patching can't be combined with Apple Secure Boot in any checked scenario anymore ([run](${runUrl})). Closing.\n\n` +
+                  `✅ ${where}: Root Patching lässt sich in keinem geprüften Szenario mehr mit Apple Secure Boot kombinieren. Wird geschlossen.` });
+                await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed', state_reason: 'completed' });
+              }
+              return;
+            }
+
+            let body =
+              `${MARKER}\n` +
+              (isRelease ? `> [!CAUTION]\n> **Release \`${tag}\` is affected.** Consider pulling it or marking it as broken before people update - ` +
+                           `this is the same kind of bug that shipped in 4.0.0.190007.\n\n` : '') +
+              `Automatic report of the SecureBootModel check on ${where}, [run](${runUrl}). ` +
+              `Updated on every push to \`main\`, every release and every Monday; closed automatically once everything passes.\n\n` +
+              `**Why this matters:** root patching rebuilds the Kernel Collections and breaks their \`.im4m\` signature. ` +
+              `If the EFI still has \`SecureBootModel\` enabled, boot.efi rejects \`BootKernelExtensions.kc\` (\`Err(0x1A)\`) ` +
+              `and the Mac resets into Recovery after the update - what happened with 4.0.0.190007 (#465).\n\n` +
+              `<details><summary>Deutsch</summary>\n\n` +
+              `Automatischer Bericht des SecureBootModel-Checks auf ${where}. Wird bei jedem Push auf \`main\`, jedem Release und jeden Montag aktualisiert ` +
+              `und automatisch geschlossen, sobald alles besteht.\n\n` +
+              `**Warum das wichtig ist:** Root Patching baut die Kernel Collections neu und zerstört dabei ihre \`.im4m\`-Signatur. ` +
+              `Ist \`SecureBootModel\` im EFI noch aktiv, lehnt boot.efi \`BootKernelExtensions.kc\` ab (\`Err(0x1A)\`) und der Mac startet nach dem Update ` +
+              `in Recovery neu - genau das ist bei 4.0.0.190007 passiert (#465).\n` + (isRelease ? `\n**Release \`${tag}\` ist betroffen** - ggf. zurückziehen oder als defekt markieren.\n` : '') +
+              `</details>\n\n`;
+
+            if (fatal) {
+              body += `## ❌ The check could not run\n\n\`${esc(fatal)}\`\n\n` +
+                      `Until it runs again, nothing protects against this bug. See the [run log](${runUrl}).\n\n` +
+                      `Der Check konnte nicht laufen - bis er wieder läuft, schützt nichts vor diesem Fehler.\n\n`;
+            }
+            if (problems.length) {
+              body += `## ❌ ${problems.length} problem(s)\n\n| Case | Where | Problem |\n|---|---|---|\n` +
+                      problems.slice(0, MAX).map(p => `| \`${esc(p.case)}\` | \`${esc(p.subject)}\` | ${esc(p.message)} |`).join('\n') +
+                      (problems.length > MAX ? `\n\n…and ${problems.length - MAX} more - see the [run log](${runUrl}).` : '') + `\n\n`;
+            }
+            if (result && result.cases) {
+              body += `<details><summary>Cases</summary>\n\n| Case | Checked | Problems | Couldn't check |\n|---|---|---|---|\n` +
+                      Object.entries(result.cases).map(([k, c]) => `| \`${esc(k)}\` | ${+c.checked || 0} | ${+c.problems || 0} | ${+c.errors || 0} |`).join('\n') +
+                      `\n</details>\n`;
+            }
+            if (errors.length) {
+              body += `\n<details><summary>${errors.length} build(s) couldn't be checked</summary>\n\n| Case | Model | Error |\n|---|---|---|\n` +
+                      errors.slice(0, 50).map(e => `| \`${esc(e.case)}\` | \`${esc(e.subject)}\` | ${esc(e.message)} |`).join('\n') + `\n</details>\n`;
+            }
+            if (body.length > 65000) body = body.slice(0, 64000) + `\n\n…truncated - see the [run log](${runUrl}).`;
+
+            if (existing) {
+              await github.rest.issues.update({ owner, repo, issue_number: existing.number, title: TITLE, body, state: 'open' });
+              if (existing.state === 'closed' || isRelease) {
+                await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body:
+                  `⚠️ ${isRelease ? `Release \`${tag}\` is affected` : 'Back on main'} (${short}, [run](${runUrl})) - see the updated description.` });
+              }
+            } else {
+              await github.rest.issues.create({ owner, repo, title: TITLE, body });
+            }

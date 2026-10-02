@@ -1,0 +1,142 @@
+name: Comment SecureBootModel check result
+
+# Posts the result of "Check SecureBootModel for root patching" on the PR.
+#
+# The check itself runs on `pull_request` with a read-only token because it
+# executes the PR's builder code. This workflow runs afterwards via
+# workflow_run, from the default branch, with permission to comment - and it
+# never checks out or runs anything from the PR. The artifact it reads was
+# produced by PR code, so everything in it is treated as untrusted data:
+# the PR is looked up through the API (not taken from the artifact), and every
+# string is escaped before it goes into the comment.
+
+on:
+  workflow_run:
+    workflows: ["Check SecureBootModel for root patching"]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  comment:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion != 'cancelled' &&
+      github.event.workflow_run.conclusion != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: secure-boot-model-result
+          path: ${{ runner.temp }}/result
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Comment on the PR
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const MARKER = '<!-- secure-boot-model-bot -->';
+            const MAX = 40;
+            const { owner, repo } = context.repo;
+            const run = context.payload.workflow_run;
+            const headSha = run.head_sha, short = headSha.slice(0, 7);
+            const dir = `${process.env.RUNNER_TEMP}/result`;
+
+            // --- Find the PR through the API, never from the artifact ---
+            let number = null;
+            for (const p of run.pull_requests || []) {
+              if (p.head && p.head.sha === headSha) number = p.number;
+            }
+            if (!number && run.head_repository) {
+              const pulls = await github.paginate(github.rest.pulls.list, {
+                owner, repo, state: 'open', per_page: 100,
+                head: `${run.head_repository.owner.login}:${run.head_branch}` });
+              const match = pulls.find(p => p.head.sha === headSha);
+              if (match) number = match.number;
+            }
+            if (!number) { core.info(`No open PR at ${headSha} - nothing to comment on`); return; }
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
+            if (pr.state !== 'open' || pr.head.sha !== headSha) {
+              core.info(`PR #${number} has moved on from ${short} - the newer run will comment`);
+              return;
+            }
+
+            // --- Read the result (untrusted data) ---
+            if (fs.existsSync(`${dir}/skipped`)) return;
+            let result = null;
+            try { result = JSON.parse(fs.readFileSync(`${dir}/result.json`, 'utf8')); } catch {}
+            if (!result && run.conclusion === 'success') return;   // nothing ran, nothing to say
+
+            const arr = v => Array.isArray(v) ? v : [];
+            const fatal = !result ? 'no result was produced' : (result.fatal ? String(result.fatal) : null);
+            const problems = result ? arr(result.new) : [];
+            const known = result ? arr(result.known) : [];
+            const errors = result ? arr(result.errors) : [];
+            const esc = s => String(s ?? '').replace(/[|`<>\[\]\\]/g, c => '&#' + c.charCodeAt(0) + ';')
+                                            .replace(/@/g, '@\u200b').replace(/\s+/g, ' ').slice(0, 400);
+            const rows = list => `| Case | Where | Problem |\n|---|---|---|\n` +
+              list.slice(0, MAX).map(p => `| <code>${esc(p.case)}</code> | <code>${esc(p.subject)}</code> | ${esc(p.message)} |`).join('\n') +
+              (list.length > MAX ? `\n\n…and ${list.length - MAX} more - see the [workflow run](${run.html_url}).` : '');
+
+            const knownSection = known.length
+              ? `\n\n<details><summary>ℹ️ Already broken on <code>main</code> - ${known.length} problem(s), not caused by this PR</summary>\n\n` +
+                `These don't fail this check, but they are just as dangerous - fixing them here is welcome.\n\n${rows(known)}\n</details>`
+              : '';
+            const errorSection = errors.length
+              ? `\n\n<details><summary>${errors.length} build(s) couldn't be checked</summary>\n\n` +
+                `The EFI builder failed for these, so they weren't checked at all.\n\n| Case | Model | Error |\n|---|---|---|\n` +
+                errors.slice(0, MAX).map(e => `| <code>${esc(e.case)}</code> | <code>${esc(e.subject)}</code> | ${esc(e.message)} |`).join('\n') +
+                `\n</details>`
+              : '';
+
+            // Only our own comments - anybody can paste the marker into a comment
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: number, per_page: 100 });
+            const existing = comments.find(c => c.body && c.body.includes(MARKER) && c.user && c.user.type === 'Bot' && c.user.login === 'github-actions[bot]');
+
+            let body;
+            if (!fatal && !problems.length) {
+              if (!existing) return;   // never complained - stay quiet
+              body = `${MARKER}\n### ✅ SecureBootModel check OK\n\n` +
+                `Root patching can't be combined with Apple Secure Boot in any checked scenario anymore (checked at ${short}). Thanks!\n\n` +
+                `<details><summary>Deutsch</summary>\n\nRoot Patching lässt sich in keinem geprüften Szenario mehr mit Apple Secure Boot kombinieren (geprüft bei ${short}). Danke!\n</details>` +
+                knownSection + errorSection;
+            } else if (fatal) {
+              body = `${MARKER}\n### ⚠️ The SecureBootModel check could not run\n\n` +
+                `The check couldn't build EFIs from this PR (at ${short}), so it can't tell whether root patching would run with Apple Secure Boot on:\n\n` +
+                `> ${esc(fatal)}\n\n` +
+                `This usually means the PR breaks \`efi_builder\` or an import it needs. See the [workflow run](${run.html_url}) for the log. ` +
+                `This comment updates automatically on every push.\n\n` +
+                `<details><summary>Deutsch</summary>\n\n` +
+                `Der Check konnte aus diesem PR (bei ${short}) keine EFIs bauen und kann daher nicht prüfen, ob Root Patching bei aktivem Apple Secure Boot laufen würde. ` +
+                `Meist bricht der PR \`efi_builder\` oder einen benötigten Import. Details im Workflow-Log. Dieser Kommentar aktualisiert sich bei jedem Push automatisch.\n</details>` +
+                knownSection + errorSection;
+            } else {
+              body = `${MARKER}\n### 🛑 This PR would let root patching run with Apple Secure Boot on\n\n` +
+                `With this PR (at ${short}), the EFI builder or the root-patch gate produces a setup where the system is root patched ` +
+                `while \`SecureBootModel\` is still enabled:\n\n${rows(problems)}\n\n` +
+                `**Why this is critical:** root patching rebuilds the Kernel Collections and breaks their \`.im4m\` signature. ` +
+                `With Secure Boot on, boot.efi rejects \`BootKernelExtensions.kc\` (\`Err(0x1A)\`) and the Mac resets into Recovery after the update - ` +
+                `this is what shipped in 4.0.0.190007 (#465). Whenever SIP is lowered for root patching (or the Mac is a T2), ` +
+                `\`Misc > Security > SecureBootModel\` must end up \`Disabled\` and \`ApECID\` \`0\`, even if a stale setting asks for Secure Boot.\n\n` +
+                `Only problems introduced by this PR are listed above. This comment updates automatically on every push.\n\n` +
+                `<details><summary>Deutsch</summary>\n\n` +
+                `Mit diesem PR (bei ${short}) erzeugen EFI-Builder oder Root-Patch-Prüfung eine Konfiguration, in der das System root-gepatcht wird, ` +
+                `während \`SecureBootModel\` noch aktiv ist (siehe Tabelle oben).\n\n` +
+                `**Warum das kritisch ist:** Root Patching baut die Kernel Collections neu und zerstört ihre \`.im4m\`-Signatur. Mit aktivem Secure Boot lehnt boot.efi ` +
+                `\`BootKernelExtensions.kc\` ab (\`Err(0x1A)\`) und der Mac startet nach dem Update in Recovery neu - genau das ist bei 4.0.0.190007 passiert (#465). ` +
+                `Sobald SIP fürs Root Patching gesenkt ist (oder es ein T2-Mac ist), muss \`SecureBootModel\` am Ende \`Disabled\` und \`ApECID\` \`0\` sein, ` +
+                `auch wenn eine veraltete Einstellung Secure Boot verlangt.\n\n` +
+                `Aufgeführt sind nur Fehler, die dieser PR neu einführt. Dieser Kommentar aktualisiert sich bei jedem Push automatisch.\n</details>` +
+                knownSection + errorSection;
+            }
+
+            if (body.length > 65000) body = body.slice(0, 64000) + `\n\n…truncated - see the [workflow run](${run.html_url}).`;
+            if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            else await github.rest.issues.createComment({ owner, repo, issue_number: number, body });

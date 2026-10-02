@@ -12,7 +12,6 @@ import time
 import hashlib
 import threading
 import plistlib
-from pathlib import Path
 
 from .. import constants
 from ..wx_gui import gui_main_menu, gui_support
