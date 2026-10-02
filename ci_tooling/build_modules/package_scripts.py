@@ -463,7 +463,7 @@ class GenerateScripts:
         if is_autopkg:
             _files += self.additional_auto_pkg_files
 
-        _script += f"filesToRemove=(\n"
+        _script += "filesToRemove=(\n"
         for _file in _files:
             _script += f"    \"{_file}\"\n"
 
@@ -576,7 +576,7 @@ class GenerateScripts:
         _script += self.__generate_shebang()
 
         _script += self._generate_header_bar()
-        _script += f"# OpenCore Legacy Patcher Uninstall Script\n"
+        _script += "# OpenCore Legacy Patcher Uninstall Script\n"
         _script += self._generate_header_bar()
         _script += "# Remove OpenCore Legacy Patcher files and directories.\n"
         _script += self._generate_header_bar()

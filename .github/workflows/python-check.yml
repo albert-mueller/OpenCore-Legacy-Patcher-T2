@@ -1,0 +1,249 @@
+name: Check Python for errors
+
+# Fails when a change adds Python code that cannot run:
+#   - syntax errors (SyntaxError, IndentationError, TabError)
+#   - undefined names (NameError) and other pyflakes errors
+#   - relative imports of modules or names that don't exist (ImportError)
+# Style warnings (unused imports/variables etc.) are ignored.
+#
+# On PRs only problems the PR introduces fail the check; anything already
+# broken on main is listed separately in the PR comment but doesn't fail it.
+#
+# On main (every push, plus once a week) the whole project is checked,
+# including warnings, and the results are kept in one tracking issue
+# ("Python check: problems on main"). The issue is updated on every run and
+# closed automatically once main is clean.
+#
+# PRs use pull_request_target so the comment works for PRs from forks too.
+# That runs THIS file and the check script from the base branch: a PR cannot
+# change the check. The PR's code is checked out into pr/ only to be parsed -
+# nothing from it is imported or executed.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "**.py"
+      - "**.command"
+  push:
+    branches: [main]
+    paths:
+      - "**.py"
+      - "**.command"
+      - ".github/workflows/python-check.yml"
+      - ".github/scripts/check_python.py"
+  schedule:
+    - cron: "0 6 * * 1"   # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-check:
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      # On pull_request_target this checks out the BASE branch (trusted code).
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # The PR's code, as data only. Never run anything from pr/.
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+
+      - name: Install pyflakes
+        run: python3 -m pip install --quiet --disable-pip-version-check pyflakes==4.0.1
+
+      - name: Check Python
+        id: check
+        run: |
+          set +e
+          # Base copy without pr/ so the baseline doesn't scan the PR twice
+          mkdir -p "$RUNNER_TEMP/base"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/base"
+          python3 .github/scripts/check_python.py --root pr --baseline "$RUNNER_TEMP/base" \
+            --json "$RUNNER_TEMP/result.json" --known-json "$RUNNER_TEMP/known.json"
+          echo "rc=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Comment on the PR
+        uses: actions/github-script@v8
+        env:
+          CHECK_RC: ${{ steps.check.outputs.rc }}
+        with:
+          script: |
+            const fs = require('fs');
+            const MARKER = '<!-- python-check-bot -->';
+            const MAX = 30;
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+            const failed = process.env.CHECK_RC !== '0';
+            const short = pr.head.sha.slice(0, 7);
+
+            // Only our own comments - anybody can paste the marker into a comment
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: pr.number, per_page: 100 });
+            const existing = comments.find(c => c.body && c.body.includes(MARKER) && c.user && c.user.type === 'Bot' && c.user.login === 'github-actions[bot]');
+
+            // Problems that are already broken on main (and still in this PR)
+            let known = [];
+            try { known = JSON.parse(fs.readFileSync(`${process.env.RUNNER_TEMP}/known.json`, 'utf8')).filter(p => p.severity === 'error'); } catch {}
+            const baseUrl = `${context.payload.repository.html_url}/blob/${pr.base.sha}`;
+            const escK = s => String(s).replace(/[|`<>]/g, c => ({ '|': '\\|', '`': "'", '<': '&lt;', '>': '&gt;' }[c]));
+            const knownSection = known.length
+              ? `\n\n<details><summary>ℹ️ Already broken on <code>main</code> - ${known.length} problem(s), not caused by this PR</summary>\n\n` +
+                `These don't fail this check. Fixing them here is welcome but optional.\n\n` +
+                `| Where | Problem |\n|---|---|\n` +
+                known.slice(0, MAX).map(p => `| [\`${escK(p.file)}:${p.line}\`](${baseUrl}/${encodeURI(p.file)}#L${p.line}) | ${escK(p.message)} |`).join('\n') +
+                (known.length > MAX ? `\n\n…and ${known.length - MAX} more.` : '') +
+                `\n</details>`
+              : '';
+
+            if (!failed) {
+              if (existing) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body:
+                  `${MARKER}\n### ✅ Python check OK\n\n` +
+                  `No syntax errors or code that would fail at runtime anymore (checked at ${short}). Thanks!\n\n` +
+                  `<details><summary>Deutsch</summary>\n\nKeine Syntaxfehler oder Code mehr, der zur Laufzeit fehlschlagen würde (geprüft bei ${short}). Danke!\n</details>` + knownSection });
+              }
+              return;
+            }
+
+            let problems = [];
+            try { problems = JSON.parse(fs.readFileSync(`${process.env.RUNNER_TEMP}/result.json`, 'utf8')); } catch {}
+            const headUrl = `${pr.head.repo.html_url}/blob/${pr.head.sha}`;
+            const esc = s => String(s).replace(/[|`<>]/g, c => ({ '|': '\\|', '`': "'", '<': '&lt;', '>': '&gt;' }[c]));
+            const rows = problems.slice(0, MAX).map(p =>
+              `| [\`${esc(p.file)}:${p.line}\`](${headUrl}/${encodeURI(p.file)}#L${p.line}) | ${esc(p.message)} |`).join('\n');
+            const more = problems.length > MAX ? `\n\n…and ${problems.length - MAX} more - see the workflow log.` : '';
+            const table = problems.length
+              ? `| Where | Problem |\n|---|---|\n${rows}${more}`
+              : `The check failed but produced no details - see the workflow log.`;
+
+            const body =
+              `${MARKER}\n### ⚠️ Something's up with the Python code\n\n` +
+              `This PR (at ${short}) adds code that won't run - it would crash with a syntax error, ` +
+              `\`NameError\` or \`ImportError\` as soon as it's loaded or reached:\n\n` +
+              `${table}\n\n` +
+              `Only problems introduced by this PR are listed; anything already broken on \`main\` is ignored. ` +
+              `If an entry looks unrelated, merge the latest \`main\` into your branch. ` +
+              `This comment updates automatically on every push.\n\n` +
+              `<details><summary>Deutsch</summary>\n\n` +
+              `Dieser PR (bei ${short}) fügt Code hinzu, der nicht lauffähig ist - er würde beim Laden oder Erreichen mit einem Syntaxfehler, ` +
+              `\`NameError\` oder \`ImportError\` abstürzen (siehe Tabelle oben).\n\n` +
+              `Aufgeführt sind nur Fehler, die dieser PR neu einführt; was auf \`main\` schon kaputt ist, wird ignoriert. ` +
+              `Wirkt ein Eintrag unpassend, bitte den aktuellen \`main\` in den Branch mergen. ` +
+              `Dieser Kommentar aktualisiert sich bei jedem Push automatisch.\n</details>` + knownSection;
+
+            if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            else await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
+
+      - name: Fail if problems were found
+        if: steps.check.outputs.rc != '0'
+        run: exit 1
+
+  # Whole-project report for main: errors + warnings, kept in one tracking issue.
+  main-report:
+    if: github.event_name != 'pull_request_target'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install pyflakes
+        run: python3 -m pip install --quiet --disable-pip-version-check pyflakes==4.0.1
+
+      - name: Check Python
+        id: check
+        run: |
+          set +e
+          python3 .github/scripts/check_python.py --root . --warnings --json "$RUNNER_TEMP/result.json"
+          echo "rc=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Update tracking issue
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const MARKER = '<!-- python-check-main-report -->';
+            const TITLE = 'Python check: problems on main';
+            const MAX_ERRORS = 100, MAX_WARNINGS = 300;
+            const { owner, repo } = context.repo;
+            const sha = context.sha, short = sha.slice(0, 7);
+            const blob = `${context.payload.repository ? context.payload.repository.html_url : `https://github.com/${owner}/${repo}`}/blob/${sha}`;
+            const run = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            let all = [];
+            try { all = JSON.parse(fs.readFileSync(`${process.env.RUNNER_TEMP}/result.json`, 'utf8')); } catch {}
+            const errors = all.filter(p => p.severity === 'error');
+            const warnings = all.filter(p => p.severity === 'warning');
+
+            const esc = s => String(s).replace(/[|`<>]/g, c => ({ '|': '\\|', '`': "'", '<': '&lt;', '>': '&gt;' }[c]));
+            const row = p => `| [\`${esc(p.file)}:${p.line}\`](${blob}/${encodeURI(p.file)}#L${p.line}) | ${esc(p.message)} |`;
+            const kind = msg => msg.replace(/^Warning: /, '').replace(/'[^']*'/g, '…').replace(/line \d+/g, 'line …');
+
+            // Only our own issue - anybody can paste the marker into an issue
+            const issues = await github.paginate(github.rest.issues.listForRepo, { owner, repo, state: 'open', creator: 'github-actions[bot]', per_page: 100 });
+            const existing = issues.find(i => !i.pull_request && i.body && i.body.includes(MARKER));
+
+            if (!errors.length && !warnings.length) {
+              if (existing) {
+                await github.rest.issues.createComment({ owner, repo, issue_number: existing.number,
+                  body: `✅ main is clean as of ${short} - no errors or warnings left. Closing. / main ist bei ${short} sauber - keine Fehler oder Warnungen mehr. Wird geschlossen.` });
+                await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed', state_reason: 'completed' });
+              }
+              return;
+            }
+
+            // Warnings: summary by kind, then the full list
+            const byKind = new Map();
+            for (const w of warnings) byKind.set(kind(w.message), (byKind.get(kind(w.message)) || 0) + 1);
+            const summary = [...byKind.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => `| ${n} | ${esc(k)} |`).join('\n');
+
+            let body =
+              `${MARKER}\n` +
+              `Automatic report of everything the Python check finds on \`main\` (at ${short}, [run](${run})). ` +
+              `Updated on every push to \`main\` and every Monday; closed automatically once \`main\` is clean.\n\n` +
+              `<details><summary>Deutsch</summary>\n\nAutomatischer Bericht über alles, was der Python-Check auf \`main\` findet (bei ${short}). ` +
+              `Wird bei jedem Push auf \`main\` und jeden Montag aktualisiert und automatisch geschlossen, sobald \`main\` sauber ist. ` +
+              `**Fehler** stürzen beim Ausführen ab und sollten zuerst behoben werden; **Warnungen** sind Aufräumarbeiten, die oft auf echte Bugs hinweisen.\n</details>\n\n` +
+              `**${errors.length} error(s)**, ${warnings.length} warning(s)\n\n`;
+
+            body += `## Errors - code that crashes when it runs\n\n` + (errors.length
+              ? `| Where | Problem |\n|---|---|\n${errors.slice(0, MAX_ERRORS).map(row).join('\n')}` +
+                (errors.length > MAX_ERRORS ? `\n\n…and ${errors.length - MAX_ERRORS} more - see the [run log](${run}).` : '')
+              : `None 🎉`) + `\n\n`;
+
+            if (warnings.length) {
+              body += `## Warnings - cleanup, often hiding real bugs\n\n` +
+                `| Count | Kind |\n|---|---|\n${summary}\n\n` +
+                `<details><summary>All ${warnings.length} warning(s)</summary>\n\n` +
+                `| Where | Problem |\n|---|---|\n${warnings.slice(0, MAX_WARNINGS).map(row).join('\n')}` +
+                (warnings.length > MAX_WARNINGS ? `\n\n…and ${warnings.length - MAX_WARNINGS} more - see the [run log](${run}).` : '') +
+                `\n</details>\n`;
+            }
+
+            if (body.length > 65000) body = body.slice(0, 64000) + `\n\n…truncated - see the [run log](${run}).`;
+
+            if (existing) await github.rest.issues.update({ owner, repo, issue_number: existing.number, title: TITLE, body });
+            else await github.rest.issues.create({ owner, repo, title: TITLE, body });
+
+      - name: Fail if main has errors
+        if: steps.check.outputs.rc != '0'
+        run: exit 1

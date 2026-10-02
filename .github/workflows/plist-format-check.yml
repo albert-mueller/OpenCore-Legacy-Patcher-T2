@@ -1,0 +1,137 @@
+name: Check config.plist format
+
+# Fails when payloads/Config/config.plist is not indented with 4 spaces.
+# A whole-file reformat (e.g. tabs) turns every line into a diff and hides the
+# real changes in a PR - this happened in 4.0.0.190007 (d15bc1c, PR #467).
+#
+# On PRs the job also posts a comment when the check fails, and updates that
+# comment once the plist is fixed.
+#
+# PRs use pull_request_target so the comment works for PRs from forks too.
+# That runs THIS file and the check script from the base branch: a PR cannot
+# change the check. The PR's config.plist is only downloaded through the API
+# and read as data - no PR code is checked out or executed.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "payloads/Config/config.plist"
+  push:
+    branches: [main]
+    paths:
+      - "payloads/Config/config.plist"
+      - ".github/scripts/check_plist_format.py"
+      - ".github/workflows/plist-format-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plist-format-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plist-format:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      # On pull_request_target this checks out the BASE branch, never the PR head.
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Fetch the PR's config.plist (data only)
+        if: github.event_name == 'pull_request_target'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/pr"
+          if ! gh api -H "Accept: application/vnd.github.raw" \
+              "repos/$HEAD_REPO/contents/payloads/Config/config.plist?ref=$HEAD_SHA" \
+              > "$RUNNER_TEMP/pr/config.plist"; then
+            rm -f "$RUNNER_TEMP/pr/config.plist"
+          fi
+
+      - name: Check config.plist format
+        id: check
+        run: |
+          set +e
+          if [ "$GITHUB_EVENT_NAME" = "pull_request_target" ]; then
+            target="$RUNNER_TEMP/pr/config.plist"
+          else
+            target="payloads/Config/config.plist"
+          fi
+          if [ -f "$target" ]; then
+            python3 .github/scripts/check_plist_format.py "$target" > "$RUNNER_TEMP/result.txt" 2>&1
+            rc=$?
+          else
+            echo "payloads/Config/config.plist is missing" > "$RUNNER_TEMP/result.txt"
+            rc=1
+          fi
+          # Report the repo path, not the temp download path
+          sed -i "s|$RUNNER_TEMP/pr/config.plist|payloads/Config/config.plist|g" "$RUNNER_TEMP/result.txt"
+          cat "$RUNNER_TEMP/result.txt"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+
+      - name: Comment on the PR
+        if: github.event_name == 'pull_request_target'
+        uses: actions/github-script@v8
+        env:
+          CHECK_RC: ${{ steps.check.outputs.rc }}
+        with:
+          script: |
+            const fs = require('fs');
+            const MARKER = '<!-- plist-format-bot -->';
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+            const failed = process.env.CHECK_RC !== '0';
+            const short = pr.head.sha.slice(0, 7);
+
+            // Only our own comments - anybody can paste the marker into a comment
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: pr.number, per_page: 100 });
+            const existing = comments.find(c => c.body && c.body.includes(MARKER) && c.user && c.user.type === 'Bot' && c.user.login === 'github-actions[bot]');
+
+            if (!failed) {
+              // Nothing to say if we never complained; otherwise mark it as resolved
+              if (existing) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body:
+                  `${MARKER}\n### ✅ config.plist format OK\n\n` +
+                  `\`payloads/Config/config.plist\` is back in the expected format (checked at ${short}). Thanks!\n\n` +
+                  `<details><summary>Deutsch</summary>\n\n\`payloads/Config/config.plist\` ist wieder im erwarteten Format (geprüft bei ${short}). Danke!\n</details>` });
+              }
+              return;
+            }
+
+            const result = fs.readFileSync(`${process.env.RUNNER_TEMP}/result.txt`, 'utf8')
+              .split('\n')
+              .filter(l => !l.startsWith('::error'))
+              .join('\n')
+              .replace(/^\n+|\s+$/g, '')
+              .replace(/`/g, "'");
+
+            const body =
+              `${MARKER}\n### ⚠️ Something's up with config.plist\n\n` +
+              `\`payloads/Config/config.plist\` in this PR (at ${short}) isn't in the expected format. ` +
+              `The template must be indented with **4 spaces per level, no tabs**. ` +
+              `Re-saving it in an editor that uses tabs rewrites every line and hides the real changes in the diff.\n\n` +
+              `Please re-indent the file without changing its content and push again - this comment updates automatically.\n\n` +
+              `\`\`\`\n${result}\n\`\`\`\n\n` +
+              `<details><summary>Deutsch</summary>\n\n` +
+              `Mit \`payloads/Config/config.plist\` in diesem PR (bei ${short}) stimmt etwas nicht: die Datei ist nicht im erwarteten Format. ` +
+              `Die Vorlage muss mit **4 Leerzeichen pro Ebene, ohne Tabs** eingerückt sein. ` +
+              `Wird sie in einem Editor mit Tabs neu gespeichert, ändert sich jede Zeile und die eigentlichen Änderungen gehen im Diff unter.\n\n` +
+              `Bitte die Datei ohne inhaltliche Änderung neu einrücken und erneut pushen - dieser Kommentar aktualisiert sich automatisch.\n</details>`;
+
+            if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            else await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
+
+      - name: Fail if the format is wrong
+        if: steps.check.outputs.rc != '0'
+        run: exit 1

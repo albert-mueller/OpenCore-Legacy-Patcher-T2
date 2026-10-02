@@ -157,7 +157,7 @@ def verify_python_ssl() -> None:
     except ImportError as e:
         rich.print(f"[red]Error: Python's ssl module failed to load: {e}[/red]")
         rich.print(f"[yellow]      OpenSSL 3 is installed, but {sys.executable} cannot use it.[/yellow]")
-        rich.print(f"[yellow]      The version check against the latest release needs HTTPS.[/yellow]")
+        rich.print("[yellow]      The version check against the latest release needs HTTPS.[/yellow]")
         sys.exit(3)
 
 
@@ -325,25 +325,25 @@ def resolve_application_identity(requested: str, auto_detect: bool) -> "str | No
         return None
 
     if not identities:
-        rich.print(f"[yellow]Note: no code signing certificate found, the app and helper tool stay unsigned.[/yellow]")
-        rich.print(f"[yellow]      The privileged helper tool will refuse to run commands as root unless it was[/yellow]")
-        rich.print(f"[yellow]      compiled with 'make debug' (ci_tooling/privileged_helper_tool/README.md).[/yellow]")
-        rich.print(f"[yellow]      To sign locally, create a self signed certificate in Keychain Access:[/yellow]")
-        rich.print(f"[yellow]      Certificate Assistant > Create a Certificate > Self Signed Root, type Code Signing.[/yellow]")
+        rich.print("[yellow]Note: no code signing certificate found, the app and helper tool stay unsigned.[/yellow]")
+        rich.print("[yellow]      The privileged helper tool will refuse to run commands as root unless it was[/yellow]")
+        rich.print("[yellow]      compiled with 'make debug' (ci_tooling/privileged_helper_tool/README.md).[/yellow]")
+        rich.print("[yellow]      To sign locally, create a self signed certificate in Keychain Access:[/yellow]")
+        rich.print("[yellow]      Certificate Assistant > Create a Certificate > Self Signed Root, type Code Signing.[/yellow]")
         return None
 
     if len(identities) > 1:
-        rich.print(f"[yellow]Note: multiple code signing certificates found, none picked automatically:[/yellow]")
+        rich.print("[yellow]Note: multiple code signing certificates found, none picked automatically:[/yellow]")
         for _, name, _ in identities:
             rich.print(f"[yellow]      - {name}[/yellow]")
-        rich.print(f"[yellow]      Pass --application-signing-identity \"<name>\" to choose one.[/yellow]")
+        rich.print("[yellow]      Pass --application-signing-identity \"<name>\" to choose one.[/yellow]")
         return None
 
     _, name, identity_status = identities[0]
     rich.print(f"[yellow]Automatically selected signing identity: {name}[/yellow]")
     if identity_status:
         rich.print(f"[yellow]      Note: certificate is not trusted {identity_status} - that is enough for signing,[/yellow]")
-        rich.print(f"[yellow]      the helper tool only compares certificate chains.[/yellow]")
+        rich.print("[yellow]      the helper tool only compares certificate chains.[/yellow]")
     return name
 
 

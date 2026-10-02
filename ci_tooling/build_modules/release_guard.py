@@ -193,12 +193,12 @@ class ReleaseGuard:
 
         if action == "stop" and self.ignore_release:
             rich.print(f"[yellow]{MIXED_UP_MESSAGE} - {reason}[/yellow]")
-            rich.print(f"[yellow]--ignore-release was passed, building anyway.[/yellow]")
+            rich.print("[yellow]--ignore-release was passed, building anyway.[/yellow]")
             action, reason = "continue", "forced by --ignore-release"
 
         if action == "stop":
             rich.print(f"[red]{MIXED_UP_MESSAGE} - {reason}[/red]")
-            rich.print(f"[red]Pass --ignore-release to build anyway.[/red]")
+            rich.print("[red]Pass --ignore-release to build anyway.[/red]")
             _emit_output("action", "stop")
             sys.exit(EXIT_MIXED_UP)
 

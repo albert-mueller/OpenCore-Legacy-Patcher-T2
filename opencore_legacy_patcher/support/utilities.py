@@ -268,7 +268,23 @@ def check_ap_security_policy():
     return 0
 
 def check_secure_boot_level():
-    if check_secure_boot_model() in constants.Constants().sbm_values:
+    secure_boot_model = check_secure_boot_model()
+
+    # x86legacy is deliberately not part of constants.sbm_values: on genuine non-T2
+    # Macs, Monterey's boot.efi sets HardwareModel to x86legacy by itself, so the
+    # model string alone would block root patching on every stock Mac.
+    # OpenCore, however, also sets AppleSecureBootPolicy to Medium (1) when
+    # SecureBootModel is x86legacy (or "Default" resolving to it on a non-T2
+    # SMBIOS), while genuine non-T2 Macs report 0. In that state Apple Secure
+    # Boot verifies the Kernel Collections' .im4m, which root patching breaks -
+    # boot.efi then rejects BootKernelExtensions.kc (Err(0x1A), Issue #465).
+    # Previously this case returned False and root patching went ahead anyway.
+    if secure_boot_model == "x86legacy":
+        if check_ap_security_policy() != 0:
+            return True
+        return False
+
+    if secure_boot_model in constants.Constants().sbm_values:
         # OpenCorePkg logic:
         #   - If a T2 Unit is used with ApECID, will return 2
         #   - Either x86legacy or T2 without ApECID, returns 1
