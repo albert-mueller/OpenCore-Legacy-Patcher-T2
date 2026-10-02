@@ -173,7 +173,8 @@ jobs:
         with:
           name: secure-boot-model-result
           path: ${{ runner.temp }}/secure-boot-model/
-          retention-days: 7
+          # The repo caps artifact retention at 1 day; the commenter reads it right away
+          retention-days: 1
           if-no-files-found: ignore
 
       - name: Fail if root patching can run with Secure Boot on

@@ -122,8 +122,14 @@ def _worker(root: str, case: str, out_path: str) -> None:
     except Exception:
         pass
 
-    # The host is simulated: a clean NVRAM, nothing booted through OpenCore
+    # The host is simulated: a clean NVRAM, nothing booted through OpenCore,
+    # and no IODeviceTree:/rom to read. Without the get_rom() stub, building for
+    # the host's own model (defaults:stale-gui) crashes off macOS in the minimal
+    # SMBIOS spoof (generate_fw_features() reads firmware-features from the ROM),
+    # and those models silently end up as "couldn't check". With it the builder
+    # takes its normal no-ROM path and falls back to the model's defaults.
     utilities.get_nvram = lambda *args, **kwargs: None
+    utilities.get_rom = lambda *args, **kwargs: None
 
     problems, checked, errors = [], 0, []
 
