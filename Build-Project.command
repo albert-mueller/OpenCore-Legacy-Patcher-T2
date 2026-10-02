@@ -3,7 +3,7 @@
 Build-Project.command: Generate OpenCore-Patcher-T2.app and OpenCore-Patcher-T2.pkg
 """
 
-import os
+import oss
 import re
 import sys
 import time
