@@ -559,8 +559,8 @@ class InstallerBackup:
                     print(f"Skipping rename: {e}")
                     continue
 
-                for os in self._os_table:
-                    for directory in [self._os_table[os], Path(self._os_table[os], "Dead URLs")]:
+                for os_version in self._os_table:
+                    for directory in [self._os_table[os_version], Path(self._os_table[os_version], "Dead URLs")]:
                         if not directory.exists():
                             continue
                         for file in directory.iterdir():

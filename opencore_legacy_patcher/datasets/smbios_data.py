@@ -605,21 +605,7 @@ smbios_dictionary = {
             "NVMe",
         ],
     },
-    "MacBookAir10,1": {
-        "Board ID": None,
-        "FirmwareFeatures": None,
-        "SecureBootModel": "j313",
-        "CPU Generation": cpu_data.CPUGen.apple_silicon.value,
-        "Max OS Supported": os_data.os_data.max_os,
-        "Wireless Model": device_probe.Broadcom.Chipsets.AppleBCMWLANBusInterfacePCIe,
-        "Bluetooth Model": bluetooth_data.bluetooth_data.PCIe,
-        "Ethernet Chipset": None,
-        "Stock GPUs": [],
-        "Stock Storage": [
-            "NVMe",
-        ],
-    },
-    "MacBookPro1,1": {
+       "MacBookPro1,1": {
         "Marketing Name": "MacBook Pro (original)",
         "Board ID": "Mac-F425BEC8",
         "FirmwareFeatures": "",
@@ -3130,19 +3116,6 @@ smbios_dictionary = {
         # Laptop model, iGPU only
         # Only mentioned in AppleGraphicsPowerManagement, ApplePlatformEnabler and X86PlatformPlugin
         "Board ID": "Mac-87DCB00F4AD77EEA",
-        "FirmwareFeatures": None,
-        "SecureBootModel": None,
-        "CPU Generation": None,
-        "Max OS Supported": os_data.os_data.max_os,
-        "Wireless Model": None,
-        "Bluetooth Model": bluetooth_data.bluetooth_data.NonApplicable,
-        "Stock GPUs": [],
-        "Stock Storage": [],
-    },
-    "APPL_UNKNOWN_MODEL_7": {
-        # Laptop model
-        # Only mentioned in X86PlatformPlugin, AppleGVA
-        "Board ID": "Mac-90BE64C3CB5A9AEB",
         "FirmwareFeatures": None,
         "SecureBootModel": None,
         "CPU Generation": None,
