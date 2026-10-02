@@ -1,4 +1,9 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.190007.1 - 4.0.0 alpha 19.7.1
+This release:
+- upgrades Python to Python 3.13.16
+- fixes a bug where on Macs with Legacy Wireless WiFi cards, installing and building OpenCore EFI may fail
+
 ## 4.0.0.190007 - 4.0.0 alpha 19.7
 This release:
 - fixes a bug where `agdpmod=pikera` was injected for every AMD dGPU and for every MacBookPro14,3 variant. Polaris and Vega dGPUs need `agdpmod=vit9696` and could end up with a black screen. `pikera` is now only injected when a Navi dGPU is detected, both in the regular build and in the T2 boot-args. thx @Medelcartelinc (#467)
