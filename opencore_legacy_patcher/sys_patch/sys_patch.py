@@ -325,7 +325,11 @@ class PatchSysVolume:
         except Exception as e:
             logging.error("Merging KDK with root volume failed")
             logging.exception("Stack Trace:")
-            return
+            # Fatal: merge() only raises when a KDK is actually required (Ventura+
+            # with kext patches) and couldn't be merged. Without it the system
+            # volume has no kext binaries, so the rebuilt Kernel Collections would
+            # miss kexts the Mac needs to boot. Stop before kmutil and the snapshot.
+            raise
 
 
     def _unpatch_root_vol(self):
@@ -384,13 +388,15 @@ class PatchSysVolume:
             bool: True if successful, False if not
         """
 
-        # Rebuild kernel cache if kext-level patches were applied.
-        # This MUST happen before the APFS snapshot so the new .kc files
-        # are included in the sealed snapshot that boots.
-        if not self.skip_root_kmutil_requirement:
-            if not self._rebuild_kernel_cache():
-                logging.error("- Kernel cache rebuild failed, aborting snapshot")
-                return False
+        # Rebuild the kernel cache. This MUST happen before the APFS snapshot so
+        # the new .kc files are included in the sealed snapshot that boots.
+        # Always run it: without a KDK (skip_root_kmutil_requirement) Ventura+
+        # still needs the Auxiliary KC rebuilt for kexts in /Library/Extensions -
+        # _rebuild_kernel_cache() switches to an AuxKC-only rebuild in that case.
+        # Skipping it sealed a snapshot whose KCs didn't match the patched kexts.
+        if not self._rebuild_kernel_cache():
+            logging.error("- Kernel cache rebuild failed, aborting snapshot")
+            return False
 
         if not self._create_new_apfs_snapshot():
             return False

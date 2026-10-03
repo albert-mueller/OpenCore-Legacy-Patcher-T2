@@ -265,6 +265,8 @@ jobs:
   # would add a single new error, nothing is pushed. The result always goes into
   # a PR on the branch auto-fix/python-check for review - never straight to main.
   # When main no longer needs any fixes, an open auto-fix PR is closed.
+  # Reviews are requested from the repo variable AUTO_FIX_REVIEWERS
+  # (space-separated logins, default: Medelcartelinc gandolf243).
   #
   # Needs "Allow GitHub Actions to create and approve pull requests" in
   # Settings > Actions > General. PRs opened with GITHUB_TOKEN don't trigger
@@ -370,6 +372,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BASE: ${{ github.event.repository.default_branch }}
           FIXED: ${{ steps.verify.outputs.fixed }}
+          REVIEWERS: ${{ vars.AUTO_FIX_REVIEWERS || 'Medelcartelinc gandolf243' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -404,11 +407,23 @@ jobs:
 
           pr=$(gh pr list --head "$FIX_BRANCH" --base "$BASE" --state open --json number --jq '.[0].number // empty')
           if [ -n "$pr" ]; then
-            gh pr edit "$pr" --body-file "$RUNNER_TEMP/body.md"
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/pulls/$pr" -F "body=@$RUNNER_TEMP/body.md" > /dev/null
           else
-            gh pr create --head "$FIX_BRANCH" --base "$BASE" \
-              --title "Python check: automatic fixes" --body-file "$RUNNER_TEMP/body.md"
+            url=$(gh pr create --head "$FIX_BRANCH" --base "$BASE" \
+                    --title "Python check: automatic fixes" --body-file "$RUNNER_TEMP/body.md")
+            pr=${url##*/}
           fi
+
+          # Ask for review. A reviewer needs access to the repo (collaborator with
+          # read access or more) - if one can't be requested, warn and go on.
+          for r in $REVIEWERS; do
+            r=${r#@}
+            if gh api -X POST "repos/$GITHUB_REPOSITORY/pulls/$pr/requested_reviewers" -f "reviewers[]=$r" > /dev/null; then
+              echo "Requested a review from @$r"
+            else
+              echo "::warning::Couldn't request a review from @$r on #$pr - they need to be a collaborator on this repository"
+            fi
+          done
 
       - name: Close the auto-fix PR when nothing is left to fix
         if: steps.verify.outputs.changed == 'false'

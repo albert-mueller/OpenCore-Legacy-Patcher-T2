@@ -154,7 +154,7 @@ class GenerateKexts:
 
     def _is_build_nightly(self, kext: str, version: str) -> bool:
         # Load CHANGELOG.md
-        changelog_path = Path(f"../../CHANGELOG.md").absolute()
+        changelog_path = Path("../../CHANGELOG.md").absolute()
         with open(changelog_path, "r") as changelog_file:
             changelog = changelog_file.read()
 

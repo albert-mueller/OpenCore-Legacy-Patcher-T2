@@ -123,7 +123,7 @@ class NonMetal(BaseSharedPatchSet):
                             else ("10.14.6-24" if self._xnu_major >= os_data.sequoia.value
                             else f"10.14.6-{self._xnu_major}"))
                         ),
-                        **({"FaceCore.framework":  f"13.5"} if self._xnu_major >= os_data.sonoma else {}),
+                        **({"FaceCore.framework":  "13.5"} if self._xnu_major >= os_data.sonoma else {}),
                     },
                 },
                 PatchType.EXECUTE: {

@@ -117,7 +117,7 @@ class macOSInstallerDownloadFrame(wx.Frame):
         self.Show()
 
         def _fetch_installers():
-            logging.info(f"Fetching AppleDB products")
+            logging.info("Fetching AppleDB products")
 
             # AppleDBProducts() reaches out over the network. Anything from a dead
             # route to a malformed payload can raise here; an uncaught exception in
@@ -357,7 +357,7 @@ class macOSInstallerDownloadFrame(wx.Frame):
     def _validate_installer(self, expected_checksum: str, calculated_checksum: str) -> None:
         if expected_checksum != calculated_checksum:
             logging.error(f"Checksum validation failed: Expected {expected_checksum}, got {calculated_checksum}")
-            wx.MessageBox(f"Checksum validation failed!\n\nThis generally happens when downloading on unstable connections such as WiFi or cellular.\n\nPlease try redownloading again on a stable connection (ie. Ethernet)", "Corrupted Installer!", wx.OK | wx.ICON_ERROR)
+            wx.MessageBox("Checksum validation failed!\n\nThis generally happens when downloading on unstable connections such as WiFi or cellular.\n\nPlease try redownloading again on a stable connection (ie. Ethernet)", "Corrupted Installer!", wx.OK | wx.ICON_ERROR)
             self.on_return_to_main_menu()
             return
 

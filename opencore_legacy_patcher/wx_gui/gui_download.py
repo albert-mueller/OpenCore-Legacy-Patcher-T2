@@ -137,7 +137,7 @@ class DownloadFrame(wx.Frame):
             time.sleep(self.constants.thread_sleep_interval)
 
         if self.download_obj.download_complete is False and self.user_cancelled is False:
-            logging.error(f"Download failed due to an error")
+            logging.error("Download failed due to an error")
             logging.exception("Stack Trace:")
             if not gui_support.is_app_exiting():
                 wx.MessageBox(f"Download failed: \n{self.download_obj.error_msg}", "Error", wx.OK | wx.ICON_ERROR)

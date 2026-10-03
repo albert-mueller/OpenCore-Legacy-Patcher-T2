@@ -103,7 +103,7 @@ class NvidiaKepler(BaseHardware):
                         "NVDAStartup.kext":        "12.0 Beta 6",
                         "GeForceAIRPlugin.bundle": "11.0 Beta 3",
                         "GeForceGLDriver.bundle":  "11.0 Beta 3",
-                        "GeForceMTLDriver.bundle": "11.0 Beta 3" if self._xnu_major <= os_data.monterey else f"11.0 Beta 3-22",
+                        "GeForceMTLDriver.bundle": "11.0 Beta 3" if self._xnu_major <= os_data.monterey else "11.0 Beta 3-22",
                         "GeForceVADriver.bundle":  "12.0 Beta 6",
                     },
                 },

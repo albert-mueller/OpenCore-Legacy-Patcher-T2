@@ -318,7 +318,7 @@ class InstallOCFrame(wx.Frame):
                 self.constants.update_stage = gui_support.AutoUpdateStages.ROOT_PATCHING
                 popup_message = wx.MessageDialog(
                     self,
-                    f"OpenCore has finished installing to disk.\n\nWould you like to update your root patches next?", "Success",
+                    "OpenCore has finished installing to disk.\n\nWould you like to update your root patches next?", "Success",
                     wx.YES_NO | wx.YES_DEFAULT
                 )
                 # wx.MessageDialog reports the pressed button through ShowModal()'s

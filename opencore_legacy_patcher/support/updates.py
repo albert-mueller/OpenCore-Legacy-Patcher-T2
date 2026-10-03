@@ -217,6 +217,11 @@ class CheckBinaryUpdates:
             if "tag_name" not in release:
                 continue
 
+            # Skip pre-releases during automatic checks (manual=False), unless it's a channel switch
+            if manual is False and not channel_switch and release.get("prerelease", False):
+                logging.info(f"Skipping pre-release: {release['tag_name']} (automatic check)")
+                continue
+
             try:
                 rel_ver = version.parse(release["tag_name"])
             except version.InvalidVersion:

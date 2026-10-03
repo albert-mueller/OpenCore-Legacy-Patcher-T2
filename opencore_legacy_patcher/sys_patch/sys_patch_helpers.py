@@ -398,7 +398,7 @@ class SysPatchHelpers:
             if not file.name.startswith(f"{BASE_VERSION}."):
                 continue
 
-            logging.info(f"Merging GPUCompiler.framework libraries to match binary")
+            logging.info("Merging GPUCompiler.framework libraries to match binary")
 
             src_dir = LIBRARY_DIR / file.name
             dest_lib_dir = DEST_DIR / "lib"
@@ -414,9 +414,9 @@ class SysPatchHelpers:
                 try:
                     result = subprocess_wrapper.run_as_root_and_verify(copy_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                     if result and result.returncode != 0:
-                        logging.error(f"Failed to copy GPUCompiler libraries")
+                        logging.error("Failed to copy GPUCompiler libraries")
                         logging.exception("Stack Trace:")
-                        raise Exception(f"Failed to copy GPUCompiler libraries")
+                        raise Exception("Failed to copy GPUCompiler libraries")
                 except Exception as e:
                     logging.error(f"Error copying GPUCompiler libraries: {e}")
                     logging.exception("Stack Trace:")

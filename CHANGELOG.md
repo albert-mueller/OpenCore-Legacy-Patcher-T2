@@ -1,4 +1,22 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.190008 - 4.0.0 alpha 19.8
+**WARNING:** This release includes critical fixes to mitigate root patching issues where the root patcher may leave the Mac in a half patched state, causing kernel panics! If you have 4.0.0.190007 or newer, then this update should be installed as soon as possible. 4.0.0.190007, 4.0.0.190007.1 and 4.0.0.190007.2 are more horrible than Windows Vista - on anything non-T2 it was basically a brick.
+This release:
+- fixes multiple unnecessary f-strings
+- Fixes missing closing parenthesis in argparse call for --disable_auto_update, thx @gandolf243 
+- Removes duplicate 'APPL_UNKNOWN_MODEL_7' entry, thx @gandolf243 
+- Removes dop MacBookAir10,1 from smbios_data, thx @gandolf243
+- fixes a bug where when trying to install root patches, corrupted root patches may go through and brick the operating system and cause kernel panics. Attackers can exploit the same bug for launching DoS attacks, or worse, install kernel level malware. 
+Impact: an attacker could write a specially crafted patch that blindly injects to corrupt the operating system and launch DoS attacks, or worse, install kernel level malware. This bug and severe vulnerability has been fixed by ensuring the root patches are sound before applying them.
+- removes the corrupted config.plist by reverting back to 4.0.0.190006.6's version and added the 2 new kexts added
+- fixes a bug where the patcher's updater may automatically install pre-alpha and other pre-release versions
+- fixes a bug where if SecureBootModel is set to x86legacy, it still lets install root patches, which then corrupts the operating system altogether as well
+- fixes a bug where BroadcomVTD.kext was injected unconditionally, and was injected on every Mac and most macOS versions instead of limiting to specific WiFi card and only to Tahoe
+- fixes a bug where if my Metallibs API is unreachable, then it prefers @Medelcartelinc's instead of Dortania's
+- other small bug fixes
+
+Thanks for @zkennedy137, @gandolf243, @albert-mueller, Claude and GitHub Actions for finding and fixing these bugs!
+
 ## 4.0.0.190007.1 - 4.0.0 alpha 19.7.1
 This release:
 - upgrades Python to Python 3.13.16

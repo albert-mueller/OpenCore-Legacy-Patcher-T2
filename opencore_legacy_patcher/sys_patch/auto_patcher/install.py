@@ -283,7 +283,7 @@ class InstallAutomaticPatchingServices:
                 if hashlib.sha256(open(source, "rb").read()).hexdigest() == hashlib.sha256(open(services[service], "rb").read()).hexdigest():
                     logging.info(f"  - {name} checksums match, skipping")
                     continue
-                logging.info(f"  - Existing service found, removing")
+                logging.info("  - Existing service found, removing")
                 subprocess_wrapper.run_as_root_and_verify(["/bin/rm", services[service]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             # Create parent directories
             if not Path(services[service]).parent.exists():
