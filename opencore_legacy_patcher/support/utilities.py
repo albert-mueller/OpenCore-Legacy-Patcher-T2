@@ -249,25 +249,35 @@ def check_kext_loaded(bundle_id: str) -> str:
 
 
 def check_secure_boot_model():
-    sbm_byte = get_nvram("HardwareModel", "94B73556-2197-4702-82A8-3E1337DAFBFB", decode=False)
-    if sbm_byte:
-        if isinstance(sbm_byte, str):
-            return sbm_byte.replace("\x00", "")
-        sbm_byte = bytes(sbm_byte).replace(b"\x00", b"")
-        sbm_string = sbm_byte.decode("utf-8", errors="replace")
-        return sbm_string
-    return None
+    """
+    HardwareModel from the Apple Secure Boot NVRAM GUID, without NULs.
+
+    OpenCore writes it as "<model>ap" (OcAppleSecureBootBootstrapValues(),
+    "%aap") - config x86legacy becomes x86legacyap, j174 becomes j174ap - and
+    only when Secure Boot is on. With SecureBootModel=Disabled, whatever boot.efi
+    or the firmware set stays (x86legacyap on genuine non-T2 Macs since Monterey).
+    """
+    sbm_raw = get_nvram("HardwareModel", "94B73556-2197-4702-82A8-3E1337DAFBFB", decode=False)
+    if not sbm_raw:
+        return None
+    try:
+        if isinstance(sbm_raw, str):
+            sbm_string = sbm_raw
+        else:
+            sbm_string = bytes(sbm_raw).decode("utf-8", errors="replace")
+    except Exception:
+        sbm_string = str(sbm_raw)
+    sbm_string = sbm_string.replace("\x00", "").strip()
+    return sbm_string or None
 
 
 def _normalize_secure_boot_model(model) -> str:
     """
     HardwareModel as macOS reports it -> SecureBootModel as configured.
 
-    OpenCore publishes the active Secure Boot model in NVRAM with Apple's "ap"
-    suffix: SecureBootModel j140k shows up as HardwareModel "j140kap", and
-    x86legacy (also what "Default" resolves to on non-T2 SMBIOS) as
-    "x86legacyap" - the value every real-hardware dump in example_data.py has.
-    Comparing the raw NVRAM string against "x86legacy" therefore never matched.
+    Strips NULs/whitespace, lowercases (BridgeOSHardwareModel is uppercase) and
+    drops Apple's "ap" suffix: "x86legacyap" -> "x86legacy", "j174ap" -> "j174".
+    Only used for logging - the policy decides (see check_secure_boot_level()).
     """
     if not model:
         return ""
@@ -276,48 +286,79 @@ def _normalize_secure_boot_model(model) -> str:
         model = model[:-2]
     return model
 
+
+def _parse_secure_boot_policy(raw):
+    """
+    AppleSecureBootPolicy NVRAM value -> int, or None if it can't be understood.
+
+    OpenCore stores a single UINT8 (OcAppleSecureBootInstallProtocol()), but
+    IOKit may hand it back as bytes, bytearray, an NSData-like buffer, an int,
+    or a string. Absent/empty means no policy (0).
+    """
+    if raw is None:
+        return 0
+    if isinstance(raw, bool):
+        return int(raw)
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, str):
+        if raw.strip().isdigit():
+            return int(raw.strip())
+        try:
+            raw = raw.encode("latin-1")
+        except Exception:
+            return None
+    try:
+        data = bytes(raw)
+    except Exception:
+        return None
+    return int.from_bytes(data, byteorder="little") if data else 0
+
+
 def check_ap_security_policy():
-    ap_security_policy_byte = get_nvram("AppleSecureBootPolicy", "94B73556-2197-4702-82A8-3E1337DAFBFB", decode=False)
-    if ap_security_policy_byte:
-        # Supported Apple Secure Boot Policy values:
-        #     AppleImg4SbModeDisabled = 0,
-        #     AppleImg4SbModeMedium   = 1,
-        #     AppleImg4SbModeFull     = 2
-        # Ref: https://github.com/acidanthera/OpenCorePkg/blob/f7c1a3d483fa2535b6a62c25a4f04017bfeee09a/Include/Apple/Protocol/AppleImg4Verification.h#L27-L31
-        return int.from_bytes(ap_security_policy_byte, byteorder="little")
-    return 0
+    """
+    AppleSecureBootPolicy: 0 = Disabled, 1 = Medium, 2 = Full.
+    Returns -1 if the variable exists but can't be parsed.
+
+    Ref: https://github.com/acidanthera/OpenCorePkg/blob/f7c1a3d483fa2535b6a62c25a4f04017bfeee09a/Include/Apple/Protocol/AppleImg4Verification.h#L27-L31
+    """
+    raw = get_nvram("AppleSecureBootPolicy", "94B73556-2197-4702-82A8-3E1337DAFBFB", decode=False)
+    policy = _parse_secure_boot_policy(raw)
+    return -1 if policy is None else policy
+
 
 def check_secure_boot_level():
-    secure_boot_model = _normalize_secure_boot_model(check_secure_boot_model())
+    """
+    True if Apple Secure Boot is enforced for this boot - root patching must not run.
 
-    # macOS reports the model with an "ap" suffix ("x86legacyap", "j185ap"), so
-    # everything is compared after _normalize_secure_boot_model(). Before that,
-    # "x86legacyap" matched neither "x86legacy" nor constants.sbm_values, and this
-    # returned False exactly when OpenCore's x86legacy Secure Boot was active -
-    # root patching went ahead and boot.efi then rejected the rebuilt
-    # BootKernelExtensions.kc (Err(0x1A), Issue #465).
-    #
-    # x86legacy alone doesn't mean Secure Boot is on: since Monterey, boot.efi
-    # sets HardwareModel to x86legacyap on every genuine non-T2 Mac, with
-    # AppleSecureBootPolicy 0. OpenCore sets the policy to Medium (1) when
-    # SecureBootModel is x86legacy (or "Default" resolving to it on a non-T2
-    # SMBIOS). So, as for the T2 models, the policy decides.
-    #
-    # OpenCorePkg logic:
-    #   - If a T2 Unit is used with ApECID, will return 2
-    #   - Either x86legacy or T2 without ApECID, returns 1
-    #   - Disabled, returns 0
-    # Ref: https://github.com/acidanthera/OpenCorePkg/blob/f7c1a3d483fa2535b6a62c25a4f04017bfeee09a/Library/OcMainLib/OpenCoreUefi.c#L490-L502
-    #
-    # Genuine Mac logic:
-    #   - On genuine non-T2 Macs, they always return 0
-    #   - T2 Macs will return based on their Startup Policy (Full(2), Medium(1), Disabled(0))
-    # Ref: https://support.apple.com/en-us/HT208198
-    known_models = {_normalize_secure_boot_model(m) for m in constants.Constants().sbm_values}
-    known_models.add("x86legacy")
-    if secure_boot_model in known_models:
-        return check_ap_security_policy() != 0
-    return False
+    The policy decides, not the model string:
+      - OpenCore writes AppleSecureBootPolicy every boot from what it actually
+        enforces (OpenCoreUefi.c): 0 for SecureBootModel=Disabled, 2 (Full) with
+        ApECID set on a non-x86legacy model, otherwise 1 (Medium) - x86legacy,
+        and "Default" resolving to it on non-T2 SMBIOS, is always Medium.
+      - HardwareModel is only written when Secure Boot is on, as "<model>ap".
+        With Secure Boot off it can still say x86legacyap (genuine non-T2 Macs
+        since Monterey, policy 0) or a j-model (T2 firmware).
+      - On T2 Macs whose firmware already provides the Secure Boot protocol,
+        OpenCore leaves the policy to the firmware (Startup Security: Full 2,
+        Medium 1, No Security 0) - root patching breaks either non-zero mode.
+
+    Before, the model string was compared first. "x86legacyap" matched neither
+    "x86legacy" nor constants.sbm_values, so this returned False exactly when
+    OpenCore's x86legacy Secure Boot was on, and root patching went ahead into
+    Err(0x1A) (Issue #465). A non-zero policy with an absent or unknown model
+    was ignored the same way. An unreadable policy fails closed.
+    """
+    policy = check_ap_security_policy()
+    if policy == 0:
+        return False
+    model = check_secure_boot_model()
+    if policy < 0:
+        logging.warning(f"AppleSecureBootPolicy can't be read (HardwareModel {model!r}) - treating Secure Boot as enabled")
+    else:
+        logging.info(f"Apple Secure Boot is enabled: AppleSecureBootPolicy {policy}, HardwareModel {model!r} "
+                     f"(SecureBootModel {_normalize_secure_boot_model(model) or 'unknown'})")
+    return True
 
 clear = True
 
