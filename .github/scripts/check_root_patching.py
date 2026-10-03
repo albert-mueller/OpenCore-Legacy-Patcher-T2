@@ -29,6 +29,15 @@ sys_patch.py is what gets checked:
   flow:snapshot-failure bless fails -> the run must not report success
   flow:revert           reverting goes back to the last sealed snapshot of the
                         mounted volume and never seals a new one
+  flow:secure-boot      patching and reverting never re-enable Apple Secure Boot:
+                        constants.secure_status stays False, no command or Python
+                        write touches an OpenCore config.plist / the EFI partition,
+                        no SecureBootModel/ApECID/AppleSecureBootPolicy NVRAM write,
+                        the EFI builder and GenerateDefaults() are never started,
+                        no GUI:secure_status is stored - plus a static scan that
+                        nothing under sys_patch/ assigns secure_status. With Secure
+                        Boot back on, boot.efi rejects the rebuilt, unsigned KCs
+                        (Err(0x1A)) - see check_secure_boot_model.py / #465
   static:patchsets      every patchset, for every supported macOS: no removal or
                         replacement of boot-critical files (kernel, KCs,
                         boot.efi, apfs.kext, ...), no empty/relative/'..' paths
@@ -69,6 +78,7 @@ CASES = [
     "flow:file-failure",
     "flow:snapshot-failure",
     "flow:revert",
+    "flow:secure-boot",
     "static:patchsets",
     "gate:detect",
 ]
@@ -114,6 +124,37 @@ BOOT_CRITICAL = {
 
 LIVE_SYSTEM_PREFIXES = ("/System/", "/usr/", "/bin/", "/sbin/")
 LIVE_ALLOWED_PREFIXES = ("/usr/local/",)
+
+# flow:secure-boot - what root patching must never touch
+SECURE_BOOT_NVRAM_KEYS = ("securebootmodel", "apecid", "applesecurebootpolicy",
+                          "94b73556-2197-4702-82a8-3e1337dafbfb")
+
+
+def _is_efi_config_path(path: str) -> bool:
+    p = str(path).replace("\\", "/")
+    return (os.path.basename(p).lower() == "config.plist" or "/EFI/OC/" in p.upper()
+            or p.startswith("/Volumes/EFI"))
+
+
+def _secure_boot_findings(calls, py_writes, sandbox_root):
+    """Everything in one root-patch run that could re-enable Apple Secure Boot."""
+    import re
+    found = []
+    for a in calls:
+        tool = os.path.basename(a[0])
+        cmd = " ".join(a)[:200]
+        if any(_is_efi_config_path(x) for x in a[1:] if not x.startswith(sandbox_root)):
+            found.append(f"runs `{cmd}` on the OpenCore EFI / config.plist")
+        elif tool == "nvram" and any(k in x.lower() for x in a[1:] for k in SECURE_BOOT_NVRAM_KEYS) and \
+                ("-d" in a or any("=" in x for x in a[1:])):
+            found.append(f"writes Secure Boot NVRAM (`{cmd}`)")
+        elif tool == "diskutil" and any(x in ("mount", "mountDisk") for x in a[1:]) and \
+                any("EFI" in x.upper() or re.fullmatch(r"(/dev/)?disk\d+s1", x) for x in a[1:]):
+            found.append(f"mounts the EFI partition (`{cmd}`)")
+    for path in py_writes:
+        if not path.startswith(sandbox_root) and _is_efi_config_path(path):
+            found.append(f"writes {path} from Python")
+    return found
 
 
 # ----------------------------------------------------------------------------
@@ -331,6 +372,44 @@ def _worker_flow(case: str):
     sys_patch_helpers.SysPatchHelpers.install_rsr_repair_binary = lambda self, *a, **k: sim.note("<rsr-repair>")
     sys_patch_helpers.SysPatchHelpers.generate_patchset_plist = lambda self, *a, **k: False
 
+    # flow:secure-boot - record everything that could turn Apple Secure Boot back on
+    sb = {"py_writes": [], "builders": [], "settings": [], "constants": None}
+    if case == "flow:secure-boot":
+        import builtins
+        import importlib
+        import io
+        real_open = builtins.open
+
+        def recording_open(file, mode="r", *a, **k):
+            if isinstance(file, (str, bytes, os.PathLike)) and any(m in str(mode) for m in "wax+"):
+                sb["py_writes"].append(os.fsdecode(os.fspath(file)))
+            return real_open(file, mode, *a, **k)
+
+        builtins.open = recording_open
+        io.open = recording_open
+
+        for modname, clsname in (("opencore_legacy_patcher.efi_builder.build", "BuildOpenCore"),
+                                 ("opencore_legacy_patcher.support.defaults", "GenerateDefaults")):
+            try:
+                cls = getattr(importlib.import_module(modname), clsname)
+            except Exception:
+                continue
+
+            def blocked(self, *a, _name=clsname, **k):
+                sb["builders"].append(_name)
+                raise RuntimeError(f"simulator: root patching started {_name}")
+            cls.__init__ = blocked
+
+        try:
+            from opencore_legacy_patcher.support import global_settings
+
+            def recording_write(self, key, value):
+                sb["settings"].append((str(key), value))
+                return True   # never touch the real /Users/Shared settings file
+            global_settings.GlobalEnviromentSettings.write_property = recording_write
+        except Exception:
+            pass
+
     host = example_data.iMac.iMac201_Stock
 
     def fresh_tree(xnu):
@@ -392,6 +471,8 @@ def _worker_flow(case: str):
         c.detected_os_version = "0.0"
         c.wxpython_variant = False
         c.gui_mode = False
+        c.secure_status = False
+        sb["constants"] = c
 
         details = {
             HardwarePatchsetSettings.KERNEL_DEBUG_KIT_REQUIRED:     kdk_required,
@@ -633,8 +714,55 @@ def _worker_flow(case: str):
                 if r["succeeded"]:
                     problems.append(_problem(case, f"{subject}: bless fails",
                         "Reverting failed, but the run reports success"))
+
+            elif case == "flow:secure-boot":
+                for revert in (False, True):
+                    what = "Reverting" if revert else "Root patching"
+                    for key in ("py_writes", "builders", "settings"):
+                        sb[key].clear()
+                    sb["constants"] = None
+                    crash = None
+                    try:
+                        calls = run(xnu, kdk, revert=revert)["calls"]
+                    except Exception as e:
+                        crash, calls = e, list(sim.calls)
+                    checked += 1
+                    found = _secure_boot_findings(calls, sb["py_writes"], sandbox_root)
+                    found += [f"starts {n}() - that can rebuild the EFI with SecureBootModel enabled"
+                              for n in dict.fromkeys(sb["builders"])]
+                    found += [f"stores {k}={v!r}" for k, v in sb["settings"]
+                              if "secure" in k.lower() and v not in (False, None, 0, "", "False", "false")]
+                    c = sb["constants"]
+                    if c is not None and getattr(c, "secure_status", False) is not False:
+                        found.append(f"leaves constants.secure_status = {c.secure_status!r} (was False)")
+                    for f in found:
+                        problems.append(_problem(case, f"{subject}: {what.lower()}",
+                            f"{what} {f}. Root patching breaks the KC signatures, so with SecureBootModel "
+                            f"back on boot.efi rejects them (Err(0x1A)) and the Mac resets into Recovery (#465)"))
+                    if crash is not None and not found:
+                        errors.append({"case": case, "subject": f"{subject}: {what.lower()}",
+                                       "message": f"{type(crash).__name__}: {crash}"[:300]})
         except Exception as e:
             errors.append({"case": case, "subject": subject, "message": f"{type(e).__name__}: {e}"[:300]})
+
+    if case == "flow:secure-boot":
+        import ast
+        # Belt and braces: nothing in the root patcher may assign secure_status at all
+        for path in sorted(Path("opencore_legacy_patcher/sys_patch").rglob("*.py")):
+            try:
+                tree = ast.parse(path.read_bytes(), filename=str(path))
+            except SyntaxError as e:
+                errors.append({"case": case, "subject": str(path), "message": f"SyntaxError: {e}"[:300]})
+                continue
+            checked += 1
+            for node in ast.walk(tree):
+                targets = node.targets if isinstance(node, ast.Assign) else \
+                          [node.target] if isinstance(node, (ast.AugAssign, ast.AnnAssign)) else []
+                for t in targets:
+                    if isinstance(t, ast.Attribute) and t.attr == "secure_status":
+                        problems.append(_problem(case, f"{path}:{node.lineno}",
+                            "The root patcher assigns secure_status - root patching must never change "
+                            "whether SecureBootModel is enabled"))
 
     shutil.rmtree(sandbox, ignore_errors=True)
     # Keep messages stable between runs (and between --root and --baseline)
