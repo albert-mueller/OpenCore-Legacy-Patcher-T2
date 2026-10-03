@@ -15,7 +15,7 @@ class Constants:
     def __init__(self) -> None:
         # Patcher Versioning
         # Wenn eine Version mit s endet, es heißt, dass sie noch nicht fertig ist.
-        self.patcher_version:                 str = "4.0.0.190008"
+        self.patcher_version:                 str = "4.0.0.190008.1"
         self.patcher_version_label=self.patcher_version
         self.patcher_support_pkg_version:     str = "2.0.4"  # PatcherSupportPkg
         self.copyright_date:                  str = "Copyright © 2020-2026 Dortania · T2 fork © 2026 Albert Müller"
@@ -1014,7 +1014,7 @@ class Constants:
         "j215ap",  #  MacBookPro16,4
         "j185ap",  #  iMac20,1
         "j185fap",  # iMac20,2
-        # "x86legacy",  # non-T2 Macs/VMs, Monterey's boot.efi enforces this on all Macs
+        "x86legacy",  # non-T2 Macs/VMs, Monterey's boot.efi enforces this on all Macs
     ]
 
     sandy_board_id_stock = [

@@ -16,7 +16,7 @@ name: Check Python for errors
 #
 # PRs use pull_request_target so the comment works for PRs from forks too.
 # That runs THIS file and the check script from the base branch: a PR cannot
-# change the check. The PR's code is checked out into pr/ only to be parsed -
+# change the check. The PR's code is fetched into pr/ only to be parsed -
 # nothing from it is imported or executed.
 
 on:
@@ -58,12 +58,28 @@ jobs:
           persist-credentials: false
 
       # The PR's code, as data only. Never run anything from pr/.
-      - uses: actions/checkout@v4
-        with:
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.event.pull_request.head.sha }}
-          path: pr
-          persist-credentials: false
+      # Plain git instead of actions/checkout: checkout refuses fork code under
+      # pull_request_target ("pwn request" guard). pr/ is only parsed by the
+      # check script from the base branch, so the guard's risk doesn't apply -
+      # but don't opt out with allow-unsafe-pr-checkout, keep it data-only.
+      # Fetched from the base repo's refs/pull/<n>/head, so it also works when
+      # the fork is gone; no credentials are stored in pr/.
+      - name: Fetch PR code (data only)
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git init -q pr
+          git -C pr fetch -q --no-tags --depth=1 \
+            "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "+refs/pull/$PR_NUMBER/head:refs/remotes/pr/head"
+          fetched=$(git -C pr rev-parse refs/remotes/pr/head)
+          if [ "$fetched" != "$HEAD_SHA" ]; then
+            # PR got a new push in the meantime - its own run checks that one
+            echo "PR head is now $fetched, expected $HEAD_SHA - fetching the expected commit"
+            git -C pr fetch -q --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$HEAD_SHA"
+            fetched=$HEAD_SHA
+          fi
+          git -C pr -c advice.detachedHead=false checkout -q "$fetched"
 
       - name: Install pyflakes
         run: python3 -m pip install --quiet --disable-pip-version-check pyflakes==4.0.1
