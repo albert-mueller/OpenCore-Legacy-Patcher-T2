@@ -137,7 +137,7 @@ class MainFrame(wx.Frame):
         menu_buttons = {
                 "OpenCore": {
                     "function": self.on_oc_settings,
-                    "description": ["Settings to prepares provided drives to be", "able to boot unsupported macOSes."],
+                    "description": ["Settings to prepare provided drives to be", "able to boot unsupported macOSes."],
                     "icon": str(self.constants.app_icons_resource_path / "OC-Build.png"),
                 },
                 "Settings": {
