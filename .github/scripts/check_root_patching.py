@@ -31,7 +31,7 @@ sys_patch.py is what gets checked:
                         mounted volume and never seals a new one
   flow:secure-boot      patching and reverting never re-enable Apple Secure Boot,
                         starting from Disabled and from a genuine non-T2 Mac
-                        (HardwareModel=x86legacy, policy 0): HardwareModel and
+                        (HardwareModel=x86legacyap, policy 0): HardwareModel and
                         AppleSecureBootPolicy stay as they were, the real
                         check_secure_boot_level() still says off, no plist is
                         written with SecureBootModel != Disabled (x86legacy,
@@ -143,8 +143,9 @@ SECURE_BOOT_GUID = "94B73556-2197-4702-82A8-3E1337DAFBFB"
 # Secure Boot (HardwareModel=x86legacy/j-model with a non-zero policy).
 SECURE_BOOT_START_STATES = [
     ("Secure Boot disabled", {}),
-    ("genuine non-T2 Mac (x86legacy, policy 0)",
-     {f"{SECURE_BOOT_GUID}:HardwareModel": b"x86legacy\x00",
+    # macOS reports HardwareModel with Apple's "ap" suffix (x86legacy -> x86legacyap)
+    ("genuine non-T2 Mac (x86legacyap, policy 0)",
+     {f"{SECURE_BOOT_GUID}:HardwareModel": b"x86legacyap\x00",
       f"{SECURE_BOOT_GUID}:AppleSecureBootPolicy": b"\x00"}),
 ]
 
