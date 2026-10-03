@@ -532,7 +532,7 @@ class macOSInstallerFlashFrame(wx.Frame):
         space = utilities.get_free_space(download_dir)
         if space < (kdk_obj.kdk_url_expected_size * 2):
             logging.info("Not enough disk space to download and install KDK")
-            logging.info(f"Attempting to download locally first")
+            logging.info("Attempting to download locally first")
             if space < kdk_obj.kdk_url_expected_size:
                 logging.info("Not enough disk space to install KDK, skipping")
                 return

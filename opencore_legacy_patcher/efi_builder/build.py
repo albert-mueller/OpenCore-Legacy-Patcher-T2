@@ -352,7 +352,7 @@ class BuildOpenCore:
                 for k, v in obj.items():
                     if not isinstance(k, str):
                         # This log entry will pinpoint exactly where the corruption is
-                        logging.error(f"!!! NON-STRING KEY FOUND !!!")
+                        logging.error("!!! NON-STRING KEY FOUND !!!")
                         logging.error(f"    Location: {path}")
                         logging.error(f"    Offending Key: {k} (Type: {type(k)})")
                     find_bad_key(v, f"{path}/{k}")
@@ -452,24 +452,24 @@ class BuildOpenCore:
                 target_m = self.model if self.model.startswith("MacBookPro14") else (getattr(self.constants.computer, "real_model", self.model))
                 has_t1 = "14,1" not in target_m
                 logging.info(f"{target_m} (Kaby Lake 2017) detected")
-                logging.info(f"")
+                logging.info("")
                 logging.info(f"BUILD PROFILE: {profile_name}")
                 if has_t1:
-                    logging.info(f"T1 SECURITY CHIP: ENABLED")
-                logging.info(f"")
-                logging.info(f"Wi-Fi:")
+                    logging.info("T1 SECURITY CHIP: ENABLED")
+                logging.info("")
+                logging.info("Wi-Fi:")
                 if getattr(self.constants, "computer", None) is not None and self.constants.computer.wifi:
                     from opencore_legacy_patcher.support import utilities
                     vendor_id = utilities.friendly_hex(self.constants.computer.wifi.vendor_id).upper()
                     device_id = utilities.friendly_hex(self.constants.computer.wifi.device_id).upper()
                     logging.info(f"Found Wireless Device {vendor_id}:{device_id}")
                 else:
-                    logging.info(f"Found Wireless Device 14E4:43BA")
-                logging.info(f"")
-                logging.info(f"GPU:")
-                logging.info(f"Found Intel Kaby Lake")
+                    logging.info("Found Wireless Device 14E4:43BA")
+                logging.info("")
+                logging.info("GPU:")
+                logging.info("Found Intel Kaby Lake")
                 if "14,3" in target_m:
-                    logging.info(f"Found AMD Polaris")
+                    logging.info("Found AMD Polaris")
 
             if self.constants.build_profile == "test_c_spoofed":
                 logging.info("Profile TEST-C SPOOFED: Forcing SMBIOS spoofing to MacBookPro16,1")

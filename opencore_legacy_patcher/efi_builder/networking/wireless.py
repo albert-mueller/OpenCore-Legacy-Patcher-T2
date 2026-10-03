@@ -79,7 +79,7 @@ class BuildWirelessNetworking:
                     self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += f" brcmfx-country={self.computer.wifi.country_code}"
                 if self.constants.enable_wake_on_wlan is True:
                     logging.info("- Enabling Wake on WLAN support")
-                    self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += f" -brcmfxwowl"
+                    self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += " -brcmfxwowl"
             elif self.computer.wifi.chipset == device_probe.Broadcom.Chipsets.AirPortBrcm4360:
                 self._wifi_fake_id()
             elif self.computer.wifi.chipset == device_probe.Broadcom.Chipsets.AirPortBrcm4331:
@@ -166,7 +166,7 @@ class BuildWirelessNetworking:
             return
 
         logging.info("- Enabling Wake on WLAN support")
-        self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += f" -brcmfxwowl"
+        self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += " -brcmfxwowl"
 
 
     def _wifi_fake_id(self) -> None:

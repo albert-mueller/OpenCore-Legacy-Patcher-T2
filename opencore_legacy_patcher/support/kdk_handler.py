@@ -582,7 +582,7 @@ class KernelDebugKitUtilities:
         """
 
         logging.info(f"Installing KDK package: {kdk_path.name}")
-        logging.info(f"- This may take a while...")
+        logging.info("- This may take a while...")
 
         # TODO: Check whether enough disk space is available
 
@@ -605,7 +605,7 @@ class KernelDebugKitUtilities:
             bool: True if successful, False if not
         """
 
-        logging.info(f"Extracting downloaded KDK disk image")
+        logging.info("Extracting downloaded KDK disk image")
         with tempfile.TemporaryDirectory() as mount_point:
             result = subprocess_wrapper.run_as_root(["/usr/bin/hdiutil", "attach", kdk_path, "-mountpoint", mount_point, "-nobrowse"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             if result.returncode != 0:

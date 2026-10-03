@@ -193,5 +193,5 @@ class BuildStorage:
         """
 
         if self.constants.apfs_trim_timeout is False:
-            logging.info(f"- Disabling APFS TRIM timeout")
+            logging.info("- Disabling APFS TRIM timeout")
             self.config["Kernel"]["Quirks"]["SetApfsTrimTimeout"] = 0

@@ -165,7 +165,7 @@ class GenerateDefaults:
         if self.constants.Experimental_Features:
             self.constants.build_profile = global_settings.GlobalEnviromentSettings().read_property("GUI:oc_build")
             if self.constants.build_profile is None or self.constants.build_profile == "":
-                logging.info(f"No OC Default config provided, you will be prompted for one at build")
+                logging.info("No OC Default config provided, you will be prompted for one at build")
             else:
                 logging.info(f"Setting the OC Default build to \"{self.constants.build_profile}\"")
 
