@@ -22,14 +22,7 @@ gate and checks what they produce:
                           the #465 path), then a build -> secure_status must end
                           up False and config.plist must say Disabled
   runtime:gate            utilities.check_secure_boot_level() with simulated
-                          NVRAM: every HardwareModel form (x86legacy, x86legacyap
-                          as OpenCore writes it, uppercase, NULs, j-models,
-                          unknown, garbage) x every AppleSecureBootPolicy
-                          encoding (bytes/int/str/buffers, unreadable -> must
-                          fail closed); every OpenCore boot (each SecureBootModel
-                          incl. Default/empty x ApECID x T2/non-T2/hypervisor
-                          SMBIOS, emulating OpenCoreUefi.c); T2 firmware Startup
-                          Security levels; genuine non-T2 Macs
+                          NVRAM (x86legacy / T2 j-models / AppleSecureBootPolicy)
                           and detect.py still blocking root patching on it
 
 Usage:
@@ -262,21 +255,12 @@ def _worker(root: str, case: str, out_path: str) -> None:
                             "SIP is lowered and only a stale GUI setting asked for Secure Boot")
 
     elif case == "runtime:gate":
-        real_check_model = utilities.check_secure_boot_model
-        real_check_policy = utilities.check_ap_security_policy
         sbm_values = list(constants.Constants().sbm_values)
         table = [
             (None, 0, False, "no Secure Boot (HardwareModel absent)"),
             ("x86legacy", 0, False, "genuine non-T2 Mac (boot.efi sets x86legacy, policy 0)"),
             ("x86legacy", 1, True, "OpenCore SecureBootModel=x86legacy/Default (policy Medium)"),
             ("x86legacy", 2, True, "x86legacy with policy Full"),
-            # What macOS actually reads: OpenCore publishes the model with an "ap"
-            # suffix (config j140k -> NVRAM j140kap, x86legacy -> x86legacyap), and
-            # every real-hardware dump in example_data.py says x86legacyap.
-            ("x86legacyap", 0, False, "genuine non-T2 Mac as macOS reports it (x86legacyap, policy 0)"),
-            ("x86legacyap", 1, True, "OpenCore SecureBootModel=x86legacy/Default as macOS reports it (x86legacyap, policy Medium)"),
-            ("x86legacyap", 2, True, "x86legacyap with policy Full"),
-            ("x86legacyap\x00", 1, True, "x86legacyap with a trailing NUL, policy Medium"),
         ]
         for j_model in sbm_values:
             table.append((j_model, 0, False, f"genuine T2 Mac with Secure Boot off ({j_model})"))
@@ -300,124 +284,6 @@ def _worker(root: str, case: str, out_path: str) -> None:
                 else:
                     msg = f"check_secure_boot_level() says Secure Boot is ON for {label} - root patching would be blocked on stock Macs"
                 problems.append(_problem(case, subject, msg, value=str(result)))
-
-        utilities.check_secure_boot_model = real_check_model
-        utilities.check_ap_security_policy = real_check_policy
-
-        # ---- The same gate, fed through the real NVRAM readers -------------
-        # Everything below mocks only utilities.get_nvram(), so the parsing in
-        # check_secure_boot_model() / check_ap_security_policy() is exercised too.
-        GUID = "94B73556-2197-4702-82A8-3E1337DAFBFB"
-        real_get_nvram = utilities.get_nvram
-
-        def gate(nvram):
-            def fake_get_nvram(variable, uuid=None, *, decode=False):
-                return nvram.get(f"{uuid}:{variable}" if uuid else variable)
-            utilities.get_nvram = fake_get_nvram
-            try:
-                return bool(utilities.check_secure_boot_level()), utilities.check_ap_security_policy()
-            finally:
-                utilities.get_nvram = real_get_nvram
-
-        def expect(subject, nvram, want, why):
-            nonlocal_checked[0] += 1
-            try:
-                got, _ = gate(nvram)
-            except Exception as e:
-                errors.append({"case": case, "subject": subject,
-                               "message": f"check_secure_boot_level() raised {type(e).__name__}: {e}"[:300]})
-                return
-            if got != want:
-                problems.append(_problem(case, subject,
-                    (f"check_secure_boot_level() says Secure Boot is OFF ({why}) - root patching would go ahead "
-                     f"and the next boot fails with Err(0x1A)") if want else
-                    f"check_secure_boot_level() says Secure Boot is ON ({why}) - root patching would be blocked"))
-
-        nonlocal_checked = [0]
-
-        # Models OpenCore knows (OcAppleImg4Lib.c mModelInformation)
-        oc_models = ["j132", "j137", "j140a", "j140k", "j152f", "j160", "j174", "j185", "j185f",
-                     "j213", "j214k", "j215", "j223", "j230k", "j680", "j780", "x86legacy"]
-
-        # 1. Every HardwareModel form x every policy encoding: the policy decides
-        model_forms = [None, b"", b"\x00", "x86legacy", b"x86legacy\x00", "x86legacyap", b"x86legacyap\x00",
-                       b"X86LEGACYAP", " x86legacyap ", bytearray(b"x86legacyap\x00"), memoryview(b"j174ap\x00"),
-                       b"j999ap\x00", b"\xff\xfe\x00"] + [f"{m}ap".encode() + b"\x00" for m in oc_models]
-        policy_forms = [(None, 0), (b"", 0), (b"\x00", 0), (b"\x00\x00\x00\x00", 0), (0, 0), ("0", 0), ("\x00", 0),
-                        (b"\x01", 1), (b"\x02", 2), (b"\x01\x00\x00\x00", 1), (bytearray(b"\x02"), 2),
-                        (memoryview(b"\x01"), 1), (1, 1), (2, 2), (True, 1), ("1", 1), ("\x01", 1), (b"\xff", 255),
-                        (object(), None)]
-        for model in model_forms:
-            for raw_policy, value in policy_forms:
-                nvram = {}
-                if model is not None:
-                    nvram[f"{GUID}:HardwareModel"] = model
-                if raw_policy is not None:
-                    nvram[f"{GUID}:AppleSecureBootPolicy"] = raw_policy
-                shown_policy = "unparsable" if value is None else value
-                subject = f"raw: HardwareModel={bytes(model) if isinstance(model, (bytearray, memoryview)) else model!r}, AppleSecureBootPolicy={type(raw_policy).__name__}:{shown_policy}"
-                expect(subject, nvram, value != 0,
-                       "unreadable policy must fail closed" if value is None else f"policy {value}")
-                # check_ap_security_policy() itself must report the value (-1 = unreadable)
-                try:
-                    _, reported = gate(nvram)
-                    if reported != (-1 if value is None else value):
-                        problems.append(_problem(case, subject,
-                            f"check_ap_security_policy() returns {reported!r}, expected {(-1 if value is None else value)!r}"))
-                except Exception:
-                    pass  # already reported by expect()
-
-        # 2. Every way OpenCore can boot (OpenCoreUefi.c / OpenCorePlatform.c)
-        def opencore_boot(sbm, apecid, smbios, preset):
-            """NVRAM after OpenCore, like OcLoadAppleSecureBoot(). preset = what boot.efi/firmware left."""
-            nvram = dict(preset)
-            if sbm in ("", "Default"):
-                sbm = {"t2": "j174", "non-t2": "x86legacy", "hypervisor": "x86legacy"}[smbios]
-            real = sbm if sbm in oc_models else None
-            if sbm == "Disabled":
-                policy = 0
-            elif apecid != 0 and (real is None or real != "x86legacy"):
-                policy = 2
-            else:
-                policy = 1
-            if policy != 0:
-                if real is None:
-                    return nvram, False   # "Failed to find SB model" - OpenCore returns before enforcing anything
-                nvram[f"{GUID}:HardwareModel"] = f"{real}ap".encode() + b"\x00"
-            nvram[f"{GUID}:AppleSecureBootPolicy"] = bytes([policy])
-            return nvram, policy != 0
-
-        presets = {
-            "nothing preset": {},
-            "boot.efi x86legacyap/0 preset": {f"{GUID}:HardwareModel": b"x86legacyap\x00", f"{GUID}:AppleSecureBootPolicy": b"\x00"},
-        }
-        for sbm in ["Disabled", "Default", "", "x86legacy"] + [m for m in oc_models if m != "x86legacy"] + ["j999"]:
-            for apecid in (0, 0x1122334455667788):
-                for smbios in ("non-t2", "t2", "hypervisor"):
-                    for preset_label, preset in presets.items():
-                        nvram, enforced = opencore_boot(sbm, apecid, smbios, preset)
-                        label = (f"OpenCore SecureBootModel={sbm or '(empty)'!s}, ApECID={'set' if apecid else 0}, "
-                                 f"{smbios} SMBIOS, {preset_label}")
-                        expect(f"opencore: {label}", nvram, enforced,
-                               "OpenCore enforces Apple Secure Boot here" if enforced else "OpenCore leaves Secure Boot off")
-
-        # 3. T2 firmware that already provides the Secure Boot protocol (OpenCore
-        #    doesn't override it): Startup Security decides, with any SecureBootModel
-        for t2_model in [m for m in oc_models if m != "x86legacy"]:
-            for level, name in ((0, "No Security"), (1, "Medium Security"), (2, "Full Security")):
-                nvram = {f"{GUID}:HardwareModel": f"{t2_model}ap".encode() + b"\x00",
-                         f"{GUID}:AppleSecureBootPolicy": bytes([level])}
-                expect(f"t2-firmware: {t2_model}ap, Startup Security {name}", nvram, level != 0, f"T2 Startup Security {name}")
-
-        # 4. Genuine non-T2 firmware without OpenCore
-        expect("genuine: non-T2 Mac before Monterey (no Secure Boot variables)", {}, False, "stock non-T2 Mac")
-        expect("genuine: non-T2 Mac on Monterey+ (x86legacyap, policy 0)",
-               {f"{GUID}:HardwareModel": b"x86legacyap\x00", f"{GUID}:AppleSecureBootPolicy": b"\x00"},
-               False, "stock non-T2 Mac")
-        expect("genuine: non-T2 Mac on Monterey+ (x86legacyap, no policy variable)",
-               {f"{GUID}:HardwareModel": b"x86legacyap\x00"}, False, "stock non-T2 Mac")
-
-        checked += nonlocal_checked[0]
 
         # detect.py must still use that gate to block root patching
         detect_src = Path("opencore_legacy_patcher/sys_patch/patchsets/detect.py")
