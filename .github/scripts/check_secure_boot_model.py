@@ -22,7 +22,8 @@ gate and checks what they produce:
                           the #465 path), then a build -> secure_status must end
                           up False and config.plist must say Disabled
   runtime:gate            utilities.check_secure_boot_level() with simulated
-                          NVRAM (x86legacy / T2 j-models / AppleSecureBootPolicy)
+                          NVRAM (x86legacy / x86legacyap as macOS reports it /
+                          T2 j-models / AppleSecureBootPolicy)
                           and detect.py still blocking root patching on it
 
 Usage:
@@ -261,6 +262,13 @@ def _worker(root: str, case: str, out_path: str) -> None:
             ("x86legacy", 0, False, "genuine non-T2 Mac (boot.efi sets x86legacy, policy 0)"),
             ("x86legacy", 1, True, "OpenCore SecureBootModel=x86legacy/Default (policy Medium)"),
             ("x86legacy", 2, True, "x86legacy with policy Full"),
+            # What macOS actually reads: OpenCore publishes the model with an "ap"
+            # suffix (config j140k -> NVRAM j140kap, x86legacy -> x86legacyap), and
+            # every real-hardware dump in example_data.py says x86legacyap.
+            ("x86legacyap", 0, False, "genuine non-T2 Mac as macOS reports it (x86legacyap, policy 0)"),
+            ("x86legacyap", 1, True, "OpenCore SecureBootModel=x86legacy/Default as macOS reports it (x86legacyap, policy Medium)"),
+            ("x86legacyap", 2, True, "x86legacyap with policy Full"),
+            ("x86legacyap\x00", 1, True, "x86legacyap with a trailing NUL, policy Medium"),
         ]
         for j_model in sbm_values:
             table.append((j_model, 0, False, f"genuine T2 Mac with Secure Boot off ({j_model})"))
