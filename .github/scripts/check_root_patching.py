@@ -30,8 +30,9 @@ sys_patch.py is what gets checked:
   flow:revert           reverting goes back to the last sealed snapshot of the
                         mounted volume and never seals a new one
   flow:secure-boot      patching and reverting never re-enable Apple Secure Boot,
-                        starting from Disabled and from a genuine non-T2 Mac
-                        (HardwareModel=x86legacyap, policy 0): HardwareModel and
+                        starting from every Secure-Boot-off NVRAM state (none,
+                        genuine non-T2 x86legacyap/0, OpenCore Disabled, T2 No
+                        Security j174ap/0): HardwareModel and
                         AppleSecureBootPolicy stay as they were, the real
                         check_secure_boot_level() still says off, no plist is
                         written with SecureBootModel != Disabled (x86legacy,
@@ -142,10 +143,17 @@ SECURE_BOOT_GUID = "94B73556-2197-4702-82A8-3E1337DAFBFB"
 # root patching runs there. Patching must not move either state towards
 # Secure Boot (HardwareModel=x86legacy/j-model with a non-zero policy).
 SECURE_BOOT_START_STATES = [
-    ("Secure Boot disabled", {}),
+    ("no Secure Boot variables", {}),
     # macOS reports HardwareModel with Apple's "ap" suffix (x86legacy -> x86legacyap)
     ("genuine non-T2 Mac (x86legacyap, policy 0)",
      {f"{SECURE_BOOT_GUID}:HardwareModel": b"x86legacyap\x00",
+      f"{SECURE_BOOT_GUID}:AppleSecureBootPolicy": b"\x00"}),
+    # OpenCore with SecureBootModel=Disabled writes the policy but no HardwareModel
+    ("OpenCore SecureBootModel=Disabled (policy 0 only)",
+     {f"{SECURE_BOOT_GUID}:AppleSecureBootPolicy": b"\x00"}),
+    # T2 firmware with Startup Security set to No Security
+    ("T2 firmware, No Security (j174ap, policy 0)",
+     {f"{SECURE_BOOT_GUID}:HardwareModel": b"j174ap\x00",
       f"{SECURE_BOOT_GUID}:AppleSecureBootPolicy": b"\x00"}),
 ]
 
