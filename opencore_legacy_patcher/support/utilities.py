@@ -311,7 +311,6 @@ def disable_cls():
 
 
 def cls():
-    global clear
     if not clear:
         return
     if check_cli_args() is None:
@@ -320,7 +319,7 @@ def cls():
             os.system("cls" if os.name == "nt" else "clear")
         else:
             logging.info("\u001Bc")
-
+            
 def get_nvram(variable: str, uuid: str = None, *, decode: bool = False):
     # TODO: Properly fix for El Capitan, which does not print the XML representation even though we say to
 
@@ -606,7 +605,7 @@ def get_admin_permission(action: str = "/usr/bin/whoami", args: list =None, reas
 
     * action: a str path to the progra being executed
     * args: a list of all the arguments to be sent to the program
-    * reason: the message that tells the user why they are seeing this format it like this: why you are seeing this (e.g "OpenCore-Patcher-T2 needs your administrative permission") and what will happen (e.g "to verify that you are an admin")
+    * reason: the message that tells the user why they are seeing this format it like this: why you are seeing this (e.g "OpenCore-Patcher-T2 needs your administrative permission") and what will [...]
     * confirm_button: the name of the OK button that is desplayed to the user if the default doesn't work
     * deny_button: the name of the Cancel button that is desplayed to the user if the default doesn't work
     """

@@ -39,6 +39,8 @@ on:
       - "requirements.txt"
       - ".github/scripts/check_secure_boot_model.py"
       - ".github/workflows/secure-boot-model-check.yml"
+      - ".github/workflows/check-auto-fix.yml"
+      - ".github/scripts/ai_check_fix.py"
   release:
     types: [published]
   schedule:
@@ -294,3 +296,28 @@ jobs:
             } else {
               await github.rest.issues.create({ owner, repo, title: TITLE, body });
             }
+
+  # On main: let a free GitHub Models model propose a fix for what the check
+  # found, verified by this check, the Python check and the root patching check, as one
+  # draft PR for review. See check-auto-fix.yml.
+  auto-fix:
+    needs: check
+    if: >-
+      always() && needs.check.result != 'skipped' && needs.check.result != 'cancelled' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: write
+      pull-requests: write
+      models: read
+    uses: ./.github/workflows/check-auto-fix.yml
+    with:
+      name: SecureBootModel check
+      script: .github/scripts/check_secure_boot_model.py
+      artifact: secure-boot-model-result
+      cross-name: root patching check
+      cross-script: .github/scripts/check_root_patching.py
+      allow: "opencore_legacy_patcher/ payloads/Config/"
+      context: "opencore_legacy_patcher/efi_builder/ opencore_legacy_patcher/support/utilities.py opencore_legacy_patcher/support/defaults.py opencore_legacy_patcher/sys_patch/patchsets/detect.py"
+      branch: auto-fix/secure-boot-model-check
+      deps: "requests packaging py_sip_xnu markdown markdown2"

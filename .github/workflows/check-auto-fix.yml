@@ -1,0 +1,433 @@
+name: Auto-fix check findings
+
+# Reusable workflow, called by secure-boot-model-check.yml and
+# root-patching-check.yml after their `check` job on main (push, weekly,
+# manual - never for PRs or releases). When the check found problems, a model
+# from GitHub Models proposes a fix, the checks verify it, and the result goes
+# into ONE draft PR per check for review. Nothing is ever pushed to main.
+#
+# GitHub Models is free: it authenticates with this workflow's own
+# GITHUB_TOKEN (`models: read`), no secret, no payment. The free tier is small
+# (about 8000 tokens in / 4000 out per request, ~50 requests a day for the
+# larger models), so .github/scripts/ai_check_fix.py makes two small requests
+# per kind of problem: pick the relevant functions, then propose edits.
+#
+#   fix job (read-only token)
+#     - The model only proposes exact search/replace edits under `allow` -
+#       never .github/, so the check can't be changed. Nothing is executed
+#       while the token is available.
+#     - Between rounds the check runs again in a separate step WITHOUT the
+#       token. A round is kept only if it fixes at least one problem, adds
+#       none, and adds nothing to the Python check or the other safety check.
+#       Otherwise it is rolled back and the result is fed back. Up to 3 rounds.
+#     - The check scripts are copied away before the first round and always
+#       run from that copy.
+#   publish job (write token, no model, runs nothing from the repo)
+#     - Takes the patch, refuses it if it touches anything outside `allow`,
+#       applies it to a fresh checkout and opens/updates a draft PR on `branch`.
+#     - Closes that PR once the check is clean on main.
+#
+# Skips the model when the open auto-fix PR was made for exactly the same set
+# of problems. Needs "Allow GitHub Actions to create and approve pull requests"
+# in Settings > Actions > General. Model: repo variable MODELS_MODEL, default
+# openai/gpt-4.1 (see github.com/marketplace/models).
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        description: Human-readable name of the check
+        type: string
+        required: true
+      script:
+        description: The check script, e.g. .github/scripts/check_root_patching.py
+        type: string
+        required: true
+      artifact:
+        description: Result artifact uploaded by the check job
+        type: string
+        required: true
+      cross-name:
+        description: Name of the other safety check (cross-check)
+        type: string
+        required: true
+      cross-script:
+        description: Script of the other safety check (cross-check)
+        type: string
+        required: true
+      allow:
+        description: Space-separated path prefixes the model may edit
+        type: string
+        required: true
+      context:
+        description: Space-separated paths where the relevant code lives (default - allow)
+        type: string
+        required: false
+        default: ""
+      branch:
+        description: Branch for the auto-fix PR
+        type: string
+        required: true
+      deps:
+        description: pip packages the check needs
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      pull-requests: read
+      models: read
+    outputs:
+      state: ${{ steps.final.outputs.state }}
+      fingerprint: ${{ steps.before.outputs.fingerprint }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: ${{ inputs.artifact }}
+          path: ${{ runner.temp }}/check
+
+      - name: What did the check find
+        id: before
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          r="$RUNNER_TEMP/check"
+          if [ -f "$r/skipped" ] || [ ! -f "$r/result.json" ]; then
+            echo "No usable check result - nothing to do"; echo "state=skip" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          python3 - <<'PY'
+          import hashlib, json, os
+          r = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "check", "result.json")))
+          new = r.get("new") or []
+          fp = hashlib.sha256(json.dumps(sorted([p.get("case"), p.get("subject"), p.get("message")] for p in new)).encode()).hexdigest()[:16]
+          state = "skip" if r.get("fatal") else ("problems" if new else "clean")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"state={state}\nfingerprint={fp}\ncount={len(new)}\n")
+          print(f"{state}: {len(new)} problem(s), fingerprint {fp}" + (f" (check couldn't run: {r['fatal']})" if r.get("fatal") else ""))
+          PY
+          state=$(grep '^state=' "$GITHUB_OUTPUT" | tail -n1 | cut -d= -f2)
+          fp=$(grep '^fingerprint=' "$GITHUB_OUTPUT" | tail -n1 | cut -d= -f2)
+          if [ "$state" = "problems" ]; then
+            body=$(gh pr list --head "$BRANCH" --state open --json body,author \
+                     --jq '[.[] | select(.author.login == "app/github-actions" or .author.login == "github-actions")][0].body // empty')
+            if printf '%s' "$body" | grep -qF "<!-- auto-fix-fingerprint:$fp -->"; then
+              echo "The open auto-fix PR already covers exactly these problems - not asking the model again"
+              echo "state=covered" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+          cp "$r/result.json" "$RUNNER_TEMP/best.json"
+
+      - uses: actions/setup-python@v5
+        if: steps.before.outputs.state == 'problems'
+        with:
+          python-version: "3.12"
+
+      - name: Prepare
+        if: steps.before.outputs.state == 'problems'
+        env:
+          DEPS: ${{ inputs.deps }}
+          SCRIPT: ${{ inputs.script }}
+          CROSS: ${{ inputs.cross-script }}
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check $DEPS pyflakes==4.0.1
+          # Trusted copy of the checks and the fixer - every later step uses these
+          mkdir -p "$RUNNER_TEMP/scripts"
+          cp "$SCRIPT" "$CROSS" .github/scripts/check_python.py .github/scripts/ai_check_fix.py "$RUNNER_TEMP/scripts/"
+          git config user.name "auto-fix"; git config user.email "auto-fix@localhost"
+          git config core.hooksPath /dev/null
+          echo "$(git rev-parse HEAD)" > "$RUNNER_TEMP/base_sha"
+          s="$RUNNER_TEMP/scripts"
+          python3 "$s/check_python.py" --root . --json "$RUNNER_TEMP/py_before.json" > /dev/null || true
+          python3 "$s/$(basename "$CROSS")" --root . --json "$RUNNER_TEMP/cross_before.json" > /dev/null || true
+          : > "$RUNNER_TEMP/notes.md"
+
+      # ---- Round 1 ---------------------------------------------------------
+      - name: "Round 1: propose a fix"
+        if: steps.before.outputs.state == 'problems'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MODELS_MODEL: ${{ vars.MODELS_MODEL }}
+          CONTEXT: ${{ inputs.context }}
+          NAME: ${{ inputs.name }}
+          SCRIPT: ${{ inputs.script }}
+          ALLOW: ${{ inputs.allow }}
+          ACCEPTED: ""
+        run: |
+          allow=(); for a in $ALLOW; do allow+=(--allow "$a"); done
+          for c in $CONTEXT; do allow+=(--context "$c"); done
+          fb=(); [ "$ACCEPTED" = "false" ] && [ -f "$RUNNER_TEMP/feedback.json" ] && fb=(--feedback "$RUNNER_TEMP/feedback.json")
+          python3 "$RUNNER_TEMP/scripts/ai_check_fix.py" agent --check "$NAME" --script "$SCRIPT" \
+            --best "$RUNNER_TEMP/best.json" "${allow[@]}" "${fb[@]}" --notes "$RUNNER_TEMP/round_notes.md"
+
+      - name: "Round 1: verify"
+        id: r1
+        if: steps.before.outputs.state == 'problems'
+        env:
+          SCRIPT: ${{ inputs.script }}
+          CROSS: ${{ inputs.cross-script }}
+          CROSS_NAME: ${{ inputs.cross-name }}
+        run: |
+          set +e
+          # Only tracked files count - the checks themselves unpack payloads into the tree
+          if git diff --quiet; then echo "No edits"; echo "accepted=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          s="$RUNNER_TEMP/scripts"
+          python3 "$s/$(basename "$SCRIPT")" --root . --json "$RUNNER_TEMP/after.json" --summary "$RUNNER_TEMP/after.md" > "$RUNNER_TEMP/after.log" 2>&1
+          python3 "$s/check_python.py" --root . --json "$RUNNER_TEMP/py_after.json" > /dev/null
+          python3 "$s/$(basename "$CROSS")" --root . --json "$RUNNER_TEMP/cross_after.json" > /dev/null 2>&1
+          python3 "$s/ai_check_fix.py" compare --best "$RUNNER_TEMP/best.json" --after "$RUNNER_TEMP/after.json" \
+            --cross "Python check" "$RUNNER_TEMP/py_before.json" "$RUNNER_TEMP/py_after.json" \
+            --cross "$CROSS_NAME" "$RUNNER_TEMP/cross_before.json" "$RUNNER_TEMP/cross_after.json" \
+            --out "$RUNNER_TEMP/feedback.json"
+          if [ $? -eq 0 ]; then
+            git add -u && git commit -qm "auto-fix round" && cp "$RUNNER_TEMP/after.json" "$RUNNER_TEMP/best.json"
+            [ -f "$RUNNER_TEMP/round_notes.md" ] && cat "$RUNNER_TEMP/round_notes.md" >> "$RUNNER_TEMP/notes.md"
+            echo "accepted=true" >> "$GITHUB_OUTPUT"
+          else
+            git diff | head -n 300
+            git reset -q --hard
+            echo "accepted=false" >> "$GITHUB_OUTPUT"
+          fi
+          rm -f "$RUNNER_TEMP/round_notes.md"   # notes of a rolled-back round don't belong in the PR
+          remaining=$(python3 -c "import json;print(len(json.load(open('$RUNNER_TEMP/best.json')).get('new') or []))")
+          echo "remaining=$remaining" >> "$GITHUB_OUTPUT"
+
+      # ---- Round 2 ---------------------------------------------------------
+      - name: "Round 2: propose a fix"
+        if: steps.before.outputs.state == 'problems' && steps.r1.outputs.remaining != '0'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MODELS_MODEL: ${{ vars.MODELS_MODEL }}
+          CONTEXT: ${{ inputs.context }}
+          NAME: ${{ inputs.name }}
+          SCRIPT: ${{ inputs.script }}
+          ALLOW: ${{ inputs.allow }}
+          ACCEPTED: ${{ steps.r1.outputs.accepted }}
+        run: |
+          allow=(); for a in $ALLOW; do allow+=(--allow "$a"); done
+          for c in $CONTEXT; do allow+=(--context "$c"); done
+          fb=(); [ "$ACCEPTED" = "false" ] && [ -f "$RUNNER_TEMP/feedback.json" ] && fb=(--feedback "$RUNNER_TEMP/feedback.json")
+          python3 "$RUNNER_TEMP/scripts/ai_check_fix.py" agent --check "$NAME" --script "$SCRIPT" \
+            --best "$RUNNER_TEMP/best.json" "${allow[@]}" "${fb[@]}" --notes "$RUNNER_TEMP/round_notes.md"
+
+      - name: "Round 2: verify"
+        id: r2
+        if: steps.before.outputs.state == 'problems' && steps.r1.outputs.remaining != '0'
+        env:
+          SCRIPT: ${{ inputs.script }}
+          CROSS: ${{ inputs.cross-script }}
+          CROSS_NAME: ${{ inputs.cross-name }}
+        run: |
+          set +e
+          # Only tracked files count - the checks themselves unpack payloads into the tree
+          if git diff --quiet; then echo "No edits"; echo "accepted=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          s="$RUNNER_TEMP/scripts"
+          python3 "$s/$(basename "$SCRIPT")" --root . --json "$RUNNER_TEMP/after.json" --summary "$RUNNER_TEMP/after.md" > "$RUNNER_TEMP/after.log" 2>&1
+          python3 "$s/check_python.py" --root . --json "$RUNNER_TEMP/py_after.json" > /dev/null
+          python3 "$s/$(basename "$CROSS")" --root . --json "$RUNNER_TEMP/cross_after.json" > /dev/null 2>&1
+          python3 "$s/ai_check_fix.py" compare --best "$RUNNER_TEMP/best.json" --after "$RUNNER_TEMP/after.json" \
+            --cross "Python check" "$RUNNER_TEMP/py_before.json" "$RUNNER_TEMP/py_after.json" \
+            --cross "$CROSS_NAME" "$RUNNER_TEMP/cross_before.json" "$RUNNER_TEMP/cross_after.json" \
+            --out "$RUNNER_TEMP/feedback.json"
+          if [ $? -eq 0 ]; then
+            git add -u && git commit -qm "auto-fix round" && cp "$RUNNER_TEMP/after.json" "$RUNNER_TEMP/best.json"
+            [ -f "$RUNNER_TEMP/round_notes.md" ] && cat "$RUNNER_TEMP/round_notes.md" >> "$RUNNER_TEMP/notes.md"
+            echo "accepted=true" >> "$GITHUB_OUTPUT"
+          else
+            git diff | head -n 300
+            git reset -q --hard
+            echo "accepted=false" >> "$GITHUB_OUTPUT"
+          fi
+          rm -f "$RUNNER_TEMP/round_notes.md"   # notes of a rolled-back round don't belong in the PR
+          remaining=$(python3 -c "import json;print(len(json.load(open('$RUNNER_TEMP/best.json')).get('new') or []))")
+          echo "remaining=$remaining" >> "$GITHUB_OUTPUT"
+
+      # ---- Round 3 ---------------------------------------------------------
+      - name: "Round 3: propose a fix"
+        if: steps.before.outputs.state == 'problems' && steps.r1.outputs.remaining != '0' && steps.r2.outputs.remaining != '0'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MODELS_MODEL: ${{ vars.MODELS_MODEL }}
+          CONTEXT: ${{ inputs.context }}
+          NAME: ${{ inputs.name }}
+          SCRIPT: ${{ inputs.script }}
+          ALLOW: ${{ inputs.allow }}
+          ACCEPTED: ${{ steps.r2.outputs.accepted }}
+        run: |
+          allow=(); for a in $ALLOW; do allow+=(--allow "$a"); done
+          for c in $CONTEXT; do allow+=(--context "$c"); done
+          fb=(); [ "$ACCEPTED" = "false" ] && [ -f "$RUNNER_TEMP/feedback.json" ] && fb=(--feedback "$RUNNER_TEMP/feedback.json")
+          python3 "$RUNNER_TEMP/scripts/ai_check_fix.py" agent --check "$NAME" --script "$SCRIPT" \
+            --best "$RUNNER_TEMP/best.json" "${allow[@]}" "${fb[@]}" --notes "$RUNNER_TEMP/round_notes.md"
+
+      - name: "Round 3: verify"
+        id: r3
+        if: steps.before.outputs.state == 'problems' && steps.r1.outputs.remaining != '0' && steps.r2.outputs.remaining != '0'
+        env:
+          SCRIPT: ${{ inputs.script }}
+          CROSS: ${{ inputs.cross-script }}
+          CROSS_NAME: ${{ inputs.cross-name }}
+        run: |
+          set +e
+          # Only tracked files count - the checks themselves unpack payloads into the tree
+          if git diff --quiet; then echo "No edits"; echo "accepted=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          s="$RUNNER_TEMP/scripts"
+          python3 "$s/$(basename "$SCRIPT")" --root . --json "$RUNNER_TEMP/after.json" --summary "$RUNNER_TEMP/after.md" > "$RUNNER_TEMP/after.log" 2>&1
+          python3 "$s/check_python.py" --root . --json "$RUNNER_TEMP/py_after.json" > /dev/null
+          python3 "$s/$(basename "$CROSS")" --root . --json "$RUNNER_TEMP/cross_after.json" > /dev/null 2>&1
+          python3 "$s/ai_check_fix.py" compare --best "$RUNNER_TEMP/best.json" --after "$RUNNER_TEMP/after.json" \
+            --cross "Python check" "$RUNNER_TEMP/py_before.json" "$RUNNER_TEMP/py_after.json" \
+            --cross "$CROSS_NAME" "$RUNNER_TEMP/cross_before.json" "$RUNNER_TEMP/cross_after.json" \
+            --out "$RUNNER_TEMP/feedback.json"
+          if [ $? -eq 0 ]; then
+            git add -u && git commit -qm "auto-fix round" && cp "$RUNNER_TEMP/after.json" "$RUNNER_TEMP/best.json"
+            [ -f "$RUNNER_TEMP/round_notes.md" ] && cat "$RUNNER_TEMP/round_notes.md" >> "$RUNNER_TEMP/notes.md"
+            echo "accepted=true" >> "$GITHUB_OUTPUT"
+          else
+            git diff | head -n 300
+            git reset -q --hard
+            echo "accepted=false" >> "$GITHUB_OUTPUT"
+          fi
+          rm -f "$RUNNER_TEMP/round_notes.md"   # notes of a rolled-back round don't belong in the PR
+          remaining=$(python3 -c "import json;print(len(json.load(open('$RUNNER_TEMP/best.json')).get('new') or []))")
+          echo "remaining=$remaining" >> "$GITHUB_OUTPUT"
+
+      - name: Package the fix
+        id: final
+        if: always()
+        env:
+          BEFORE_STATE: ${{ steps.before.outputs.state }}
+        run: |
+          out="$RUNNER_TEMP/fix"; mkdir -p "$out"
+          state="$BEFORE_STATE"
+          if [ "$state" = "problems" ]; then
+            base=$(cat "$RUNNER_TEMP/base_sha")
+            git diff --binary "$base" HEAD > "$out/fix.patch"
+            if [ -s "$out/fix.patch" ]; then
+              state=patch
+              cp "$RUNNER_TEMP/best.json" "$out/after.json"
+              cp "$RUNNER_TEMP/check/result.json" "$out/before.json"
+              cp "$RUNNER_TEMP/notes.md" "$out/notes.md"
+              git diff --stat "$base" HEAD
+            else
+              echo "No fix that passes the checks was found"
+              state=nofix
+            fi
+          fi
+          echo "state=${state:-skip}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.final.outputs.state == 'patch'
+        with:
+          name: ${{ inputs.artifact }}-fix
+          path: ${{ runner.temp }}/fix/
+          retention-days: 1
+
+  publish:
+    needs: fix
+    if: needs.fix.outputs.state == 'patch' || needs.fix.outputs.state == 'clean'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        if: needs.fix.outputs.state == 'patch'
+        with:
+          name: ${{ inputs.artifact }}-fix
+          path: ${{ runner.temp }}/fix
+
+      - name: Open or update the auto-fix PR
+        if: needs.fix.outputs.state == 'patch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ inputs.branch }}
+          ALLOW: ${{ inputs.allow }}
+          NAME: ${{ inputs.name }}
+          FINGERPRINT: ${{ needs.fix.outputs.fingerprint }}
+          MODEL: ${{ vars.MODELS_MODEL || 'openai/gpt-4.1' }}
+          BASE: ${{ github.event.repository.default_branch }}
+        run: |
+          git config core.hooksPath /dev/null
+          p="$RUNNER_TEMP/fix/fix.patch"
+
+          # Only files under ALLOW, no renames/mode changes/symlinks/binaries
+          bad=$(git apply --numstat "$p" | awk '{print $3}' | while read -r f; do
+                  ok=0; for a in $ALLOW; do case "$f" in "$a"*) ok=1;; esac; done
+                  [ $ok -eq 1 ] || echo "$f"; done)
+          if [ -n "$bad" ] || grep -qE '^(rename|copy) (from|to) |^(old|new) mode |^new file mode 120|^GIT binary patch' "$p"; then
+            echo "::error::The patch touches files it may not touch - refusing: $bad"; exit 1
+          fi
+          git apply --index "$p"
+
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Auto-fix: $NAME findings" \
+            -m "Proposed by $MODEL (GitHub Models), verified with the $NAME and the other CI checks. Generated from ${GITHUB_SHA::7}. Needs human review."
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/$BRANCH"
+
+          python3 - <<'PY' > "$RUNNER_TEMP/body.md"
+          import json, os
+          d = os.path.join(os.environ["RUNNER_TEMP"], "fix")
+          load = lambda n: json.load(open(os.path.join(d, n)))
+          before, after = load("before.json"), load("after.json")
+          k = lambda p: (p.get("case"), p.get("subject"), p.get("message"))
+          left = {k(p) for p in after.get("new") or []}
+          fixed = [p for p in before.get("new") or [] if k(p) not in left]
+          esc = lambda s: str(s).replace("|", "\\|").replace("<", "&lt;").replace(">", "&gt;").replace("@", "@\u200b").replace("\n", " ")[:400]
+          rows = lambda ps: "| Case | Where | Problem |\n|---|---|---|\n" + "\n".join(f"| `{esc(p.get('case'))}` | `{esc(p.get('subject'))}` | {esc(p.get('message'))} |" for p in ps[:60])
+          notes = open(os.path.join(d, "notes.md")).read().strip()
+          sha, run = os.environ["GITHUB_SHA"][:7], f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+          name, base = os.environ["NAME"], os.environ["BASE"]
+          print(f"<!-- auto-fix-fingerprint:{os.environ['FINGERPRINT']} -->")
+          print(f"> [!WARNING]\n> **Automatic fix proposed by an AI model ({os.environ['MODEL']}, GitHub Models) - review it like any other PR before merging.** "
+                f"This code decides whether Macs still boot after root patching. Passing the simulator is necessary, not sufficient: "
+                f"test on real hardware.\n")
+          print(f"Fixes for problems the **{name}** found on `{base}` (at {sha}, [run]({run})).\n")
+          print(f"**{len(fixed)} of {len(before.get('new') or [])} problem(s) fixed**, {len(left)} left. "
+                f"After the edits the check, the Python check and the other safety check were run again: no new problems.\n")
+          if fixed: print(f"<details><summary>Fixed</summary>\n\n{rows(fixed)}\n</details>\n")
+          if left: print(f"<details><summary>Still open (need a human)</summary>\n\n{rows(sorted(after.get('new') or [], key=k))}\n</details>\n")
+          print("### Model notes\n\n" + notes[:20000].replace("@", "@\u200b").replace("<", "&lt;") + "\n")
+          print(f"This PR is updated when the problems on `{base}` change and closed automatically once the check is clean.\n")
+          print(f"<details><summary>Deutsch</summary>\n\nAutomatisch von einem KI-Modell (GitHub Models) vorgeschlagene Korrekturen für Probleme, die der **{name}** auf `{base}` (bei {sha}) gefunden hat: "
+                f"{len(fixed)} von {len(before.get('new') or [])} behoben, {len(left)} offen. Danach wurden dieser Check, der Python-Check und der andere Sicherheits-Check erneut ausgeführt - keine neuen Probleme. "
+                f"**Bitte wie jeden anderen PR prüfen und auf echter Hardware testen** - dieser Code entscheidet, ob Macs nach dem Root Patching noch starten. "
+                f"Der PR wird aktualisiert, wenn sich die Probleme auf `{base}` ändern, und automatisch geschlossen, sobald der Check sauber ist.\n</details>")
+          PY
+
+          pr=$(gh pr list --head "$BRANCH" --base "$BASE" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr create --head "$BRANCH" --base "$BASE" --draft \
+              --title "Auto-fix: $NAME findings" --body-file "$RUNNER_TEMP/body.md"
+          fi
+
+      - name: Close the auto-fix PR once the check is clean
+        if: needs.fix.outputs.state == 'clean'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ inputs.branch }}
+          BASE: ${{ github.event.repository.default_branch }}
+        run: |
+          pr=$(gh pr list --head "$BRANCH" --base "$BASE" --state open --json number,author \
+                 --jq '[.[] | select(.author.login == "app/github-actions" or .author.login == "github-actions")][0].number // empty')
+          [ -z "$pr" ] && exit 0
+          gh pr close "$pr" --delete-branch \
+            --comment "✅ The check is clean on \`$BASE\` as of ${GITHUB_SHA::7}. Closing. / Der Check ist auf \`$BASE\` bei ${GITHUB_SHA::7} sauber. Wird geschlossen."

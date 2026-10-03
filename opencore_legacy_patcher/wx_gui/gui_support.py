@@ -658,7 +658,7 @@ class PayloadMount:
         # Raise error to end program
         popup = wx.MessageDialog(
             self.frame,
-            f"During unpacking of our internal files, we seemed to have encountered an error.\n\nIf you keep seeing this error, please try rebooting and redownloading the application.",
+            "During unpacking of our internal files, we seemed to have encountered an error.\n\nIf you keep seeing this error, please try rebooting and redownloading the application.",
             "Internal Error occurred!",
             style=wx.OK | wx.ICON_EXCLAMATION
         )

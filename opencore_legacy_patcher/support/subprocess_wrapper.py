@@ -837,12 +837,12 @@ def generate_log(process: subprocess.CompletedProcess) -> str:
     _returned_error = __resolve_privileged_helper_errors(process.returncode)
     if _returned_error:
         output += f"        Likely Enum: {_returned_error}\n"
-    output += f"    Standard Output:\n"
+    output += "    Standard Output:\n"
     if process.stdout:
         output += __format_output(__to_text(process.stdout))
     else:
         output += "        None\n"
-    output += f"    Standard Error:\n"
+    output += "    Standard Error:\n"
     if process.stderr:
         output += __format_output(__to_text(process.stderr))
     else:

@@ -247,3 +247,177 @@ jobs:
       - name: Fail if main has errors
         if: steps.check.outputs.rc != '0'
         run: exit 1
+
+  # Opens (or updates) one PR with fixes for whatever can be fixed safely on
+  # main. Never runs for PRs, so it only ever touches trusted main code.
+  #   - Warnings with a mechanical, behaviour-preserving fix are fixed by ruff:
+  #       F541  f-string without placeholders  -> plain string
+  #       F632  `is` / `is not` with a literal -> `==` / `!=`
+  #       W605  invalid escape sequence        -> raw string / escaped backslash
+  #   - Syntax errors (SyntaxError, IndentationError, TabError) are repaired by
+  #     .github/scripts/ai_syntax_fix.py with Claude, if the ANTHROPIC_API_KEY
+  #     secret is set (small search/replace edits only, re-checked, rolled back
+  #     if the file still doesn't parse).
+  # Everything else (NameError, ImportError, ...) needs a human and stays in
+  # the tracking issue above.
+  #
+  # Before anything is pushed, the whole project is checked again; if the fixes
+  # would add a single new error, nothing is pushed. The result always goes into
+  # a PR on the branch auto-fix/python-check for review - never straight to main.
+  # When main no longer needs any fixes, an open auto-fix PR is closed.
+  #
+  # Needs "Allow GitHub Actions to create and approve pull requests" in
+  # Settings > Actions > General. PRs opened with GITHUB_TOKEN don't trigger
+  # other workflows, so the checks don't run on the auto-fix PR itself - the
+  # fixes are verified here instead.
+  auto-fix:
+    if: github.event_name != 'pull_request_target'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      FIX_BRANCH: auto-fix/python-check
+      RUFF_RULES: F541,F632,W605
+    steps:
+      # Credentials are kept so the fix branch can be pushed. Safe here: this job
+      # only runs on main/schedule/dispatch, and nothing from the repo is executed
+      # except the check scripts that live on main.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install tools
+        run: python3 -m pip install --quiet --disable-pip-version-check pyflakes==4.0.1 ruff==0.16.10
+
+      - name: Check before fixing
+        run: |
+          set +e
+          python3 .github/scripts/check_python.py --root . --warnings --json "$RUNNER_TEMP/before.json"
+          exit 0
+
+      - name: Fix warnings with ruff
+        run: |
+          # .command files are only Python when their shebang says so (same rule as check_python.py)
+          commands=()
+          while IFS= read -r f; do
+            head -n 1 "$f" | grep -qE '^#!.*\bpython' && commands+=("$f")
+          done < <(git ls-files '*.command')
+          ruff check --select "$RUFF_RULES" --fix --exit-zero --output-format concise . "${commands[@]}" \
+            | tee "$RUNNER_TEMP/ruff.txt"
+
+      - name: Repair syntax errors with Claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_MODEL: claude-sonnet-5-5
+        run: |
+          python3 - <<'PY'
+          import json, os
+          tmp = os.environ["RUNNER_TEMP"]
+          try:
+              problems = json.load(open(f"{tmp}/before.json"))
+          except (OSError, ValueError):
+              problems = []
+          kinds = ("SyntaxError:", "IndentationError:", "TabError:")
+          with open(f"{tmp}/failures.jsonl", "w") as fh:
+              for p in problems:
+                  if p["severity"] == "error" and p["message"].startswith(kinds):
+                      fh.write(json.dumps({"file": p["file"], "kind": "python",
+                                           "error": f"line {p['line']}: {p['message']}"}) + "\n")
+          PY
+          python3 .github/scripts/ai_syntax_fix.py "$RUNNER_TEMP/failures.jsonl" "$RUNNER_TEMP/ai.md"
+
+      - name: Verify the fixes
+        id: verify
+        run: |
+          set +e
+          python3 .github/scripts/check_python.py --root . --warnings --json "$RUNNER_TEMP/after.json"
+          python3 - <<'PY'
+          import json, os, sys
+          tmp = os.environ["RUNNER_TEMP"]
+          def load(name):
+              try:
+                  return json.load(open(f"{tmp}/{name}"))
+              except (OSError, ValueError):
+                  return []
+          key = lambda p: (p["file"], p["message"])
+          before, after = load("before.json"), load("after.json")
+          old = {key(p) for p in before if p["severity"] == "error"}
+          new = [p for p in after if p["severity"] == "error" and key(p) not in old]
+          fixed = len(before) - len(after)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"fixed={fixed}\nnew_errors={len(new)}\n")
+          for p in new:
+              print(f"::error file={p['file']},line={p['line']}::Auto-fix introduced: {p['message']}")
+          PY
+          if [ -n "$(git status --porcelain)" ]; then echo "changed=true" >> "$GITHUB_OUTPUT"; else echo "changed=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Refuse to push fixes that add errors
+        if: steps.verify.outputs.new_errors != '0'
+        run: |
+          echo "::error::The automatic fixes would introduce new errors - nothing was pushed."
+          git diff
+          exit 1
+
+      - name: Open or update the auto-fix PR
+        if: steps.verify.outputs.changed == 'true' && steps.verify.outputs.new_errors == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.repository.default_branch }}
+          FIXED: ${{ steps.verify.outputs.fixed }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$FIX_BRANCH"
+          git commit -aq -m "Fix Python check findings automatically" \
+            -m "Mechanical fixes by ruff ($RUFF_RULES) and/or syntax repairs by Claude, verified with .github/scripts/check_python.py. Generated by the python-check workflow from ${GITHUB_SHA::7}."
+          git push --force origin "$FIX_BRANCH"
+
+          short=${GITHUB_SHA::7}
+          run="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          {
+            echo "<!-- python-check-auto-fix -->"
+            echo "Automatic fixes for problems the Python check found on \`$BASE\` (at $short, [run]($run))."
+            echo
+            echo "**$FIXED problem(s) fixed.** The whole project was re-checked after fixing; no new errors."
+            echo
+            echo "<details><summary>ruff ($RUFF_RULES)</summary>"
+            echo
+            echo '```'
+            grep -v '^$' "$RUNNER_TEMP/ruff.txt" | head -n 200 || true
+            echo '```'
+            echo "</details>"
+            echo
+            [ -f "$RUNNER_TEMP/ai.md" ] && cat "$RUNNER_TEMP/ai.md" && echo
+            echo "Please review before merging - the fixes are automatic. This PR is updated on every push to \`$BASE\` and closed automatically once nothing is left to fix."
+            echo
+            echo "<details><summary>Deutsch</summary>"
+            echo
+            echo "Automatische Korrekturen für Probleme, die der Python-Check auf \`$BASE\` (bei $short) gefunden hat: $FIXED Problem(e) behoben, danach das gesamte Projekt erneut geprüft - keine neuen Fehler. Bitte vor dem Mergen prüfen. Der PR wird bei jedem Push auf \`$BASE\` aktualisiert und automatisch geschlossen, sobald nichts mehr zu beheben ist."
+            echo "</details>"
+          } > "$RUNNER_TEMP/body.md"
+
+          pr=$(gh pr list --head "$FIX_BRANCH" --base "$BASE" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr create --head "$FIX_BRANCH" --base "$BASE" \
+              --title "Python check: automatic fixes" --body-file "$RUNNER_TEMP/body.md"
+          fi
+
+      - name: Close the auto-fix PR when nothing is left to fix
+        if: steps.verify.outputs.changed == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.repository.default_branch }}
+        run: |
+          pr=$(gh pr list --head "$FIX_BRANCH" --base "$BASE" --state open --json number,author \
+                 --jq '[.[] | select(.author.login == "app/github-actions" or .author.login == "github-actions")][0].number // empty')
+          [ -z "$pr" ] && exit 0
+          gh pr close "$pr" --delete-branch \
+            --comment "✅ Nothing left to fix on \`$BASE\` as of ${GITHUB_SHA::7}. Closing. / Auf \`$BASE\` ist bei ${GITHUB_SHA::7} nichts mehr zu beheben. Wird geschlossen."

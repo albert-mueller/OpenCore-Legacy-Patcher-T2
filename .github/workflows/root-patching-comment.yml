@@ -109,7 +109,7 @@ jobs:
                 knownSection + errorSection;
             } else if (fatal) {
               body = `${MARKER}\n### ⚠️ The root patching check could not run\n\n` +
-                `The check couldn't run the patcher code from this PR (at ${short}), so it can't tell whether root patching is still safe:\n\n` +
+                `@Medelcartelinc @gandolf243 The check couldn't run the patcher code from this PR (at ${short}), so it can't tell whether root patching is still safe:\n\n` +
                 `> ${esc(fatal)}\n\n` +
                 `This usually means the PR breaks \`sys_patch\` or an import it needs. See the [workflow run](${run.html_url}) for the log. ` +
                 `This comment updates automatically on every push.\n\n` +
@@ -119,7 +119,7 @@ jobs:
                 knownSection + errorSection;
             } else {
               body = `${MARKER}\n### 🛑 This PR can make root patching leave an unbootable Mac\n\n` +
-                `With this PR (at ${short}), the simulated root patching run ends in a state that can keep macOS from booting:\n\n${rows(problems)}\n\n` +
+                `@Medelcartelinc @gandolf243 With this PR (at ${short}), the simulated root patching run ends in a state that can keep macOS from booting:\n\n${rows(problems)}\n\n` +
                 `**Why this is critical:** root patching seals a new APFS snapshot that becomes the boot target. Everything that goes wrong *before* ` +
                 `\`bless --create-snapshot\` must abort the run, so the booted snapshot stays untouched. A seal after a failed \`kmutil\`, KDK merge or copy, ` +
                 `writes to the live root instead of \`/System/Volumes/Update/mnt1\`, or a patchset that removes boot-critical files leave a Mac that ` +
