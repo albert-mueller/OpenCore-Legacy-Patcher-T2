@@ -1014,7 +1014,7 @@ class Constants:
         "j215ap",  #  MacBookPro16,4
         "j185ap",  #  iMac20,1
         "j185fap",  # iMac20,2
-        # "x86legacy",  # non-T2 Macs/VMs, Monterey's boot.efi enforces this on all Macs
+        "x86legacy",  # non-T2 Macs/VMs, Monterey's boot.efi enforces this on all Macs
     ]
 
     sandy_board_id_stock = [
