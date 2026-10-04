@@ -1,0 +1,134 @@
+name: License Guard
+
+on:
+  # pull_request_target so it can comment on PRs from forks too.
+  # SAFE: only base-branch code is checked out and executed; the PR is only diffed.
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "upstream = full audit of the fork vs. the Dortania parent repo, last-commit = HEAD~1..HEAD"
+        type: choice
+        options: [upstream, last-commit]
+        default: upstream
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: license-guard-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  UPSTREAM_HOLDER: Dortania
+
+jobs:
+  license-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (trusted base code)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Determine diff range
+        id: range
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          MODE: ${{ inputs.mode }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          case "$EVENT" in
+            pull_request_target)
+              git fetch --no-tags origin "+refs/pull/${PR_NUMBER}/head:refs/remotes/origin/pr-head"
+              echo "range=${BASE_SHA}...origin/pr-head" >> "$GITHUB_OUTPUT" ;;
+            push)
+              if [[ "$BEFORE" =~ ^0+$ ]] || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+                BEFORE="${AFTER}~1"
+              fi
+              echo "range=${BEFORE}..${AFTER}" >> "$GITHUB_OUTPUT" ;;
+            workflow_dispatch)
+              if [ "$MODE" = "upstream" ]; then
+                PARENT=$(gh api "repos/$REPO" --jq '.parent.full_name // empty')
+                if [ -z "$PARENT" ]; then
+                  echo "::error::$REPO is not a fork, can't audit against upstream"; exit 1
+                fi
+                BRANCH=$(gh api "repos/$PARENT" --jq .default_branch)
+                git fetch --no-tags "https://github.com/$PARENT.git" "+refs/heads/$BRANCH:refs/remotes/upstream/$BRANCH"
+                echo "range=upstream/${BRANCH}...${AFTER}" >> "$GITHUB_OUTPUT"
+              else
+                echo "range=${AFTER}~1..${AFTER}" >> "$GITHUB_OUTPUT"
+              fi ;;
+          esac
+
+      - name: Scan diff
+        id: scan
+        env:
+          RANGE: ${{ steps.range.outputs.range }}
+        run: python3 .github/scripts/license_guard.py "$RANGE"
+
+      - name: Comment on PR / open issue
+        if: steps.scan.outcome == 'success'
+        uses: actions/github-script@v7
+        env:
+          VIOLATIONS: ${{ steps.scan.outputs.violations }}
+          WARNINGS: ${{ steps.scan.outputs.warnings }}
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- license-guard -->';
+            const { owner, repo } = context.repo;
+            const violations = Number(process.env.VIOLATIONS || 0);
+            const warnings = Number(process.env.WARNINGS || 0);
+            let body = fs.readFileSync('license-report.md', 'utf8');
+            if (body.length > 60000) body = body.slice(0, 60000) + '\n\n…truncated, see the workflow log.';
+            body += `\n\n<sub>[Workflow run](${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId})</sub>`;
+
+            // PR: one sticky comment, updated on every push (and flipped to ✅ once fixed)
+            if (context.eventName === 'pull_request_target') {
+              const issue_number = context.payload.pull_request.number;
+              const comments = await github.paginate(github.rest.issues.listComments,
+                { owner, repo, issue_number, per_page: 100 });
+              const existing = comments.find(c => c.user?.type === 'Bot' && c.body?.includes(marker));
+              if (existing) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+              } else if (violations + warnings > 0) {
+                await github.rest.issues.createComment({ owner, repo, issue_number, body });
+              }
+              return;
+            }
+
+            // Push / manual audit: open an issue (or comment on the open one)
+            if (violations === 0) return;
+            const label = 'license-guard';
+            try {
+              await github.rest.issues.createLabel({ owner, repo, name: label, color: 'b60205',
+                description: 'Possible upstream license violation' });
+            } catch (e) { if (e.status !== 422) throw e; }
+            const open = await github.paginate(github.rest.issues.listForRepo,
+              { owner, repo, state: 'open', labels: label, per_page: 100 });
+            const issue = open.find(i => !i.pull_request);
+            if (issue) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body });
+            } else {
+              await github.rest.issues.create({ owner, repo, body, labels: [label],
+                title: `License Guard: possible ${process.env.UPSTREAM_HOLDER} license violation (${context.sha.slice(0, 7)})` });
+            }
+
+      - name: Fail on violations
+        if: steps.scan.outputs.violations != '0'
+        run: |
+          echo "::error::License Guard found license violation(s) – see the PR comment / issue."
+          exit 1
