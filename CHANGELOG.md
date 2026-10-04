@@ -1,4 +1,13 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.190008.3 - 4.0.0 alpha 19.8.3
+This release:
+- T1 Macs (MacBookPro13,2, MacBookPro13,3, MacBookPro14,2, MacBookPro14,3): restores Touch ID on macOS 26 Tahoe by porting Dortania's Tahoe T1 support (dortania/OpenCore-Legacy-Patcher@9809024), thx @Jazzzny and Dortania
+  - bundles AppleKeyStore-Tahoe.kext (v1.2.0), loaded on Darwin 25+ (MinKernel 25.0.0). The Ventura AppleKeyStore.kext is now capped at MaxKernel 24.99.99, so both kexts can no longer load at the same time
+  - T1 root patches on Tahoe: adds `seld` and `LocalAuthenticationCore.framework` (26.0-25G229) and switches NearField.framework to the dedicated 14.7.2-25 payload. The legacy `SharedUtils.framework` overlay is no longer installed on Tahoe, as it crashed SecurityAgent/WindowServer (black screen at login, flashing Touch Bar). Requires PatcherSupportPkg 2.0.5 or newer
+- fixes a bug where T1 Security Chip kexts were skipped on every macOS version unless the TEST-A build profile was selected. The Tahoe check also used the OS currently running on the host instead of the target OS. T1 kexts are now injected again on all supported versions; OpenCore picks the matching AppleKeyStore via MinKernel/MaxKernel
+
+**Note:** T1 Touch ID on Tahoe is not yet verified on our hardware. If you get a black screen or a flashing Touch Bar at login, please revert root patches and open an issue with your logs.
+
 ## 4.0.0.190008 - 4.0.0 alpha 19.8
 **WARNING:** This release includes critical fixes to mitigate root patching issues where the root patcher may leave the Mac in a half patched state, causing kernel panics! If you have 4.0.0.190007 or newer, then this update should be installed as soon as possible. 4.0.0.190007, 4.0.0.190007.1 and 4.0.0.190007.2 are more horrible than Windows Vista - on anything non-T2 it was basically a brick.
 This release:

@@ -15,7 +15,7 @@ class Constants:
     def __init__(self) -> None:
         # Patcher Versioning
         # Wenn eine Version mit s endet, es heißt, dass sie noch nicht fertig ist.
-        self.patcher_version:                 str = "4.0.0.190008.2"
+        self.patcher_version:                 str = "4.0.0.190008.3"
         self.patcher_version_label=self.patcher_version
         self.patcher_support_pkg_version:     str = "2.0.5"  # PatcherSupportPkg
         self.copyright_date:                  str = "Copyright © 2020-2026 Dortania · T2 fork © 2026 Albert Müller"
@@ -104,6 +104,7 @@ class Constants:
         self.apple_camera_version:  str = "1.0.0"  #  AppleCameraInterface (14.0 Beta 1)
         self.t1_sse_version:        str = "1.1.0"  #  AppleSSE      (13.6 - T1 support)
         self.t1_key_store_version:  str = "1.1.0"  #  AppleKeyStore (13.6 - T1 support)
+        self.t1_key_store_tahoe_version: str = "1.2.0"  #  AppleKeyStore (26.0 - T1 support, from Dortania)
         self.t1_credential_version: str = "1.0.0"  #  AppleCredentialManager (13.6 - T1 support)
         self.t1_corecrypto_version: str = "1.0.1"  #  corecrypto    (13.6 - T1 support)
         self.apple_spi_version:     str = "1.0.0"  #  AppleHSSPISupport   (14.4 Beta 1)
@@ -534,6 +535,10 @@ class Constants:
     @property
     def t1_key_store_path(self):
         return self.payload_kexts_path / Path(f"Misc/AppleKeyStore-v{self.t1_key_store_version}.zip")
+
+    @property
+    def t1_key_store_tahoe_path(self):
+        return self.payload_kexts_path / Path(f"Misc/AppleKeyStore-Tahoe-v{self.t1_key_store_tahoe_version}.zip")
 
     @property
     def t1_credential_path(self):
