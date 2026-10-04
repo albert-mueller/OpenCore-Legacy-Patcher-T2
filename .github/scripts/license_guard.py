@@ -12,6 +12,7 @@ and only reported as info.
 Usage: license_guard.py <git-diff-range>     e.g. "abc123...pr-head"
 Env:   UPSTREAM_HOLDER (default "Dortania"), REPORT_PATH (default license-report.md)
 """
+import fnmatch
 import os
 import re
 import subprocess
@@ -30,8 +31,24 @@ COPYRIGHT_RE = re.compile(
     r"©|\([cC]\)\s*\d|(?<![A-Za-z_])(?i:copyright)(?![A-Za-z_])\s*(?:\([cC]\)|©)?\s*(?:\d{4}|[A-Z][A-Za-z])")
 SPDX_RE = re.compile(r"SPDX-License-Identifier:\s*(.+?)\s*(?:\*/|-->|$)", re.I)
 LICENSE_FILE_RE = re.compile(r"(^|/)(LICEN[CS]E|COPYING|NOTICE)(\.(txt|md|rst))?$", re.I)
-# The guard's own files talk about copyrights all the time - don't scan them.
-SELF_PATHS = {".github/scripts/license_guard.py", ".github/workflows/license-guard.yml"}
+# The guards' own files (this script and the workflows, incl. attribution-guard.yml) quote
+# copyright notices in their patterns and docs - don't scan them.
+def is_self(path):
+    return path == ".github/scripts/license_guard.py" or path.startswith(".github/workflows/")
+
+
+# Reviewed deletions: paths (glob patterns) listed here don't raise the "file with an upstream
+# copyright notice was deleted" warning. Only that warning - violations are never suppressed.
+# Read from the checked-out base branch, so a PR can't allowlist its own changes.
+ALLOW_FILE = ".github/license-guard-allow.txt"
+
+
+def load_allow():
+    try:
+        with open(ALLOW_FILE, encoding="utf-8") as fh:
+            return [l.split("#", 1)[0].strip() for l in fh if l.split("#", 1)[0].strip()]
+    except FileNotFoundError:
+        return []
 YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
 
 
@@ -85,13 +102,14 @@ def parse_diff(text):
 def main():
     diff = git("diff", "-M", "-U0", "--no-color", "--no-ext-diff", DIFF_RANGE)
     findings = []  # (severity, path, title, [detail lines])
+    allow = load_allow()
 
     def add(sev, path, title, details=()):
         findings.append((sev, path, title, list(details)))
 
     for f in parse_diff(diff):
         path = f["new"] or f["old"]
-        if not path or path in SELF_PATHS:
+        if not path or is_self(path):
             continue
         is_license = bool(LICENSE_FILE_RE.search(path))
         rem_cr = [l for l in f["rem"] if COPYRIGHT_RE.search(l)]
@@ -100,10 +118,11 @@ def main():
         if f["deleted"]:
             if is_license:
                 add("violation", path, "License file deleted")
-            elif rem_cr:
+            elif rem_cr and not any(fnmatch.fnmatch(path, a) for a in allow):
                 add("warning", path, "File with an upstream copyright notice was deleted",
                     ["  Fine if the code is really gone. Not fine if it was moved",
-                     "  or re-added elsewhere without the notice."])
+                     "  or re-added elsewhere without the notice.",
+                     f"  If the deletion is intentional, add the path to {ALLOW_FILE}."])
             continue
 
         # 1) Upstream copyright notice removed or replaced (any holder; year bumps ignored)
@@ -150,14 +169,21 @@ def main():
         out.append(f"✅ No changes found that would affect upstream copyright notices or license text (`{DIFF_RANGE}`).")
     else:
         out.append(f"Checked `{DIFF_RANGE}`: **{len(v)} violation(s)**, {len(w)} warning(s), {len(i)} info.")
-    for sev, emoji, items in (("Violations", "❌", v), ("Warnings", "⚠️", w), ("Info", "ℹ️", i)):
-        if not items:
-            continue
-        out += ["", f"### {emoji} {sev}"]
+    def section(items):
+        res = []
         for _, path, title, details in items:
-            out.append(f"**{title}** — `{path}`")
+            res.append(f"**{title}** — `{path}`")
             if details:
-                out += ["```diff", *details, "```"]
+                res += ["```diff", *details, "```"]
+        return res
+
+    for sev, emoji, items in (("Violations", "❌", v), ("Warnings", "⚠️", w)):
+        if items:
+            out += ["", f"### {emoji} {sev}", *section(items)]
+    if i:
+        # Info is just your own additions next to kept notices - collapsed, nothing to fix.
+        out += ["", f"<details><summary>ℹ️ Info ({len(i)}): copyright lines you added next to kept "
+                "upstream notices - nothing to fix</summary>", "", *section(i), "", "</details>"]
     out += ["", "<details><summary>Why this matters</summary>", "",
             f"{HOLDER}'s code is under licenses that require keeping every existing copyright notice and "
             "the license text in redistributed source (e.g. BSD 3-Clause, clause 1). Adding your own "
