@@ -1,0 +1,165 @@
+# .github/workflows/attribution-guard.yml
+#
+# Detects removal or rewriting of Dortania copyright/attribution notices
+# (e.g. "Copyright (C) 2020-2026 Dortania" -> "... Albert").
+#   - Pull request: the PR is closed immediately with a warning comment.
+#   - Push to the repo: an issue is opened for the offending commit(s).
+# Code is only inspected through the API (diff patches), never executed.
+
+name: Attribution guard
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited]
+  push:
+    branches: ['**']
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for removed Dortania attribution
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const MARKER = '<!-- attribution-guard -->';
+
+            // A line that carries a Dortania copyright / attribution notice
+            const NOTICE = /(copyright|\(c\)|©|all rights reserved|licen[sc]ed? (to|by)|authors?:)[^\n]*dortania|dortania[^\n]*(copyright|\(c\)|©|all rights reserved)|\b(19|20)\d{2}(\s*[-–]\s*(19|20)\d{2})?,?\s+dortania\b/i;
+            // Licence files must never be deleted or emptied
+            const LICENSE_FILE = /(^|\/)(LICEN[SC]E|COPYING|NOTICE)(\.[a-z]+)?$/i;
+
+            function scan(files) {
+              const findings = [];
+              for (const f of files) {
+                if (LICENSE_FILE.test(f.filename) && f.status === 'removed') {
+                  findings.push({ file: f.filename, reason: 'Licence file deleted', removed: [], added: [] });
+                  continue;
+                }
+                if (!f.patch) continue; // binary or too large for the API
+                const removed = [], added = [], addedCopyright = [];
+                for (const line of f.patch.split('\n')) {
+                  if (line.startsWith('---') || line.startsWith('+++')) continue;
+                  const text = line.slice(1).trim();
+                  if (line.startsWith('-') && NOTICE.test(text)) removed.push(text);
+                  if (line.startsWith('+') && NOTICE.test(text)) added.push(text);
+                  if (line.startsWith('+') && /(copyright|\(c\)|©)/i.test(text) && !/dortania/i.test(text)) addedCopyright.push(text);
+                }
+                // Updating the year or moving a notice keeps the count equal; losing one does not
+                if (removed.length > added.length) {
+                  findings.push({
+                    file: f.filename,
+                    reason: addedCopyright.length ? 'Dortania attribution replaced' : 'Dortania attribution removed',
+                    removed: removed.filter(r => !added.includes(r)),
+                    added: addedCopyright,
+                  });
+                }
+              }
+              return findings;
+            }
+
+            function report(findings) {
+              return findings.map(f => {
+                let s = `- \`${f.file}\`: ${f.reason}`;
+                for (const l of f.removed.slice(0, 5)) s += `\n  - removed: \`${l.replace(/`/g, "'")}\``;
+                for (const l of f.added.slice(0, 5)) s += `\n  - added: \`${l.replace(/`/g, "'")}\``;
+                return s;
+              }).join('\n');
+            }
+
+            const POLICY = [
+              'This project is a fork of Dortania\'s OpenCore Legacy Patcher / PatcherSupportPkg.',
+              'Removing, replacing or rewriting Dortania\'s copyright and attribution notices violates the licence',
+              'and is not allowed, no matter who makes the change. Keep the original notices intact; you may add',
+              'your own credit **next to** them (e.g. `Copyright (C) 2020-2026, Dortania` plus a separate line for your changes).',
+            ].join(' ');
+
+            // ---------- Pull requests: close immediately ----------
+            if (context.eventName === 'pull_request_target') {
+              const pr = context.payload.pull_request;
+              if (pr.state !== 'open') return;
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner, repo, pull_number: pr.number, per_page: 100,
+              });
+              const findings = scan(files);
+              if (!findings.length) { core.info('No attribution violation found.'); return; }
+
+              const body = [
+                MARKER,
+                '> [!CAUTION]',
+                '> **This pull request was closed automatically because it removes or alters Dortania\'s copyright/attribution notices.**',
+                '',
+                POLICY,
+                '',
+                '**Detected changes:**',
+                report(findings),
+                '',
+                'Please restore the original notices. If you think this was a false positive, reply here and a maintainer will review it.',
+              ].join('\n');
+
+              await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
+              try {
+                await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: ['attribution-violation'] });
+              } catch (e) { core.warning(`Could not add label: ${e.message}`); }
+              await github.rest.pulls.update({ owner, repo, pull_number: pr.number, state: 'closed' });
+              core.setFailed('Attribution violation detected, PR closed.');
+              return;
+            }
+
+            // ---------- Pushes: open an issue ----------
+            const { before, after } = context.payload;
+            if (/^0+$/.test(after)) return; // branch deleted
+            let base = before;
+            if (!base || /^0+$/.test(base)) {
+              // New branch: compare against the default branch
+              base = context.payload.repository.default_branch;
+            }
+            const { data: cmp } = await github.rest.repos.compareCommitsWithBasehead({
+              owner, repo, basehead: `${base}...${after}`,
+            });
+            const findings = scan(cmp.files || []);
+            if (!findings.length) { core.info('No attribution violation found.'); return; }
+
+            const shortSha = after.slice(0, 7);
+            const branch = context.ref.replace('refs/heads/', '');
+            const title = `Attribution violation in ${branch} (${shortSha})`;
+
+            // Don't open the same issue twice
+            const open = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', labels: 'attribution-violation', per_page: 100,
+            });
+            if (open.some(i => i.title === title)) { core.info('Issue already exists.'); return; }
+
+            const commits = (cmp.commits || []).map(c =>
+              `- [\`${c.sha.slice(0, 7)}\`](${c.html_url}) ${c.commit.message.split('\n')[0]} — @${c.author ? c.author.login : c.commit.author.name}`
+            ).join('\n');
+
+            const body = [
+              MARKER,
+              '> [!CAUTION]',
+              `> **A push to \`${branch}\` removed or altered Dortania's copyright/attribution notices.**`,
+              '',
+              POLICY,
+              '',
+              `**Pushed by:** @${context.actor}`,
+              `**Compare:** ${cmp.html_url}`,
+              '',
+              '**Commits:**',
+              commits || '_none listed_',
+              '',
+              '**Detected changes:**',
+              report(findings),
+              '',
+              'Please revert or restore the original notices and close this issue afterwards.',
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner, repo, title, body, labels: ['attribution-violation'],
+            });
+            core.setFailed('Attribution violation detected, issue opened.');
