@@ -48,7 +48,8 @@ jobs:
                 // Workflow files contain the detection patterns themselves (false positives).
                 // PRs can't weaken the guard this way: pull_request_target always runs the
                 // version from the base branch, not the one in the PR.
-                if (/^\.github\/workflows\//.test(f.filename)) continue;
+                // Same for License Guard's script, which quotes copyright notices in its docs/regexes.
+                if (/^\.github\/workflows\//.test(f.filename) || f.filename === '.github/scripts/license_guard.py') continue;
                 if (LICENSE_FILE.test(f.filename) && f.status === 'removed') {
                   findings.push({ file: f.filename, reason: 'Licence file deleted', removed: [], added: [] });
                   continue;
