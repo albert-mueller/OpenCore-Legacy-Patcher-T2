@@ -146,8 +146,10 @@ class BuildOpenCore:
                     "ProtectSecureBoot": True,
                     "ForceBooterSignature": True,
                 })
-                # On Tahoe+, T2 requires SMBIOS spoofing for SpoofVMM
-                smbios_spoof = (self.constants.detected_os >= 15)
+                # On Tahoe+, T2 requires SMBIOS spoofing for SpoofVMM.
+                # detected_os is a Darwin major (Tahoe = 25), so compare against
+                # os_data.tahoe - "15" is El Capitan and matched every macOS.
+                smbios_spoof = (self.constants.detected_os >= os_data.os_data.tahoe)
                 
                 self.config.setdefault("PlatformInfo", {})["Automatic"] = smbios_spoof
                 self.config.setdefault("PlatformInfo", {})["UpdateSMBIOS"] = smbios_spoof

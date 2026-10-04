@@ -23,7 +23,8 @@ from ..support import (
 from ..datasets import (
     smbios_data,
     cpu_data,
-    model_array
+    model_array,
+    os_data
 )
 
 
@@ -122,8 +123,10 @@ class BuildSMBIOS:
         SMBIOS Handler
         """
 
-        # Allow SMBIOS spoofing on T2 Macs for macOS 15+ (Tahoe) because SpoofVMM requires it
-        if self.model in model_array.T2Macs and self.constants.detected_os < 15:
+        # Allow SMBIOS spoofing on T2 Macs only on macOS 26 Tahoe, because SpoofVMM requires it.
+        # detected_os is a Darwin major (Tahoe = 25); comparing against 15 (El Capitan)
+        # made this branch unreachable, so T2 Macs were always spoofed.
+        if self.model in model_array.T2Macs and self.constants.detected_os < os_data.os_data.tahoe:
             logging.info("- Detected Apple T2 Mac: preserving authentic native SMBIOS to protect Secure Enclave and APFS Keybag")
             self.config["PlatformInfo"]["Automatic"] = False
             self.config["PlatformInfo"]["UpdateSMBIOS"] = False
