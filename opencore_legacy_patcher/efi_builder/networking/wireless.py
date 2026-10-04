@@ -98,6 +98,8 @@ class BuildWirelessNetworking:
             support.BuildSupport(self.model, self.constants, self.config).enable_kext("corecaptureElCap.kext", self.constants.corecaptureelcap_version, self.constants.corecaptureelcap_path)
             support.BuildSupport(self.model, self.constants, self.config).enable_kext("IO80211ElCap.kext", self.constants.io80211elcap_version, self.constants.io80211elcap_path)
             support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("IO80211ElCap.kext/Contents/PlugIns/AirPortAtheros40.kext")["Enabled"] = True
+            # Tahoe needs a patched AirPortAtheros40; the IO80211ElCap plugin is capped at MaxKernel 24.99.99
+            support.BuildSupport(self.model, self.constants, self.config).enable_kext("AirPortAtheros40-Tahoe.kext", self.constants.airport_atheros_tahoe_version, self.constants.airport_atheros_tahoe_path)
 
 
     def _prebuilt_assumption(self) -> None:
@@ -127,6 +129,8 @@ class BuildWirelessNetworking:
             support.BuildSupport(self.model, self.constants, self.config).enable_kext("corecaptureElCap.kext", self.constants.corecaptureelcap_version, self.constants.corecaptureelcap_path)
             support.BuildSupport(self.model, self.constants, self.config).enable_kext("IO80211ElCap.kext", self.constants.io80211elcap_version, self.constants.io80211elcap_path)
             support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("IO80211ElCap.kext/Contents/PlugIns/AirPortAtheros40.kext")["Enabled"] = True
+            # Tahoe needs a patched AirPortAtheros40; the IO80211ElCap plugin is capped at MaxKernel 24.99.99
+            support.BuildSupport(self.model, self.constants, self.config).enable_kext("AirPortAtheros40-Tahoe.kext", self.constants.airport_atheros_tahoe_version, self.constants.airport_atheros_tahoe_path)
         elif smbios_data.smbios_dictionary[self.model]["Wireless Model"] == device_probe.Broadcom.Chipsets.AirportBrcmNIC:
             support.BuildSupport(self.model, self.constants, self.config).enable_kext("AirportBrcmFixup.kext", self.constants.airportbcrmfixup_version, self.constants.airportbcrmfixup_path)
 
