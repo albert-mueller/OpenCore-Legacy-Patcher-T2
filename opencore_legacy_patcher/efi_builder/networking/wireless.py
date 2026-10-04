@@ -56,7 +56,10 @@ class BuildWirelessNetworking:
                 support.BuildSupport(self.model, self.constants, self.config).enable_kext("IO80211FamilyLegacy.kext", self.constants.io80211legacy_version, self.constants.io80211legacy_path)
                 support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("IO80211FamilyLegacy.kext/Contents/PlugIns/AirPortBrcmNIC.kext")["Enabled"] = True
                 support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", "com.apple.iokit.IOSkywalkFamily")["Enabled"] = True
-                if self.constants.detected_os >= 15:
+                # IOSkywalkFamily/IO80211FamilyLegacy only load on Sonoma+ (MinKernel 23.0.0),
+                # so the boot-args below are only needed there. detected_os is a Darwin major:
+                # 15 is El Capitan, which matched every supported macOS.
+                if self.constants.detected_os >= os_data.os_data.sonoma:
                     # BroadcomVTD-Tahoe is only needed (and only built) for macOS 26 Tahoe.
                     # detected_os is a Darwin major, so compare against os_data.tahoe (25),
                     # not 15 (El Capitan), which matched every supported macOS.
@@ -131,7 +134,8 @@ class BuildWirelessNetworking:
             support.BuildSupport(self.model, self.constants, self.config).enable_kext("IO80211FamilyLegacy.kext", self.constants.io80211legacy_version, self.constants.io80211legacy_path)
             support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("IO80211FamilyLegacy.kext/Contents/PlugIns/AirPortBrcmNIC.kext")["Enabled"] = True
             support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", "com.apple.iokit.IOSkywalkFamily")["Enabled"] = True
-            if self.constants.detected_os >= 15:
+            # Sonoma+ only, see _on_model() (detected_os is a Darwin major, 15 = El Capitan)
+            if self.constants.detected_os >= os_data.os_data.sonoma:
                 # BroadcomVTD-Tahoe is only needed (and only built) for macOS 26 Tahoe.
                 # detected_os is a Darwin major, so compare against os_data.tahoe (25),
                 # not 15 (El Capitan), which matched every supported macOS.
