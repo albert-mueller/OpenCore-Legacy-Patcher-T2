@@ -1,4 +1,5 @@
 Copyright (c) 2020-2025 Dhinak G, Mykola Grymalyuk, and individual contributors.
+Copyright (c) 2026 Albert Müller and OCLP-T2 contributors.
 
 All rights reserved.
 
@@ -11,3 +12,17 @@ This product includes software developed by Dortania and OpenCore Legacy Patcher
 4. Neither the name of OpenCore Legacy Patcher, nor the names of Dortania, Dhinak G, or Mykola Grymalyuk may be used to endorse or promote products derived from this software without specific prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY DHINAK G AND MYKOLA GRYMALYUK "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL DHINAK G NOR MYKOLA GRYMALYUK BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+--------------------------------------------------------------------------------
+
+Additional terms for the OCLP-T2 modifications
+
+The modifications and additions made in this fork by Albert Müller and OCLP-T2 contributors are distributed under the same conditions 1-4 listed above.
+
+THE OCLP-T2 MODIFICATIONS ARE PROVIDED BY ALBERT MÜLLER AND OCLP-T2 CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL ALBERT MÜLLER OR OCLP-T2 CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+--------------------------------------------------------------------------------
+
+Third-party components
+
+This project includes components from other people and organizations, such as kexts, patch sets and Apple binaries. These components remain under their own licenses (for example BSD 3-Clause, GPL 2.0, or all rights reserved to their respective authors) and are not covered by the terms above.
