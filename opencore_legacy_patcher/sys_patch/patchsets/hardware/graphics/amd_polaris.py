@@ -11,6 +11,7 @@ from ...base import PatchType
 from ...shared_patches.metal_31001     import LegacyMetal31001
 from ...shared_patches.monterey_gva    import MontereyGVA
 from ...shared_patches.monterey_opencl import MontereyOpenCL
+from ...shared_patches.tahoe_graphics  import TahoeGraphics
 from ...shared_patches.amd_opencl      import AMDOpenCL
 
 from .amd_legacy_gcn_yellow_fix import patch as yellow_fix_patch
@@ -121,7 +122,7 @@ class AMDPolaris(BaseHardware):
                             else ("12.5-24" if self._xnu_major >= os_data.sequoia.value
                             else f"12.5-{self._xnu_major}"))
                         ) }),
-                        "AMDShared.bundle":              "12.5",
+                        "AMDShared.bundle":              "12.5-GCN-25" if self._xnu_major >= os_data.tahoe.value else "12.5",
                     },
                 },
             },
@@ -142,6 +143,7 @@ class AMDPolaris(BaseHardware):
         _base = {
             **LegacyMetal31001(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
             **MontereyOpenCL(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
+            **TahoeGraphics(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
             **self._model_specific_patches(),
         }
         if "AVX2" not in self._computer.cpu.leafs:

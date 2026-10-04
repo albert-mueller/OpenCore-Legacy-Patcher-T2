@@ -415,21 +415,14 @@ class BuildMiscellaneous:
             self.config["Misc"]["Security"]["Vault"] = "Secure"
 
     def _t1_handling(self) -> None:
-        """T1 Security Chip Handler with Crash Protection & Native Software Keystore Mode for Tahoe."""
+        """T1 Security Chip Handler with Crash Protection."""
         if self.model in ["MacBookPro13,2", "MacBookPro13,3", "MacBookPro14,2", "MacBookPro14,3"]: # <- behebt eine Sicherheitslücke, die erlaubt Angreifern den if not self.model in ["MacBookPro13,2", "MacBookPro13,3", "MacBookPro14,2", "MacBookPro14,3"], invalider Syntax zu injizieren, um Kexts fürs T1 Hardware aud nicht-T1 macs zu injizieren
-            # On macOS Tahoe (26.x / Darwin 25+) or modern test profiles, Apple dropped T1 SEP USB linkage.
-            # Injecting Ventura 13.6 kexts causes ABI/IPC mismatch with Tahoe user-space (securityd, LocalAuthentication, akd),
-            # breaking password authorization in System Settings and Apple Account login.
-            # Using Native Software Keystore mode allows Tahoe to handle password auth & Apple Account natively via CPU crypto.
-            is_tahoe_or_newer = self.constants.detected_os >= os_data.os_data.tahoe
-            active_profile = getattr(self.constants, "build_profile", "standard")
-
-            if is_tahoe_or_newer or active_profile in ["standard", "test_b", "test_c", "test_c_spoofed", "test_d"]:
-                logging.info("- T1 Mac on macOS Tahoe: Enabling Native Software Keystore Mode for Password Auth & Apple Account")
-                logging.info("  (Native Tahoe AppleKeyStore & AppleCredentialManager preserved; legacy Ventura kext downgrade bypassed)")
-                return
-
-            logging.info("- Enabling Legacy T1 Security Chip support (Ventura fallback)")
+            # The legacy T1 kexts (13.6) are injected on every supported macOS version again.
+            # On macOS Tahoe (Darwin 25+), OpenCore loads AppleKeyStore-Tahoe.kext (Dortania, MinKernel 25.0.0)
+            # instead of the Ventura AppleKeyStore.kext (MaxKernel 24.99.99) - required for Touch ID on T1.
+            # The previous "Native Software Keystore Mode" skipped all T1 kexts on Tahoe and on every
+            # build profile except TEST-A (it also used detected_os, i.e. the host OS, not the target OS).
+            logging.info("- Enabling T1 Security Chip support")
             try:
                 builder = support.BuildSupport(self.model, self.constants, self.config)
                 identifiers = ["com.apple.driver.AppleSSE", "com.apple.driver.AppleKeyStore", "com.apple.driver.AppleCredentialManager"]
@@ -443,6 +436,7 @@ class BuildMiscellaneous:
                     ("corecrypto_T1.kext", self.constants.t1_corecrypto_version, self.constants.t1_corecrypto_path),
                     ("AppleSSE.kext", self.constants.t1_sse_version, self.constants.t1_sse_path),
                     ("AppleKeyStore.kext", self.constants.t1_key_store_version, self.constants.t1_key_store_path),
+                    ("AppleKeyStore-Tahoe.kext", self.constants.t1_key_store_tahoe_version, self.constants.t1_key_store_tahoe_path),
                     ("AppleCredentialManager.kext", self.constants.t1_credential_version, self.constants.t1_credential_path),
                     ("KernelRelayHost.kext", self.constants.kernel_relay_version, self.constants.kernel_relay_path),
                 ]

@@ -9,6 +9,7 @@ from ...base import PatchType
 from ...shared_patches.metal_31001     import LegacyMetal31001
 from ...shared_patches.monterey_gva    import MontereyGVA
 from ...shared_patches.monterey_opencl import MontereyOpenCL
+from ...shared_patches.tahoe_graphics  import TahoeGraphics
 from ...shared_patches.amd_opencl      import AMDOpenCL
 from .amd_legacy_gcn_yellow_fix import patch as yellow_fix_patch
 
@@ -106,7 +107,7 @@ class AMDLegacyGCN(BaseHardware):
             ]
         ) is False:
             if self._xnu_major >= os_data.sequoia.value:
-                bronze_bundle_source = "12.5-24"
+                bronze_bundle_source = "12.5-25" if self._xnu_major >= os_data.tahoe.value else "12.5-24"
 
         return {
             "AMD Legacy GCN": {
@@ -126,7 +127,7 @@ class AMDLegacyGCN(BaseHardware):
                         "AMDRadeonVADriver2.bundle":     "12.5",
                         "AMDRadeonX4000GLDriver.bundle": "12.5",
                         "AMDMTLBronzeDriver.bundle":     bronze_bundle_source,
-                        "AMDShared.bundle":              "12.5",
+                        "AMDShared.bundle":              "12.5-GCN-25" if self._xnu_major >= os_data.tahoe.value else "12.5",
                     },
                 },
             },
@@ -155,6 +156,7 @@ class AMDLegacyGCN(BaseHardware):
         _base.update({
             **MontereyOpenCL(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
             **AMDOpenCL(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
+            **TahoeGraphics(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
             **self._model_specific_patches(),
             **yellow_fix_patch,
         })
