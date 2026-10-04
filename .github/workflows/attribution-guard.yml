@@ -1,7 +1,8 @@
 # .github/workflows/attribution-guard.yml
 #
-# Detects removal or rewriting of Dortania copyright/attribution notices
-# (e.g. "Copyright (C) 2020-2026 Dortania" -> "... Albert").
+# Detects removal or rewriting of Dortania's copyright, licence and credit notices
+# (e.g. "Copyright (c) 2020-2025 Dhinak G, Mykola Grymalyuk" -> "... Albert",
+# dropped LICENSE lines, or Dortania authors removed from the README Credits).
 #   - Pull request: the PR is closed immediately with a warning comment.
 #   - Push to the repo: an issue is opened for the offending commit(s).
 # Code is only inspected through the API (diff patches), never executed.
@@ -23,17 +24,23 @@ jobs:
   guard:
     runs-on: ubuntu-latest
     steps:
-      - name: Check for removed Dortania attribution
+      - name: Check for removed Dortania attribution and credits
         uses: actions/github-script@v7
         with:
           script: |
             const { owner, repo } = context.repo;
             const MARKER = '<!-- attribution-guard -->';
 
-            // A line that carries a Dortania copyright / attribution notice
-            const NOTICE = /(copyright|\(c\)|©|all rights reserved|licen[sc]ed? (to|by)|authors?:)[^\n]*dortania|dortania[^\n]*(copyright|\(c\)|©|all rights reserved)|\b(19|20)\d{2}(\s*[-–]\s*(19|20)\d{2})?,?\s+dortania\b/i;
-            // Licence files must never be deleted or emptied
+            // Upstream authors whose notices must never be removed or replaced
+            const AUTHORS = 'dortania|dhinak\\s*g|dhinakg|mykola\\s*grymalyuk|khronokernel|acidanthera|vit9696|individual contributors|opencore legacy patcher contributors';
+            // A line that carries an upstream copyright / attribution notice
+            const NOTICE = new RegExp(
+              `(copyright|\\(c\\)|©|all rights reserved|developed by|licen[sc]ed? (to|by)|authors?:)[^\\n]*(${AUTHORS})` +
+              `|(${AUTHORS})[^\\n]*(copyright|\\(c\\)|©|all rights reserved)` +
+              `|\\b(19|20)\\d{2}(\\s*[-–]\\s*(19|20)\\d{2})?,?\\s+(${AUTHORS})\\b`, 'i');
+            // Licence files: no line may be dropped (year updates are fine)
             const LICENSE_FILE = /(^|\/)(LICEN[SC]E|COPYING|NOTICE)(\.[a-z]+)?$/i;
+            const normYears = l => l.replace(/\b(19|20)\d{2}(\s*[-–]\s*(19|20)\d{2})?/g, 'YEAR').replace(/\s+/g, ' ').trim();
 
             function scan(files) {
               const findings = [];
@@ -49,13 +56,26 @@ jobs:
                   const text = line.slice(1).trim();
                   if (line.startsWith('-') && NOTICE.test(text)) removed.push(text);
                   if (line.startsWith('+') && NOTICE.test(text)) added.push(text);
-                  if (line.startsWith('+') && /(copyright|\(c\)|©)/i.test(text) && !/dortania/i.test(text)) addedCopyright.push(text);
+                  if (line.startsWith('+') && /(copyright|\(c\)|©)/i.test(text) && !new RegExp(AUTHORS, 'i').test(text)) addedCopyright.push(text);
+                }
+                if (LICENSE_FILE.test(f.filename)) {
+                  const rem = [], add = new Set();
+                  for (const line of f.patch.split('\n')) {
+                    if (line.startsWith('---') || line.startsWith('+++')) continue;
+                    if (line.startsWith('-') && line.slice(1).trim()) rem.push(line.slice(1).trim());
+                    if (line.startsWith('+')) add.add(normYears(line.slice(1)));
+                  }
+                  const dropped = rem.filter(l => !add.has(normYears(l)));
+                  if (dropped.length) {
+                    findings.push({ file: f.filename, reason: 'Licence text removed or changed', removed: dropped, added: [] });
+                    continue;
+                  }
                 }
                 // Updating the year or moving a notice keeps the count equal; losing one does not
                 if (removed.length > added.length) {
                   findings.push({
                     file: f.filename,
-                    reason: addedCopyright.length ? 'Dortania attribution replaced' : 'Dortania attribution removed',
+                    reason: addedCopyright.length ? 'Upstream attribution replaced' : 'Upstream attribution removed',
                     removed: removed.filter(r => !added.includes(r)),
                     added: addedCopyright,
                   });
@@ -73,11 +93,50 @@ jobs:
               }).join('\n');
             }
 
+            // ---------- README credits for upstream (Dortania) authors ----------
+            // Protected = everyone credited in Dortania's own README, plus a fixed fallback list
+            const FALLBACK_UPSTREAM = ['dortania','acidanthera','dhinakg','khronokernel','vit9696','asentientbot',
+              'parrotgeek1','flagersgit','jazzzny','covasedu','arter97','joevt','mariobrostech','ausdauersportler'];
+            async function readReadme(o, r, ref) {
+              try {
+                const { data } = await github.rest.repos.getContent({ owner: o, repo: r, path: 'README.md', ...(ref ? { ref } : {}) });
+                return Buffer.from(data.content, 'base64').toString('utf8');
+              } catch (e) { if (e.status === 404) return ''; throw e; }
+            }
+            function creditsSection(md) {
+              const m = md.match(/^#{1,3}\s*credits\b.*$/im);
+              if (!m) return '';
+              const rest = md.slice(m.index + m[0].length);
+              const next = rest.search(/^#{1,2}\s+\S/m);
+              return next === -1 ? rest : rest.slice(0, next);
+            }
+            function creditedLogins(section) {
+              const set = new Set();
+              for (const m of section.matchAll(/github\.com\/([A-Za-z0-9-]+)/g)) set.add(m[1].toLowerCase());
+              return set;
+            }
+            async function upstreamAuthors() {
+              const set = new Set(FALLBACK_UPSTREAM);
+              try {
+                const md = await readReadme('dortania', 'OpenCore-Legacy-Patcher');
+                for (const l of creditedLogins(creditsSection(md))) set.add(l);
+              } catch (e) { core.warning(`Could not read Dortania README, using fallback list: ${e.message}`); }
+              return set;
+            }
+            async function readmeFindings(baseRef, headOwner, headRepo, headRef) {
+              const protectedSet = await upstreamAuthors();
+              const before = creditedLogins(creditsSection(await readReadme(owner, repo, baseRef)));
+              const after = creditedLogins(creditsSection(await readReadme(headOwner, headRepo, headRef)));
+              const gone = [...before].filter(l => protectedSet.has(l) && !after.has(l));
+              return gone.length ? [{ file: 'README.md', reason: 'Upstream (Dortania) authors removed from Credits',
+                removed: gone.map(l => `https://github.com/${l}`), added: [] }] : [];
+            }
+
             const POLICY = [
               'This project is a fork of Dortania\'s OpenCore Legacy Patcher / PatcherSupportPkg.',
-              'Removing, replacing or rewriting Dortania\'s copyright and attribution notices violates the licence',
+              'Removing, replacing or rewriting the copyright, licence or credit notices of Dortania and its authors (Dhinak G, Mykola Grymalyuk and contributors) violates the licence',
               'and is not allowed, no matter who makes the change. Keep the original notices intact; you may add',
-              'your own credit **next to** them (e.g. `Copyright (C) 2020-2026, Dortania` plus a separate line for your changes).',
+              'your own credit **next to** them (keep `Copyright (c) 2020-2025 Dhinak G, Mykola Grymalyuk, and individual contributors.` and add a separate line for your own changes).',
             ].join(' ');
 
             // ---------- Pull requests: close immediately ----------
@@ -88,12 +147,20 @@ jobs:
                 owner, repo, pull_number: pr.number, per_page: 100,
               });
               const findings = scan(files);
+              if (files.some(f => f.filename === 'README.md')) {
+                const { data: c } = await github.rest.repos.compareCommitsWithBasehead({
+                  owner, repo, basehead: `${pr.base.sha}...${pr.head.sha}`,
+                });
+                const headOwner = pr.head.repo ? pr.head.repo.owner.login : owner;
+                const headRepo  = pr.head.repo ? pr.head.repo.name : repo;
+                findings.push(...await readmeFindings(c.merge_base_commit.sha, headOwner, headRepo, pr.head.sha));
+              }
               if (!findings.length) { core.info('No attribution violation found.'); return; }
 
               const body = [
                 MARKER,
                 '> [!CAUTION]',
-                '> **This pull request was closed automatically because it removes or alters Dortania\'s copyright/attribution notices.**',
+                '> **This pull request was closed automatically because it removes or alters Dortania\'s copyright, licence or credit notices.**',
                 '',
                 POLICY,
                 '',
@@ -124,6 +191,9 @@ jobs:
               owner, repo, basehead: `${base}...${after}`,
             });
             const findings = scan(cmp.files || []);
+            if ((cmp.files || []).some(f => f.filename === 'README.md')) {
+              findings.push(...await readmeFindings(cmp.merge_base_commit.sha, owner, repo, after));
+            }
             if (!findings.length) { core.info('No attribution violation found.'); return; }
 
             const shortSha = after.slice(0, 7);
@@ -143,7 +213,7 @@ jobs:
             const body = [
               MARKER,
               '> [!CAUTION]',
-              `> **A push to \`${branch}\` removed or altered Dortania's copyright/attribution notices.**`,
+              `> **A push to \`${branch}\` removed or altered Dortania's copyright, licence or credit notices.**`,
               '',
               POLICY,
               '',
