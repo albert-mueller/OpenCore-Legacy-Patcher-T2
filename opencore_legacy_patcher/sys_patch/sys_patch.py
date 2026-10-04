@@ -956,25 +956,6 @@ class PatchSysVolume:
                             source_file = source_files_path + "/" + source_file
 
                         if not Path(source_file).exists():
-                            # If a payload directory (such as a speculative macOS release version like
-                            # '12.5-25' or '12.5-26') does not exist in PatcherSupportPkg's Universal-Binaries,
-                            # attempt fallback to earlier compatible payload versions (e.g. 12.5-24 -> 12.5-23.4 -> 12.5-22 -> 12.5).
-                            # Only for 12.5 payloads: substituting 12.5 binaries for a missing payload of a
-                            # different macOS version (10.x/11.x/13.x...) could leave the system unbootable.
-                            current_src_rel = required_patches[patch][method_type][install_patch_directory][install_file]
-                            if not current_src_rel.startswith("/") and current_src_rel.startswith("12.5"):
-                                for fallback_ver in ["12.5-24", "12.5-23.4", "12.5-23", "12.5-22", "12.5"]:
-                                    candidate_file = source_files_path + "/" + fallback_ver + install_patch_directory + "/" + install_file
-                                    if Path(candidate_file).exists():
-                                        logging.warning(
-                                            f"- Missing payload {current_src_rel}/{install_file}; "
-                                            f"falling back to existing {fallback_ver}/{install_file}"
-                                        )
-                                        required_patches[patch][method_type][install_patch_directory][install_file] = fallback_ver
-                                        source_file = candidate_file
-                                        break
-
-                        if not Path(source_file).exists():
                             # _local_metallib_installed() only matches an already-installed
                             # MetallibSupportPkg folder by macOS build name, never by verifying
                             # every file inside it is actually present. If an earlier run left
