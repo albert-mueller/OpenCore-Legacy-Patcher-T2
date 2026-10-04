@@ -14,7 +14,7 @@ Term | Description
 ---
 Term | Description
 --- | ---
-**OpenCore**   | The new hotness on the scene, made with security in mind by the [Acidanthera team](https://github.com/acidanthera), has faster booting and lighter weight than previous boot managers. Supports many native Mac features such as SIP, FileVault, Secure Boot, etc
+**OpenCore**   | A boot manager by the [Acidanthera team](https://github.com/acidanthera). It loads macOS on Macs Apple no longer supports, with faster booting and a lighter footprint than older boot managers. OpenCore itself can keep macOS security features like SIP, FileVault and Apple Secure Boot working. **With OpenCore Legacy Patcher T2, several of these are deliberately weakened:** root patching requires partly disabling SIP and the sealed system volume, AMFI may be disabled, and on T2 Macs Apple Secure Boot is turned off. Your Mac is less protected than a supported Mac running stock macOS, so only use it if you accept that trade-off.
 **ACPI**   | Tables defined in your firmware defining your hardware and different methods, tied directly to how IOKit/IOService handles device setup
 **NVRAM**   | Non-volatile storage, where many variables are stored including default boot options, Hibernation keys, Secure Boot information, etc
 ---
