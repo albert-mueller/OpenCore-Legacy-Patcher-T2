@@ -91,7 +91,7 @@ class LegacyWireless(BaseHardware):
             "Legacy Wireless": {
                 PatchType.OVERWRITE_SYSTEM_VOLUME: {
                     "/usr/libexec": {
-                        "airportd": "11.7.10" if self._affected_by_cve_2024_23227() is False else "11.7.10-Sandbox",
+                        "airportd": "11.7.10" if self._affected_by_cve_2024_23227() is False else ("11.7.10-Sandbox-YB" if self._constants.use_ybronst_wifi is True else "11.7.10-Sandbox"),
                     },
                     "/System/Library/CoreServices": {
                         "WiFiAgent.app": "11.7.10",
@@ -114,10 +114,15 @@ class LegacyWireless(BaseHardware):
         if self._xnu_major < os_data.ventura:
             return {}
 
-        # Matches Dortania upstream: Tahoe uses the dedicated 12.7.2-25 frameworks,
-        # while wps/wifip2pd fall back to the plain 12.7.2 binaries (no -25 binaries exist).
-        binary_version    = "12.7.2" if self._xnu_major < os_data.sequoia or self._xnu_major >= os_data.tahoe else f"12.7.2-{self._xnu_major}"
-        framework_version = "12.7.2" if self._xnu_major < os_data.sequoia else f"12.7.2-{self._xnu_major}"
+        if self._constants.use_ybronst_wifi is True:
+            # YBronst's WiFi set (-YB folders in PatcherSupportPkg), proven working on
+            # Sequoia and Tahoe. Tahoe reuses the 12.7.2-24 build, as before.
+            binary_version = framework_version = ("12.7.2" if self._xnu_major < os_data.sequoia else "12.7.2-24") + "-YB"
+        else:
+            # Dortania's set: Tahoe uses the dedicated 12.7.2-25 frameworks,
+            # while wps/wifip2pd fall back to the plain 12.7.2 binaries (no -25 binaries exist).
+            binary_version    = "12.7.2" if self._xnu_major < os_data.sequoia or self._xnu_major >= os_data.tahoe else f"12.7.2-{self._xnu_major}"
+            framework_version = "12.7.2" if self._xnu_major < os_data.sequoia else f"12.7.2-{self._xnu_major}"
 
         return {
             "Legacy Wireless Extended": {
