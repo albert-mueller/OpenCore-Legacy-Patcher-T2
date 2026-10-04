@@ -1,0 +1,115 @@
+# .github/workflows/psp-legacy-version-warning.yml
+#
+# Warns on pull requests whose patcher code still pins PatcherSupportPkg
+# 2.0.4 or older (patcher_support_pkg_version in constants.py), i.e. the old
+# codebase from before the switch to the proper Dortania fork.
+# Pull requests opened by Medelcartelinc are skipped.
+
+name: PatcherSupportPkg legacy version warning
+
+on:
+  # pull_request_target so the bot can also comment on PRs from forks.
+  # The PR code is only read through the API, never checked out or executed.
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  check:
+    # Skip all pull requests from Medelcartelinc
+    if: github.event.pull_request.user.login != 'Medelcartelinc'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check pinned PatcherSupportPkg version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const LEGACY_MAX = '2.0.4';
+            const MARKER = '<!-- psp-legacy-version-warning -->';
+            const CONSTANTS_PATHS = [
+              'opencore_legacy_patcher/constants.py',
+              'resources/constants.py', // very old layout
+            ];
+
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+            const issue_number = pr.number;
+
+            // Read constants.py from the PR head (works for forks too)
+            const headOwner = pr.head.repo ? pr.head.repo.owner.login : owner;
+            const headRepo  = pr.head.repo ? pr.head.repo.name : repo;
+
+            let version = null;
+            for (const path of CONSTANTS_PATHS) {
+              try {
+                const { data } = await github.rest.repos.getContent({
+                  owner: headOwner, repo: headRepo, path, ref: pr.head.sha,
+                });
+                const text = Buffer.from(data.content, 'base64').toString('utf8');
+                const m = text.match(/patcher_support_pkg_version\s*(?::\s*str\s*)?=\s*["']([^"']+)["']/);
+                if (m) { version = m[1].trim(); break; }
+              } catch (e) {
+                if (e.status !== 404) core.warning(`Could not read ${path}: ${e.message}`);
+              }
+            }
+
+            if (!version) {
+              core.info('patcher_support_pkg_version not found, skipping.');
+              return;
+            }
+            core.info(`PR pins PatcherSupportPkg ${version}`);
+
+            const isAtMost = (a, b) => {
+              const pa = a.replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+              const pb = b.split('.').map(n => parseInt(n, 10) || 0);
+              for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+                const x = pa[i] || 0, y = pb[i] || 0;
+                if (x !== y) return x < y;
+              }
+              return true; // equal
+            };
+            const legacy = isAtMost(version, LEGACY_MAX);
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100,
+            });
+            const existing = comments.find(c => (c.body || '').includes(MARKER));
+
+            if (!legacy) {
+              // PR was updated to the new codebase: remove the old warning
+              if (existing) {
+                await github.rest.issues.deleteComment({ owner, repo, comment_id: existing.id });
+              }
+              return;
+            }
+
+            core.warning(`This PR uses PatcherSupportPkg ${version} (<= ${LEGACY_MAX}, old codebase).`);
+
+            const body = [
+              MARKER,
+              '> [!WARNING]',
+              `> **This pull request is based on patcher code that still uses PatcherSupportPkg \`${version}\` (${LEGACY_MAX} or older).**`,
+              '>',
+              '> PatcherSupportPkg releases up to 2.0.4 come from the old codebase, a mix of several independent forks.',
+              '> That code has unclear licensing/attribution and causes friction with the upstream Dortania developers.',
+              '> Newer releases are built from a proper fork of [dortania/PatcherSupportPkg](https://github.com/dortania/PatcherSupportPkg).',
+              '>',
+              `> **Please update your source code** to the current \`main\` branch of this repository before this pull request is reviewed:`,
+              '>',
+              '> ```sh',
+              `> git remote add upstream https://github.com/${owner}/${repo}.git`,
+              '> git fetch upstream',
+              '> git rebase upstream/main',
+              '> git push --force-with-lease',
+              '> ```',
+            ].join('\n');
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
