@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build-Project.command: Generate OpenCore-Patcher-T2.app and OpenCore-Patcher-T2.pkg
+Build-Project.command: Generates OpenCore-Patcher-T2.app and OpenCore-Patcher-T2.pkg
 """
 
 import os

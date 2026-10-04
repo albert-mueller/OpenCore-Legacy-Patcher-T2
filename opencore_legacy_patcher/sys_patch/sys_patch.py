@@ -436,20 +436,26 @@ class PatchSysVolume:
                 auxiliary_cache=self.needs_kmutil_exemptions,
                 auxiliary_cache_only=self.skip_root_kmutil_requirement
             ).rebuild()
+        except Exception:
+            logging.exception("- Exception during kernel cache rebuild")
+            return False
 
-            if not result:
-                logging.error("- Kernel cache rebuild failed")
-                logging.exception("Stack Trace:")
+        if not result:
+            # No active exception here, so log a plain error instead of
+            # logging.exception() (which would print a bogus "NoneType: None" trace)
+            logging.error("- Kernel cache rebuild failed")
+            return False
+
+        if not self.skip_root_kmutil_requirement:
+            # Handled separately so a failure here is not misreported as a
+            # kernel cache rebuild failure
+            try:
+                sys_patch_helpers.SysPatchHelpers(self.constants).install_rsr_repair_binary()
+            except Exception:
+                logging.exception("- Failed to install RSR repair binary")
                 return False
 
-            if not self.skip_root_kmutil_requirement:
-                sys_patch_helpers.SysPatchHelpers(self.constants).install_rsr_repair_binary()
-
-            return True
-        except Exception as e:
-            logging.error(f"- Exception during kernel cache rebuild: {e}")
-            logging.exception("Stack Trace:")
-            return False
+        return True
 
 
     def _create_new_apfs_snapshot(self) -> bool:
