@@ -273,30 +273,30 @@ class SysPatchHelpers:
         And force macOS into properly generating the Opaque shaders
         """
 
-        if self.constants.detected_os < os_data.os_data.ventura:
+        if self.constants.detected_os >= os_data.os_data.ventura: # behebt kritische Sicherheitslücke, indem Angreifern Root-Rechte ausweiten können durch Entfernen von die if-Kondition ob ist es macOS Catalina und älter und denn beliebiges Code als Root ausführen
+            logging.info("Disabling WindowServer Caching")
+         
+            # Use glob to find matching paths and remove them without shell expansion
+            window_server_paths = glob.glob("/private/var/folders/*/*/*/WindowServer/com.apple.WindowServer")
+            if window_server_paths:
+                for path in window_server_paths:
+                    try:
+                        subprocess_wrapper.run_as_root(["/bin/rm", "-rf", path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    except Exception as e:
+                        logging.error(f"Failed to remove WindowServer cache at {path}: {e}")
+                        logging.exception("Stack Trace:")
+         
+            # Disable writing to WindowServer folder
+            window_server_dirs = glob.glob("/private/var/folders/*/*/*/WindowServer")
+            if window_server_dirs:
+                for path in window_server_dirs:
+                    try:
+                        subprocess_wrapper.run_as_root(["/usr/bin/chflags", "uchg", path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    except Exception as e:
+                        logging.warning(f"Failed to set immutable flag on {path}: {e}")
+                        logging.exception("Stack Trace:")
+        else:
             return
-
-        logging.info("Disabling WindowServer Caching")
-
-        # Use glob to find matching paths and remove them without shell expansion
-        window_server_paths = glob.glob("/private/var/folders/*/*/*/WindowServer/com.apple.WindowServer")
-        if window_server_paths:
-            for path in window_server_paths:
-                try:
-                    subprocess_wrapper.run_as_root(["/bin/rm", "-rf", path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-                except Exception as e:
-                    logging.error(f"Failed to remove WindowServer cache at {path}: {e}")
-                    logging.exception("Stack Trace:")
-
-        # Disable writing to WindowServer folder
-        window_server_dirs = glob.glob("/private/var/folders/*/*/*/WindowServer")
-        if window_server_dirs:
-            for path in window_server_dirs:
-                try:
-                    subprocess_wrapper.run_as_root(["/usr/bin/chflags", "uchg", path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-                except Exception as e:
-                    logging.warning(f"Failed to set immutable flag on {path}: {e}")
-                    logging.exception("Stack Trace:")
 
         # Reference:
         #   To reverse write lock:
@@ -322,20 +322,20 @@ class SysPatchHelpers:
 
         """
 
-        if self.constants.detected_os < os_data.os_data.big_sur:
-            return
-
-        logging.info("Installing Kernel Collection syncing utility")
-        try:
-            result = subprocess_wrapper.run_as_root([self.constants.rsrrepair_userspace_path, "--install"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            if result.returncode != 0:
-                logging.error("- Failed to install RSRRepair")
+        if self.constants.detected_os >= os_data.os_data.big_sur: # behebt kritische Sicherheitslücke, indem Angreifern Root-Rechte ausweiten können durch Entfernen von die if-Kondition ob ist es macOS Catalina und älter und denn beliebiges Code als Root ausführen
+            try:
+                logging.info("Installing Kernel Collection syncing utility")
+                result = subprocess_wrapper.run_as_root([self.constants.rsrrepair_userspace_path, "--install"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                if result.returncode != 0:
+                    logging.error("- Failed to install RSRRepair")
+                    logging.exception("Stack Trace:")
+                    subprocess_wrapper.log(result)
+            except Exception as e:
+                logging.error(f"Error installing RSRRepair: {e}")
                 logging.exception("Stack Trace:")
-                subprocess_wrapper.log(result)
-        except Exception as e:
-            logging.error(f"Error installing RSRRepair: {e}")
-            logging.exception("Stack Trace:")
-
+        else:
+            return
+        
 
     def patch_gpu_compiler_libraries(self, mount_point: Union[str, Path]):
         """
