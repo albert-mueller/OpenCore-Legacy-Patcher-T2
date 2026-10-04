@@ -5,6 +5,13 @@ This release:
   - bundles AppleKeyStore-Tahoe.kext (v1.2.0), loaded on Darwin 25+ (MinKernel 25.0.0). The Ventura AppleKeyStore.kext is now capped at MaxKernel 24.99.99, so both kexts can no longer load at the same time
   - T1 root patches on Tahoe: adds `seld` and `LocalAuthenticationCore.framework` (26.0-25G229) and switches NearField.framework to the dedicated 14.7.2-25 payload. The legacy `SharedUtils.framework` overlay is no longer installed on Tahoe, as it crashed SecurityAgent/WindowServer (black screen at login, flashing Touch Bar). Requires PatcherSupportPkg 2.0.5 or newer
 - fixes a bug where T1 Security Chip kexts were skipped on every macOS version unless the TEST-A build profile was selected. The Tahoe check also used the OS currently running on the host instead of the target OS. T1 kexts are now injected again on all supported versions; OpenCore picks the matching AppleKeyStore via MinKernel/MaxKernel
+- Root patching on macOS 26 Tahoe now uses the dedicated Tahoe (-25 / 26.0) payloads instead of older Sequoia (-24) or Monterey builds, ported from dortania/OpenCore-Legacy-Patcher@9809024, thx @Jazzzny and Dortania:
+  - AMD Legacy GCN / Polaris: AMDMTLBronzeDriver 12.5-25 and AMDShared 12.5-GCN-25
+  - AMD Vega / Navi: AMDRadeonVADriver2, AMDRadeonX5000/X6000GLDriver and AMDShared 12.5-25 (12.5-26 on macOS 27). AMD Navi root patches are now detected (still requires the DortaniaInternal overlay, like upstream)
+  - Metal 3802 (Intel Ivy Bridge / Haswell, Nvidia Kepler): Metal.framework 13.2.1-25, MTLCompiler.framework 13.6-25, GPUCompiler.framework 13.2.1-25 and the Tahoe 26.0-3802 default.metallib / AlloyCommonLibrary.metallib for Tungsten, VFX, VectorKit and RenderBox. The 13.2.1 Metal downgrade is no longer applied on Tahoe. Ivy Bridge uses the 11.7.10 HD4000 Metal driver again on Tahoe
+  - Nvidia Kepler: adds ImageIO.framework, CMPhoto.framework and the nsattributedstringagent sandbox profile (26.0-25G229); on Macs with a Haswell iGPU next to the Kepler dGPU, OpenCL.framework 12.5 is installed as well
+  - new shared Tahoe Graphics patchset (RenderBox default.metallib 26.0-3802) for AMD, Broadwell, Haswell, Ivy Bridge and Kepler, plus the Tahoe camera patch (CoreMediaIO.framework / AppleCameraAssistant, 14.0 Beta 1) for Broadwell and Haswell
+  - all referenced payloads ship in PatcherSupportPkg 2.0.5
 
 **Note:** T1 Touch ID on Tahoe is not yet verified on our hardware. If you get a black screen or a flashing Touch Bar at login, please revert root patches and open an issue with your logs.
 
