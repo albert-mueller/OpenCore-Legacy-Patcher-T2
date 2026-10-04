@@ -55,7 +55,13 @@ class ModernWireless(BaseHardware):
         """
         Base patches for Modern Wireless
         """
-        source = f"13.7.2-{self._xnu_major}" if self._xnu_major < os_data.tahoe.value else "13.7.2-24"
+        if self._constants.use_ybronst_wifi is True:
+            # YBronst's WiFi set (-YB folders in PatcherSupportPkg), proven working on
+            # Sonoma, Sequoia and Tahoe. Tahoe reuses the 13.7.2-24 build, as before.
+            source = (f"13.7.2-{self._xnu_major}" if self._xnu_major < os_data.tahoe.value else "13.7.2-24") + "-YB"
+        else:
+            # Dortania's set: dedicated 13.7.2-25 payloads on Tahoe (matches upstream).
+            source = f"13.7.2-{self._xnu_major}"
         return {
             "Modern Wireless": {
                 PatchType.OVERWRITE_SYSTEM_VOLUME: {
@@ -79,19 +85,21 @@ class ModernWireless(BaseHardware):
         if self._xnu_major > os_data.sonoma:
             return {}
 
+        source = f"13.7.2-{self._xnu_major}" + ("-YB" if self._constants.use_ybronst_wifi is True else "")
+
         return {
             "Modern Wireless Extended": {
                 PatchType.OVERWRITE_SYSTEM_VOLUME: {
                     "/usr/libexec": {
-                        "airportd": f"13.7.2-{self._xnu_major}",
+                        "airportd": source,
                     },
                 },
                 PatchType.MERGE_SYSTEM_VOLUME: {
                     "/System/Library/Frameworks": {
-                        **({ "CoreWLAN.framework": f"13.7.2-{self._xnu_major}" } if self._xnu_major == os_data.sonoma else {}),
+                        **({ "CoreWLAN.framework": source } if self._xnu_major == os_data.sonoma else {}),
                     },
                     "/System/Library/PrivateFrameworks": {
-                        "CoreWiFi.framework":       f"13.7.2-{self._xnu_major}",
+                        "CoreWiFi.framework":       source,
                     },
                 }
             },
