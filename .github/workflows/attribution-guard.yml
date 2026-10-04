@@ -45,6 +45,10 @@ jobs:
             function scan(files) {
               const findings = [];
               for (const f of files) {
+                // Workflow files contain the detection patterns themselves (false positives).
+                // PRs can't weaken the guard this way: pull_request_target always runs the
+                // version from the base branch, not the one in the PR.
+                if (/^\.github\/workflows\//.test(f.filename)) continue;
                 if (LICENSE_FILE.test(f.filename) && f.status === 'removed') {
                   findings.push({ file: f.filename, reason: 'Licence file deleted', removed: [], added: [] });
                   continue;
