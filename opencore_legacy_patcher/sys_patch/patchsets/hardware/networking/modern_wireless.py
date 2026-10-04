@@ -55,7 +55,9 @@ class ModernWireless(BaseHardware):
         """
         Base patches for Modern Wireless
         """
-        source = f"13.7.2-{self._xnu_major}" if self._xnu_major < os_data.tahoe.value else "13.7.2-24"
+        # PatcherSupportPkg ships dedicated 13.7.2-25 payloads for Tahoe (matches Dortania upstream),
+        # so no longer cap Tahoe to the Sequoia-era 13.7.2-24 set.
+        source = f"13.7.2-{self._xnu_major}"
         return {
             "Modern Wireless": {
                 PatchType.OVERWRITE_SYSTEM_VOLUME: {

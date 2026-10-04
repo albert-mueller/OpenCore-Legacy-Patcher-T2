@@ -13,6 +13,8 @@ Impact: an attacker could write a specially crafted patch that blindly injects t
 - fixes a bug where if SecureBootModel is set to x86legacy, it still lets install root patches, which then corrupts the operating system altogether as well
 - fixes a bug where BroadcomVTD.kext was injected unconditionally, and was injected on every Mac and most macOS versions instead of limiting to specific WiFi card and only to Tahoe
 - fixes a bug where if my Metallibs API is unreachable, then it prefers @Medelcartelinc's instead of Dortania's
+- Tahoe WiFi: Modern Wireless now loads the dedicated 13.7.2-25 payloads and Legacy Wireless the 12.7.2-25 frameworks on macOS 26 instead of the Sequoia-era -24 sets (aligned with Dortania upstream; wps/wifip2pd stay on 12.7.2)
+- fixes Legacy Wireless always installing the sandboxed 11.7.10 airportd, even on systems not affected by CVE-2024-23227 (`_affected_by_cve_2024_23227` was compared without being called)
 - other small bug fixes
 
 Thanks for @zkennedy137, @gandolf243, @albert-mueller, Claude and GitHub Actions for finding and fixing these bugs!
