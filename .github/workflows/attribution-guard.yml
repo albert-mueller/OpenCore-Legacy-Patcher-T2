@@ -1,0 +1,239 @@
+# .github/workflows/attribution-guard.yml
+#
+# Detects removal or rewriting of Dortania's copyright, licence and credit notices
+# (e.g. "Copyright (c) 2020-2025 Dhinak G, Mykola Grymalyuk" -> "... Albert",
+# dropped LICENSE lines, or Dortania authors removed from the README Credits).
+#   - Pull request: the PR is closed immediately with a warning comment.
+#   - Push to the repo: an issue is opened for the offending commit(s).
+# Code is only inspected through the API (diff patches), never executed.
+
+name: Attribution guard
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited]
+  push:
+    branches: ['**']
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for removed Dortania attribution and credits
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const MARKER = '<!-- attribution-guard -->';
+
+            // Upstream authors whose notices must never be removed or replaced
+            const AUTHORS = 'dortania|dhinak\\s*g|dhinakg|mykola\\s*grymalyuk|khronokernel|acidanthera|vit9696|individual contributors|opencore legacy patcher contributors';
+            // A line that carries an upstream copyright / attribution notice
+            const NOTICE = new RegExp(
+              `(copyright|\\(c\\)|©|all rights reserved|developed by|licen[sc]ed? (to|by)|authors?:)[^\\n]*(${AUTHORS})` +
+              `|(${AUTHORS})[^\\n]*(copyright|\\(c\\)|©|all rights reserved)` +
+              `|\\b(19|20)\\d{2}(\\s*[-–]\\s*(19|20)\\d{2})?,?\\s+(${AUTHORS})\\b`, 'i');
+            // Licence files: no line may be dropped (year updates are fine)
+            const LICENSE_FILE = /(^|\/)(LICEN[SC]E|COPYING|NOTICE)(\.[a-z]+)?$/i;
+            const normYears = l => l.replace(/\b(19|20)\d{2}(\s*[-–]\s*(19|20)\d{2})?/g, 'YEAR').replace(/\s+/g, ' ').trim();
+
+            function scan(files) {
+              const findings = [];
+              for (const f of files) {
+                // Workflow files contain the detection patterns themselves (false positives).
+                // PRs can't weaken the guard this way: pull_request_target always runs the
+                // version from the base branch, not the one in the PR.
+                if (/^\.github\/workflows\//.test(f.filename)) continue;
+                if (LICENSE_FILE.test(f.filename) && f.status === 'removed') {
+                  findings.push({ file: f.filename, reason: 'Licence file deleted', removed: [], added: [] });
+                  continue;
+                }
+                if (!f.patch) continue; // binary or too large for the API
+                const removed = [], added = [], addedCopyright = [];
+                for (const line of f.patch.split('\n')) {
+                  if (line.startsWith('---') || line.startsWith('+++')) continue;
+                  const text = line.slice(1).trim();
+                  if (line.startsWith('-') && NOTICE.test(text)) removed.push(text);
+                  if (line.startsWith('+') && NOTICE.test(text)) added.push(text);
+                  if (line.startsWith('+') && /(copyright|\(c\)|©)/i.test(text) && !new RegExp(AUTHORS, 'i').test(text)) addedCopyright.push(text);
+                }
+                if (LICENSE_FILE.test(f.filename)) {
+                  const rem = [], add = new Set();
+                  for (const line of f.patch.split('\n')) {
+                    if (line.startsWith('---') || line.startsWith('+++')) continue;
+                    if (line.startsWith('-') && line.slice(1).trim()) rem.push(line.slice(1).trim());
+                    if (line.startsWith('+')) add.add(normYears(line.slice(1)));
+                  }
+                  const dropped = rem.filter(l => !add.has(normYears(l)));
+                  if (dropped.length) {
+                    findings.push({ file: f.filename, reason: 'Licence text removed or changed', removed: dropped, added: [] });
+                    continue;
+                  }
+                }
+                // Updating the year or moving a notice keeps the count equal; losing one does not
+                if (removed.length > added.length) {
+                  findings.push({
+                    file: f.filename,
+                    reason: addedCopyright.length ? 'Upstream attribution replaced' : 'Upstream attribution removed',
+                    removed: removed.filter(r => !added.includes(r)),
+                    added: addedCopyright,
+                  });
+                }
+              }
+              return findings;
+            }
+
+            function report(findings) {
+              return findings.map(f => {
+                let s = `- \`${f.file}\`: ${f.reason}`;
+                for (const l of f.removed.slice(0, 5)) s += `\n  - removed: \`${l.replace(/`/g, "'")}\``;
+                for (const l of f.added.slice(0, 5)) s += `\n  - added: \`${l.replace(/`/g, "'")}\``;
+                return s;
+              }).join('\n');
+            }
+
+            // ---------- README credits for upstream (Dortania) authors ----------
+            // Protected = everyone credited in Dortania's own README, plus a fixed fallback list
+            const FALLBACK_UPSTREAM = ['dortania','acidanthera','dhinakg','khronokernel','vit9696','asentientbot',
+              'parrotgeek1','flagersgit','jazzzny','covasedu','arter97','joevt','mariobrostech','ausdauersportler'];
+            async function readReadme(o, r, ref) {
+              try {
+                const { data } = await github.rest.repos.getContent({ owner: o, repo: r, path: 'README.md', ...(ref ? { ref } : {}) });
+                return Buffer.from(data.content, 'base64').toString('utf8');
+              } catch (e) { if (e.status === 404) return ''; throw e; }
+            }
+            function creditsSection(md) {
+              const m = md.match(/^#{1,3}\s*credits\b.*$/im);
+              if (!m) return '';
+              const rest = md.slice(m.index + m[0].length);
+              const next = rest.search(/^#{1,2}\s+\S/m);
+              return next === -1 ? rest : rest.slice(0, next);
+            }
+            function creditedLogins(section) {
+              const set = new Set();
+              for (const m of section.matchAll(/github\.com\/([A-Za-z0-9-]+)/g)) set.add(m[1].toLowerCase());
+              return set;
+            }
+            async function upstreamAuthors() {
+              const set = new Set(FALLBACK_UPSTREAM);
+              try {
+                const md = await readReadme('dortania', 'OpenCore-Legacy-Patcher');
+                for (const l of creditedLogins(creditsSection(md))) set.add(l);
+              } catch (e) { core.warning(`Could not read Dortania README, using fallback list: ${e.message}`); }
+              return set;
+            }
+            async function readmeFindings(baseRef, headOwner, headRepo, headRef) {
+              const protectedSet = await upstreamAuthors();
+              const before = creditedLogins(creditsSection(await readReadme(owner, repo, baseRef)));
+              const after = creditedLogins(creditsSection(await readReadme(headOwner, headRepo, headRef)));
+              const gone = [...before].filter(l => protectedSet.has(l) && !after.has(l));
+              return gone.length ? [{ file: 'README.md', reason: 'Upstream (Dortania) authors removed from Credits',
+                removed: gone.map(l => `https://github.com/${l}`), added: [] }] : [];
+            }
+
+            const POLICY = [
+              'This project is a fork of Dortania\'s OpenCore Legacy Patcher / PatcherSupportPkg.',
+              'Removing, replacing or rewriting the copyright, licence or credit notices of Dortania and its authors (Dhinak G, Mykola Grymalyuk and contributors) violates the licence',
+              'and is not allowed, no matter who makes the change. Keep the original notices intact; you may add',
+              'your own credit **next to** them (keep `Copyright (c) 2020-2025 Dhinak G, Mykola Grymalyuk, and individual contributors.` and add a separate line for your own changes).',
+            ].join(' ');
+
+            // ---------- Pull requests: close immediately ----------
+            if (context.eventName === 'pull_request_target') {
+              const pr = context.payload.pull_request;
+              if (pr.state !== 'open') return;
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner, repo, pull_number: pr.number, per_page: 100,
+              });
+              const findings = scan(files);
+              if (files.some(f => f.filename === 'README.md')) {
+                const { data: c } = await github.rest.repos.compareCommitsWithBasehead({
+                  owner, repo, basehead: `${pr.base.sha}...${pr.head.sha}`,
+                });
+                const headOwner = pr.head.repo ? pr.head.repo.owner.login : owner;
+                const headRepo  = pr.head.repo ? pr.head.repo.name : repo;
+                findings.push(...await readmeFindings(c.merge_base_commit.sha, headOwner, headRepo, pr.head.sha));
+              }
+              if (!findings.length) { core.info('No attribution violation found.'); return; }
+
+              const body = [
+                MARKER,
+                '> [!CAUTION]',
+                '> **This pull request was closed automatically because it removes or alters Dortania\'s copyright, licence or credit notices.**',
+                '',
+                POLICY,
+                '',
+                '**Detected changes:**',
+                report(findings),
+                '',
+                'Please restore the original notices. If you think this was a false positive, reply here and a maintainer will review it.',
+              ].join('\n');
+
+              await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
+              try {
+                await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: ['attribution-violation'] });
+              } catch (e) { core.warning(`Could not add label: ${e.message}`); }
+              await github.rest.pulls.update({ owner, repo, pull_number: pr.number, state: 'closed' });
+              core.setFailed('Attribution violation detected, PR closed.');
+              return;
+            }
+
+            // ---------- Pushes: open an issue ----------
+            const { before, after } = context.payload;
+            if (/^0+$/.test(after)) return; // branch deleted
+            let base = before;
+            if (!base || /^0+$/.test(base)) {
+              // New branch: compare against the default branch
+              base = context.payload.repository.default_branch;
+            }
+            const { data: cmp } = await github.rest.repos.compareCommitsWithBasehead({
+              owner, repo, basehead: `${base}...${after}`,
+            });
+            const findings = scan(cmp.files || []);
+            if ((cmp.files || []).some(f => f.filename === 'README.md')) {
+              findings.push(...await readmeFindings(cmp.merge_base_commit.sha, owner, repo, after));
+            }
+            if (!findings.length) { core.info('No attribution violation found.'); return; }
+
+            const shortSha = after.slice(0, 7);
+            const branch = context.ref.replace('refs/heads/', '');
+            const title = `Attribution violation in ${branch} (${shortSha})`;
+
+            // Don't open the same issue twice
+            const open = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', labels: 'attribution-violation', per_page: 100,
+            });
+            if (open.some(i => i.title === title)) { core.info('Issue already exists.'); return; }
+
+            const commits = (cmp.commits || []).map(c =>
+              `- [\`${c.sha.slice(0, 7)}\`](${c.html_url}) ${c.commit.message.split('\n')[0]} — @${c.author ? c.author.login : c.commit.author.name}`
+            ).join('\n');
+
+            const body = [
+              MARKER,
+              '> [!CAUTION]',
+              `> **A push to \`${branch}\` removed or altered Dortania's copyright, licence or credit notices.**`,
+              '',
+              POLICY,
+              '',
+              `**Pushed by:** @${context.actor}`,
+              `**Compare:** ${cmp.html_url}`,
+              '',
+              '**Commits:**',
+              commits || '_none listed_',
+              '',
+              '**Detected changes:**',
+              report(findings),
+              '',
+              'Please revert or restore the original notices and close this issue afterwards.',
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner, repo, title, body, labels: ['attribution-violation'],
+            });
+            core.setFailed('Attribution violation detected, issue opened.');

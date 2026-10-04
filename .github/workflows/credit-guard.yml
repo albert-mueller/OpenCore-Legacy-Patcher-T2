@@ -1,0 +1,195 @@
+# .github/workflows/credit-guard.yml
+#
+# Makes sure contributors are credited in README.md ("## Credits").
+#   - PR whose author/commit authors are not in Credits:
+#       comment + label "needs-credit" (the PR is NOT closed)
+#   - Such a PR gets merged and they are still not credited:
+#       an issue is opened as a reminder
+#   - PR or push that removes someone from Credits:
+#       PR gets a warning comment, a push opens an issue (nothing is closed)
+# Code is only read through the API, never checked out or executed.
+
+name: Credit guard
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, closed]
+  push:
+    branches: [main]
+    paths: [README.md]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  credits:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check contributor credits
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const README = 'README.md';
+            const LABEL = 'needs-credit';
+            const MARK_MISSING = '<!-- credit-guard-missing -->';
+            const MARK_REMOVED = '<!-- credit-guard-removed -->';
+            // Never asked to be credited
+            const IGNORE = new Set([owner.toLowerCase(), 'github-actions[bot]', 'dependabot[bot]', 'web-flow']);
+
+            async function readFile(o, r, ref) {
+              try {
+                const { data } = await github.rest.repos.getContent({ owner: o, repo: r, path: README, ref });
+                return Buffer.from(data.content, 'base64').toString('utf8');
+              } catch (e) { if (e.status === 404) return ''; throw e; }
+            }
+
+            // Text of the "## Credits" section only
+            function creditsSection(md) {
+              const m = md.match(/^#{1,3}\s*credits\b.*$/im);
+              if (!m) return '';
+              const rest = md.slice(m.index + m[0].length);
+              const next = rest.search(/^#{1,2}\s+\S/m); // stop at the next ## heading
+              return next === -1 ? rest : rest.slice(0, next);
+            }
+
+            // GitHub logins linked or @-mentioned in the Credits section
+            function creditedLogins(section) {
+              const set = new Set();
+              for (const m of section.matchAll(/github\.com\/([A-Za-z0-9-]+)/g)) set.add(m[1].toLowerCase());
+              for (const m of section.matchAll(/@([A-Za-z0-9-]+)/g)) set.add(m[1].toLowerCase());
+              return set;
+            }
+
+            const isCredited = (login, set) => set.has(login.toLowerCase());
+            const relevant = l => l && !IGNORE.has(l.toLowerCase()) && !l.endsWith('[bot]');
+
+            async function prContributors(pr) {
+              const people = new Set([pr.user.login]);
+              const commits = await github.paginate(github.rest.pulls.listCommits, {
+                owner, repo, pull_number: pr.number, per_page: 100,
+              });
+              for (const c of commits) if (c.author && c.author.login) people.add(c.author.login);
+              return [...people].filter(relevant);
+            }
+
+            async function upsertComment(issue_number, marker, body) {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number, per_page: 100,
+              });
+              const existing = comments.find(c => (c.body || '').includes(marker));
+              if (!body) {
+                if (existing) await github.rest.issues.deleteComment({ owner, repo, comment_id: existing.id });
+                return;
+              }
+              if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+              else await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+            async function openIssueOnce(title, body) {
+              const open = await github.paginate(github.rest.issues.listForRepo, {
+                owner, repo, state: 'open', labels: LABEL, per_page: 100,
+              });
+              if (open.some(i => i.title === title)) return;
+              await github.rest.issues.create({ owner, repo, title, body, labels: [LABEL] });
+            }
+
+            const list = arr => arr.map(l => `- @${l}`).join('\n');
+
+            // ---------- Pull requests ----------
+            if (context.eventName === 'pull_request_target') {
+              const pr = context.payload.pull_request;
+              const action = context.payload.action;
+              const headOwner = pr.head.repo ? pr.head.repo.owner.login : owner;
+              const headRepo  = pr.head.repo ? pr.head.repo.name : repo;
+
+              // Compare against the merge base, so a PR made from an older main
+              // isn't blamed for credits that were added to main afterwards
+              const { data: cmp } = await github.rest.repos.compareCommitsWithBasehead({
+                owner, repo, basehead: `${pr.base.sha}...${pr.head.sha}`,
+              });
+              const mergeBase = cmp.merge_base_commit.sha;
+              const baseCredits = creditedLogins(creditsSection(await readFile(owner, repo, mergeBase)));
+              const headCredits = creditedLogins(creditsSection(await readFile(headOwner, headRepo, pr.head.sha)));
+              const people = await prContributors(pr);
+
+              // Merged: remind if someone is still not credited on the target branch
+              if (action === 'closed') {
+                if (!pr.merged) return;
+                const nowCredits = creditedLogins(creditsSection(await readFile(owner, repo, pr.base.ref)));
+                const missing = people.filter(l => !isCredited(l, nowCredits));
+                if (!missing.length) return;
+                await openIssueOnce(`Credit missing for PR #${pr.number}`, [
+                  MARK_MISSING,
+                  `PR #${pr.number} (**${pr.title}**) was merged, but these contributors are not listed in the **Credits** section of \`${README}\`:`,
+                  '',
+                  list(missing),
+                  '',
+                  `Please add them with a short description of what they contributed, e.g.:`,
+                  '```md',
+                  ...missing.map(l => `* [${l}](https://github.com/${l})\n    * <what they did> (#${pr.number})`),
+                  '```',
+                ].join('\n'));
+                return;
+              }
+
+              // Someone credited at the merge base would be removed by this PR
+              const removed = [...baseCredits].filter(l => !headCredits.has(l) && relevant(l));
+              await upsertComment(pr.number, MARK_REMOVED, removed.length ? [
+                MARK_REMOVED,
+                '> [!WARNING]',
+                '> **This pull request removes existing contributors from the Credits section.**',
+                '',
+                list(removed),
+                '',
+                'Credits for past contributions must stay in the README. Please restore these entries, or explain here why they should be changed.',
+              ].join('\n') : null);
+
+              // Author / commit authors not credited (counting credits added in this PR)
+              const missing = people.filter(l => !isCredited(l, baseCredits) && !isCredited(l, headCredits));
+              await upsertComment(pr.number, MARK_MISSING, missing.length ? [
+                MARK_MISSING,
+                '> [!NOTE]',
+                '> **Thanks for contributing! The following contributors are not yet listed in the Credits section of `README.md`:**',
+                '',
+                list(missing),
+                '',
+                'You can add yourself in this pull request, for example:',
+                '```md',
+                ...missing.map(l => `* [${l}](https://github.com/${l})\n    * <what you contributed>`),
+                '```',
+                'Otherwise a maintainer will add you when merging. This is only a reminder, the pull request stays open.',
+              ].join('\n') : null);
+
+              try {
+                if (missing.length) {
+                  await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: [LABEL] });
+                } else {
+                  await github.rest.issues.removeLabel({ owner, repo, issue_number: pr.number, name: LABEL });
+                }
+              } catch (e) { if (e.status !== 404) core.warning(`Label update failed: ${e.message}`); }
+              return;
+            }
+
+            // ---------- Pushes to main: someone removed from Credits ----------
+            const { before, after } = context.payload;
+            if (/^0+$/.test(before) || /^0+$/.test(after)) return;
+            const oldCredits = creditedLogins(creditsSection(await readFile(owner, repo, before)));
+            const newCredits = creditedLogins(creditsSection(await readFile(owner, repo, after)));
+            const removed = [...oldCredits].filter(l => !newCredits.has(l) && relevant(l));
+            if (!removed.length) return;
+
+            await openIssueOnce(`Contributors removed from Credits (${after.slice(0, 7)})`, [
+              MARK_REMOVED,
+              '> [!WARNING]',
+              `> **A push to \`main\` removed contributors from the Credits section of \`${README}\`.**`,
+              '',
+              list(removed),
+              '',
+              `**Pushed by:** @${context.actor}`,
+              `**Compare:** https://github.com/${owner}/${repo}/compare/${before.slice(0, 12)}...${after.slice(0, 12)}`,
+              '',
+              'Please restore these entries, or close this issue with a note if the removal was intended (e.g. at the contributor\'s request).',
+            ].join('\n'));
