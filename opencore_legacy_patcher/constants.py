@@ -18,7 +18,7 @@ class Constants:
         self.patcher_version:                 str = "4.0.0.190008.3"
         self.patcher_version_label=self.patcher_version
         self.patcher_support_pkg_version:     str = "2.0.5"  # PatcherSupportPkg
-        self.copyright_date:                  str = "Copyright © 2020-2026 Dortania · T2 fork © 2026 Albert Müller"
+        self.copyright_date:                  str = "Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors · T2 fork © 2026 Albert Müller"
 
         # Application identity
         # Must NOT be "com.dortania.opencore-legacy-patcher": Launch Services

@@ -23,8 +23,11 @@ REPORT = os.environ.get("REPORT_PATH", "license-report.md")
 MARKER = "<!-- license-guard -->"
 DIFF_RANGE = sys.argv[1]
 
-# "copyright" as a whole word (not AuthorizationCopyRights / copyright_date), ©, or "(c) 2020"
-COPYRIGHT_RE = re.compile(r"(?<![A-Za-z_])copyright(?![A-Za-z_])|©|\(c\)\s*\d", re.I)
+# A copyright *notice*: "©", "(c) 2020", or the word "Copyright" followed by a year or a name
+# ("Copyright 2020 ...", "Copyright (c) Apple", "Copyright © Dortania"). Prose like "copyright label",
+# comments like "Text: Copyright" and identifiers like AuthorizationCopyRights don't count.
+COPYRIGHT_RE = re.compile(
+    r"©|\([cC]\)\s*\d|(?<![A-Za-z_])(?i:copyright)(?![A-Za-z_])\s*(?:\([cC]\)|©)?\s*(?:\d{4}|[A-Z][A-Za-z])")
 SPDX_RE = re.compile(r"SPDX-License-Identifier:\s*(.+?)\s*(?:\*/|-->|$)", re.I)
 LICENSE_FILE_RE = re.compile(r"(^|/)(LICEN[CS]E|COPYING|NOTICE)(\.(txt|md|rst))?$", re.I)
 # The guard's own files talk about copyrights all the time - don't scan them.
@@ -40,6 +43,13 @@ def git(*args):
 def norm(line):
     """Normalise whitespace and years so a pure year bump isn't reported."""
     return YEAR_RE.sub("YYYY", " ".join(line.split())).lower()
+
+
+def core(line):
+    """The notice itself, from where it starts up to the end of the string/tag it sits in,
+    so `str = "Copyright © 2020 X"` and `<string>Copyright © X</string>` reduce to the notice."""
+    m = COPYRIGHT_RE.search(line)
+    return norm(re.split(r"[\"'<]", line[m.start():] if m else line)[0])
 
 
 def show(line):
@@ -97,10 +107,12 @@ def main():
             continue
 
         # 1) Upstream copyright notice removed or replaced (any holder; year bumps ignored)
-        lost_n = Counter(norm(l) for l in rem_cr) - Counter(norm(l) for l in add_cr)
-        new_n = Counter(norm(l) for l in add_cr) - Counter(norm(l) for l in rem_cr)
-        lost = [l for l in rem_cr if lost_n[norm(l)]]
-        new = [l for l in add_cr if new_n[norm(l)]]
+        # A notice counts as kept if its text still appears in some added line, so
+        # "© 2020 Dortania" -> "© 2020 Dortania · fork © 2026 Albert" is fine.
+        added_n = [norm(l) for l in f["add"]]
+        removed_n = [norm(l) for l in f["rem"]]
+        lost = [l for l in rem_cr if not any(core(l) in a for a in added_n)]
+        new = [l for l in add_cr if not any(core(l) in r for r in removed_n)]
         if lost:
             add("violation", path,
                 f"Upstream copyright notice {'replaced' if new else 'removed'}",
