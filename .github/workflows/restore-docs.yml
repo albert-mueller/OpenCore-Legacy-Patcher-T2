@@ -1,0 +1,30 @@
+name: Restore docs from Dortania (one-off)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Copy docs/ from dortania/OpenCore-Legacy-Patcher
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth 1 https://github.com/dortania/OpenCore-Legacy-Patcher.git main
+          UP=$(git rev-parse FETCH_HEAD)
+          git checkout "$UP" -- docs
+          # Keep this fork's own versions of files that already exist here
+          git checkout HEAD -- docs/scripts/sortDict.js docs/scripts/linkcheck.py
+          git status --short | head -n 200
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs: restore Dortania's documentation site (docs/) from dortania/OpenCore-Legacy-Patcher@${UP:0:7}" \
+                     -m "Copied unchanged, including the 'Copyright © Dortania' footer. Fork versions of docs/scripts/sortDict.js and docs/scripts/linkcheck.py kept."
+          git push origin HEAD:main
