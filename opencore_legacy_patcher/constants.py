@@ -18,7 +18,7 @@ class Constants:
         self.patcher_version:                 str = "4.0.0.190008.3"
         self.patcher_version_label=self.patcher_version
         self.patcher_support_pkg_version:     str = "2.0.5"  # PatcherSupportPkg
-        self.copyright_date:                  str = "Copyright © 2020-2026 Dortania · T2 fork © 2026 Albert Müller"
+        self.copyright_date:                  str = "Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors · T2 fork © 2026 Albert Müller"
 
         # Application identity
         # Must NOT be "com.dortania.opencore-legacy-patcher": Launch Services
@@ -118,6 +118,7 @@ class Constants:
         self.io80211elcap_version:     str = "2.0.1"  # IO80211ElCap
         self.io80211legacy_version:    str = "1.0.0"  # IO80211FamilyLegacy (Ventura)
         self.ioskywalk_version:        str = "1.2.0"  # IOSkywalkFamily (Ventura)
+        self.airport_atheros_tahoe_version: str = "1.0.0"  # AirPortAtheros40-Tahoe
         self.bigsursdxc_version:       str = "1.0.0"  # BigSurSDXC
         self.monterey_ahci_version:    str = "1.0.0"  # CatalinaAHCI
 
@@ -587,6 +588,10 @@ class Constants:
     @property
     def ioskywalk_path(self):
         return self.payload_kexts_path / Path(f"Wifi/IOSkywalkFamily-v{self.ioskywalk_version}.zip")
+
+    @property
+    def airport_atheros_tahoe_path(self):
+        return self.payload_kexts_path / Path(f"Wifi/AirPortAtheros40-Tahoe-v{self.airport_atheros_tahoe_version}.zip")
 
     @property
     def applealc_path(self):
