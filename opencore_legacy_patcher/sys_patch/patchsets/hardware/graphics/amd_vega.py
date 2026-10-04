@@ -9,6 +9,7 @@ from ...base import PatchType
 from ...shared_patches.metal_31001     import LegacyMetal31001
 from ...shared_patches.monterey_gva    import MontereyGVA
 from ...shared_patches.monterey_opencl import MontereyOpenCL
+from ...shared_patches.tahoe_graphics  import TahoeGraphics
 from ...shared_patches.amd_opencl      import AMDOpenCL
 
 from .....constants  import Constants
@@ -82,8 +83,8 @@ class AMDVega(BaseHardware):
                     "/System/Library/Extensions": {
                         "AMDRadeonX5000.kext":            self._resolve_monterey_framebuffers(),
 
-                        "AMDRadeonVADriver2.bundle":      "12.5",
-                        "AMDRadeonX5000GLDriver.bundle":  "12.5",
+                        "AMDRadeonVADriver2.bundle":      "12.5-26" if self._xnu_major >= os_data.golden_gate.value else "12.5-25" if self._xnu_major >= os_data.tahoe.value else "12.5",
+                        "AMDRadeonX5000GLDriver.bundle":  "12.5-26" if self._xnu_major >= os_data.golden_gate.value else "12.5-25" if self._xnu_major >= os_data.tahoe.value else "12.5",
                         **({ "AMDRadeonX5000MTLDriver.bundle": (
                             "12.5-26" if self._xnu_major >= os_data.golden_gate.value
                             else ("12.5-25" if self._xnu_major >= os_data.tahoe.value
@@ -92,7 +93,7 @@ class AMDVega(BaseHardware):
                         ) }),
                         "AMDRadeonX5000Shared.bundle":    "12.5",
 
-                        "AMDShared.bundle":               "12.5",
+                        "AMDShared.bundle":               "12.5-26" if self._xnu_major >= os_data.golden_gate.value else "12.5-25" if self._xnu_major >= os_data.tahoe.value else "12.5",
                     },
                 },
             },
@@ -138,6 +139,7 @@ class AMDVega(BaseHardware):
 
             **MontereyOpenCL(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
             **AMDOpenCL(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
+            **TahoeGraphics(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
             **self._model_specific_patches(),
             **self._model_specific_patches_extended(),
         }

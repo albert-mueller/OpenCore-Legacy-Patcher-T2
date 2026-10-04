@@ -29,6 +29,10 @@ WORDLIST = ROOT / ".github" / "moderation" / "blocked_terms.txt"
 LOG = ROOT / "moderation" / "flagged-issues.md"
 API = "https://api.github.com"
 TOKEN = os.environ.get("GH_TOKEN", "")
+# MODERATION_TOKEN (personal access token) is optional: without it the built-in
+# GITHUB_TOKEN is used, which can wipe/close/lock issues and delete comments,
+# but cannot delete issues or block users.
+HAS_ADMIN_TOKEN = os.environ.get("HAS_ADMIN_TOKEN", "").lower() == "true"
 REPO = os.environ["REPO"]
 HEADER = (
     "# Flagged issues\n\n"
@@ -276,7 +280,10 @@ def cell(s):
 
 def main():
     if not TOKEN:
-        sys.exit("MODERATION_TOKEN secret is not set")
+        sys.exit("No GitHub token available (neither MODERATION_TOKEN nor GITHUB_TOKEN)")
+    if not HAS_ADMIN_TOKEN:
+        print("::notice::MODERATION_TOKEN not set - using GITHUB_TOKEN "
+              "(issues are wiped/closed/locked instead of deleted, users are not blocked)")
 
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
     issue = event["issue"]
@@ -309,8 +316,11 @@ def main():
         return
 
     action = remove_comment(comment) if comment else remove_issue(issue)
-    block_status, _ = gh("PUT", f"/user/blocks/{user['login']}")
-    blocked = "✅" if block_status == 204 else f"❌ ({block_status})"
+    if HAS_ADMIN_TOKEN:
+        block_status, _ = gh("PUT", f"/user/blocks/{user['login']}")
+        blocked = "✅" if block_status == 204 else f"❌ ({block_status})"
+    else:
+        blocked = "❌ (no MODERATION_TOKEN)"
 
     label = CATEGORY_LABEL[category]
     row = "| " + " | ".join([

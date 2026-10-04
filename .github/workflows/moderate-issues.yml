@@ -36,7 +36,9 @@ jobs:
 
       - name: Check issue/comment, delete, block
         env:
-          GH_TOKEN: ${{ secrets.MODERATION_TOKEN }}
+          # MODERATION_TOKEN (PAT) is optional; falls back to the built-in token
+          GH_TOKEN: ${{ secrets.MODERATION_TOKEN || secrets.GITHUB_TOKEN }}
+          HAS_ADMIN_TOKEN: ${{ secrets.MODERATION_TOKEN != '' }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           REPO: ${{ github.repository }}
         run: python .github/scripts/moderate_issue.py

@@ -52,13 +52,6 @@ class T1SecurityChip(BaseHardware):
         if self.native_os() is True:
             return {}
 
-        if self._xnu_major >= os_data.tahoe.value:
-            # On macOS Tahoe (26.x), legacy Ventura/Sequoia biometrickitd and SharedUtils
-            # binaries cause SecurityAgent and WindowServer to crash, resulting in a black
-            # screen at login and Touch Bar flashing.
-            # Tahoe handles T1 password authentication natively.
-            return {}
-
         return {
             "T1 Security Chip": {
                 PatchType.OVERWRITE_SYSTEM_VOLUME: {
@@ -78,6 +71,7 @@ class T1SecurityChip(BaseHardware):
                         "biometrickitd":      "13.6",    # Required for Touch ID
                         "nfcd":               "13.6",    # Required for Apple Pay
                         "nfrestore_service":  "13.6",    # Required for Apple Pay
+                        **({ "seld": "26.0-25G229" } if self._xnu_major >= os_data.tahoe.value else {}),  # Required for Touch ID / Apple Pay on Tahoe
                     },
                     "/usr/standalone/firmware/nfrestore/firmware/fw": {
                         "PN549_FW_02_01_5A_rev88207.bin":         "13.6",
@@ -87,12 +81,17 @@ class T1SecurityChip(BaseHardware):
                     }
                 },
                 PatchType.MERGE_SYSTEM_VOLUME: {
-                    "/System/Library/Frameworks/LocalAuthentication.framework/Support": {
-                        "SharedUtils.framework": f"13.6-{self._xnu_major}" if self._xnu_major < os_data.sequoia else "13.7.1-24" if self._xnu_major >= os_data.tahoe.value else f"13.7.1-{self._xnu_major}",  # Required for Password Authentication (SharedUtils.framework)
-                    },
+                    # On Tahoe, LocalAuthenticationCore.framework replaces the legacy SharedUtils overlay
+                    # (old SharedUtils crashes SecurityAgent/WindowServer -> black screen at login)
+                    **({
+                        "/System/Library/Frameworks/LocalAuthentication.framework/Support": {
+                            "SharedUtils.framework": f"13.6-{self._xnu_major}" if self._xnu_major < os_data.sequoia else f"13.7.1-{self._xnu_major}",  # Required for Password Authentication (SharedUtils.framework)
+                        },
+                    } if self._xnu_major < os_data.tahoe.value else {}),
                     "/System/Library/PrivateFrameworks": {
                         "EmbeddedOSInstall.framework": "13.6",  # Required for biometrickitd
-                        **({ "NearField.framework": "14.7.2" } if self._xnu_major >= os_data.sequoia else {}),
+                        **({ "LocalAuthenticationCore.framework": "26.0-25G229" } if self._xnu_major >= os_data.tahoe.value else {}),
+                        **({ "NearField.framework": "14.7.2-25" if self._xnu_major >= os_data.tahoe.value else "14.7.2" } if self._xnu_major >= os_data.sequoia else {}),
                     },
                 }
             },
