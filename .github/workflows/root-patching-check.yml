@@ -46,8 +46,12 @@ on:
     - cron: "45 6 * * 1"   # Mondays 06:45 UTC
   workflow_dispatch:
 
+# Only the auto-fix job inherits this: it calls a reusable workflow, and GitHub
+# rejects `models` in a caller job's own permissions. Every other job sets its own.
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
+  models: read
 
 concurrency:
   group: root-patching-${{ github.event.pull_request.number || github.ref }}
@@ -305,10 +309,6 @@ jobs:
       always() && needs.check.result != 'skipped' && needs.check.result != 'cancelled' &&
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-    permissions:
-      contents: write
-      pull-requests: write
-      models: read
     uses: ./.github/workflows/check-auto-fix.yml
     with:
       name: root patching check
