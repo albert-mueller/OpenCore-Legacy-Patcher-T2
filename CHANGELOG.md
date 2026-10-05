@@ -17,6 +17,8 @@ This release:
   - all referenced payloads ship in PatcherSupportPkg 2.0.5
 - fixes a bug where most Macs had no USB port map on macOS 26 Tahoe: `USB-Map-Tahoe.kext` had lost 233 of its 281 port mappings, so it loaded without any mapping on Ivy Bridge and newer Macs (MacBookPro9,x–12,x, MacBookAir5,x–7,x, iMac13,x–17,1, Macmini6,x/7,1, MacPro6,1) and without the per-controller EHCI/OHCI entries on older models. All mappings are restored from Dortania's Tahoe USB map (dortania/OpenCore-Legacy-Patcher@feca197), thx @Jazzzny and Dortania
   - keeps this fork's own fixes for MacBookPro3,1 and MacBook5,1/5,2
+- Penryn (Core 2 Duo) Macs: adds the `-nomt_core` boot-arg so macOS 26 Tahoe boots reliably, ported from dortania/OpenCore-Legacy-Patcher@7007536, thx @Jazzzny and Dortania
+- AppleGraphicsPowerManagement: adds the missing iMac19,1 and iMac19,2 power management profiles (GFX0 + IGPU), ported from dortania/OpenCore-Legacy-Patcher@58f66ad, thx @Jazzzny and Dortania
 
 **Note:** T1 Touch ID on Tahoe is not yet verified on our hardware. If you get a black screen or a flashing Touch Bar at login, please revert root patches and open an issue with your logs.
 
