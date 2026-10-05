@@ -11,6 +11,13 @@
 
 ---
 
+> **Unofficial fork.** OCLP-T2 is an independent community project and is not
+> affiliated with, endorsed by, or supported by Dortania or the OpenCore Legacy
+> Patcher team. Please don't report OCLP-T2 issues to Dortania.
+>
+> This product includes software developed by Dortania and OpenCore Legacy
+> Patcher contributors. See [LICENSE.txt](LICENSE.txt).
+
 ### 👑 Authorship & Contributions
 This repository is the dedicated development fork led by **albert-mueller (Albert Müller)**. While building upon work by Dortania, Acidanthera, this fork independently engineered the critical solutions that make macOS 26 Tahoe fully usable on legacy and T1/T2 hardware:
 
