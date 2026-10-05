@@ -1,0 +1,95 @@
+name: Old alpha – limited support notice
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  check:
+    # Skip bot-created issues
+    if: github.event.sender.type != 'Bot'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Detect alpha 17 or older
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const MAX_OLD_ALPHA = 17;
+            const MARKER = '<!-- old-alpha-notice-bot -->';
+            const LABEL = 'outdated-version';
+
+            const issue = context.payload.issue;
+            const text = `${issue.title || ''}\n${issue.body || ''}`;
+
+            // Alpha major from a build number like 4.0.0.17000.1 (alpha 17),
+            // 4.0.0.18009 (alpha 18.9) or 4.0.0.190008.2 (alpha 19.8.2).
+            const alphaFromBuild = (n) => {
+              if (n.length >= 5) return parseInt(n.slice(0, 2), 10);
+              if (n.length === 4) return parseInt(n.slice(0, 1), 10);
+              return null;
+            };
+
+            const majors = [];
+            for (const m of text.matchAll(/\b4\.0\.0\.(\d{4,6})(?:\.\d+)?\b/g)) {
+              const major = alphaFromBuild(m[1]);
+              if (major !== null) majors.push(major);
+            }
+            // Also catch written forms: "alpha 17", "alpha17.3", "alpha-16"
+            for (const m of text.matchAll(/\balpha[\s._-]*(\d{1,2})(?:\.\d+)*\b/gi)) {
+              majors.push(parseInt(m[1], 10));
+            }
+
+            if (majors.length === 0) {
+              core.info('No version found, nothing to do.');
+              return;
+            }
+
+            // Use the newest version mentioned, so "updated from alpha 16 to alpha 19" isn't flagged
+            const newest = Math.max(...majors);
+            if (newest > MAX_OLD_ALPHA) {
+              core.info(`Newest alpha mentioned is ${newest}, nothing to do.`);
+              return;
+            }
+
+            // Don't post twice on the same issue
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+            });
+            if (comments.some(c => (c.body || '').includes(MARKER))) {
+              core.info('Already commented on this issue.');
+              return;
+            }
+
+            const body = [
+              MARKER,
+              `Hi @${issue.user.login}, thanks for the report!`,
+              '',
+              `It looks like you're using **alpha ${newest}**. Support for alpha ${MAX_OLD_ALPHA} and older is limited, and many issues from these versions have already been fixed.`,
+              '',
+              `Please consider updating to the latest version from the [Releases page](https://github.com/${context.repo.owner}/${context.repo.repo}/releases) and check whether the problem still happens.`,
+              '',
+              `If it does, please reply here with your new version number and the full log.`,
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body,
+            });
+
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: [LABEL],
+              });
+            } catch (e) {
+              core.warning(`Could not add label: ${e.message}`);
+            }

@@ -15,6 +15,10 @@ This release:
   - Nvidia Kepler: adds ImageIO.framework, CMPhoto.framework and the nsattributedstringagent sandbox profile (26.0-25G229); on Macs with a Haswell iGPU next to the Kepler dGPU, OpenCL.framework 12.5 is installed as well
   - new shared Tahoe Graphics patchset (RenderBox default.metallib 26.0-3802) for AMD, Broadwell, Haswell, Ivy Bridge and Kepler, plus the Tahoe camera patch (CoreMediaIO.framework / AppleCameraAssistant, 14.0 Beta 1) for Broadwell and Haswell
   - all referenced payloads ship in PatcherSupportPkg 2.0.5
+- fixes a bug where most Macs had no USB port map on macOS 26 Tahoe: `USB-Map-Tahoe.kext` had lost 233 of its 281 port mappings, so it loaded without any mapping on Ivy Bridge and newer Macs (MacBookPro9,x–12,x, MacBookAir5,x–7,x, iMac13,x–17,1, Macmini6,x/7,1, MacPro6,1) and without the per-controller EHCI/OHCI entries on older models. All mappings are restored from Dortania's Tahoe USB map (dortania/OpenCore-Legacy-Patcher@feca197), thx @Jazzzny and Dortania
+  - keeps this fork's own fixes for MacBookPro3,1 and MacBook5,1/5,2
+- Penryn (Core 2 Duo) Macs: adds the `-nomt_core` boot-arg so macOS 26 Tahoe boots reliably, ported from dortania/OpenCore-Legacy-Patcher@7007536, thx @Jazzzny and Dortania
+- AppleGraphicsPowerManagement: adds the missing iMac19,1 and iMac19,2 power management profiles (GFX0 + IGPU), ported from dortania/OpenCore-Legacy-Patcher@58f66ad, thx @Jazzzny and Dortania
 
 **Note:** T1 Touch ID on Tahoe is not yet verified on our hardware. If you get a black screen or a flashing Touch Bar at login, please revert root patches and open an issue with your logs.
 
