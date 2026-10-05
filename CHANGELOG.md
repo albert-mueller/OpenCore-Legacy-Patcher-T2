@@ -17,6 +17,29 @@ This release:
 
 **Note:** T1 Touch ID on Tahoe is not yet verified on our hardware. If you get a black screen or a flashing Touch Bar at login, please revert root patches and open an issue with your logs.
 
+## 4.0.0.190008.2 - alpha 19.8.2 - Preview / Vorschau
+This release:
+- Migrate to Dortania's PatcherSupportPkg: Replaced the legacy PatcherSupportPkg fork with Dortania's official upstream support package.
+
+        - Reasoning: Dortania's implementation now offers vastly superior native support for macOS 26 Tahoe, eliminating the unsustainable workflow of backporting patches and resolving previous license incompatibilities between the custom package and the core patcher. As a result, the old independent package has been permanently retired and no longer available for download.  This release now builds directly upon a Dortania fork, supplemented only by a few essential missing patches.
+-  Improves error handling for rebuilding the kernel cache and RSRRepair
+- Restricts SMBIOS spoofing for T2 Macs only to Tahoe
+- fixes the following bug:
+
+            ig).get_kext_by_bundle_path("IO80211FamilyLegacy.kext/Contents/PlugIns/AirPortBrcmNIC.kext")["Enabled"] = True
+                        support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", "com.apple.iokit.IOSkywalkFamily")["Enabled"] = True
+                        if self.constants.detected_os >= 15: # <- this is El Capitan, not Sonoma or Sequoia!
+                        # Sonoma+ only, see _on_model() (detected_os is a Darwin major, 15 = El Capitan)
+                        if self.constants.detected_os >= os_data.os_data.sonoma:
+                            # BroadcomVTD-Tahoe is only needed (and only built) for macOS 26 Tahoe.
+                            # detected_os is a Darwin major, so compare against os_data.tahoe (25),
+                            # not 15 (El Capitan), which matched every supported macOS.
+This bug was causing to inject Broadcom VT-D patches on Ventura and older releases.
+
+
+## 4.0.0.190008.1 - 4.0.0 alpha 19.8.1
+This release fixes a bug where if SecureBootModel is set to x86legacy, the patcher may still offer root patches, which could cause the operating system to kernel panic. Thx @Medelcartelinc 
+
 ## 4.0.0.190008 - 4.0.0 alpha 19.8
 **WARNING:** This release includes critical fixes to mitigate root patching issues where the root patcher may leave the Mac in a half patched state, causing kernel panics! If you have 4.0.0.190007 or newer, then this update should be installed as soon as possible. 4.0.0.190007, 4.0.0.190007.1 and 4.0.0.190007.2 are more horrible than Windows Vista - on anything non-T2 it was basically a brick.
 This release:
