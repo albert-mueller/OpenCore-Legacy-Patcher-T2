@@ -38,11 +38,25 @@ jobs:
               `(copyright|\\(c\\)|©|all rights reserved|developed by|licen[sc]ed? (to|by)|authors?:)[^\\n]*(${AUTHORS})` +
               `|(${AUTHORS})[^\\n]*(copyright|\\(c\\)|©|all rights reserved)` +
               `|\\b(19|20)\\d{2}(\\s*[-–]\\s*(19|20)\\d{2})?,?\\s+(${AUTHORS})\\b`, 'i');
-            // Licence files: no line may be dropped (year updates are fine)
+            // Licence files: no line of the UPSTREAM (Dortania) licence may be dropped (year updates are fine).
+            // Lines this fork added itself (e.g. its own copyright or terms for its own changes) may be edited.
             const LICENSE_FILE = /(^|\/)(LICEN[SC]E|COPYING|NOTICE)(\.[a-z]+)?$/i;
             const normYears = l => l.replace(/\b(19|20)\d{2}(\s*[-–]\s*(19|20)\d{2})?/g, 'YEAR').replace(/\s+/g, ' ').trim();
 
-            function scan(files) {
+            // Normalised lines of Dortania's own licence file(s), fetched once per run
+            const upstreamLicence = new Map();
+            async function upstreamLicenceLines(path) {
+              if (upstreamLicence.has(path)) return upstreamLicence.get(path);
+              let set = null; // null = upstream has no such file -> protect every line
+              try {
+                const { data } = await github.rest.repos.getContent({ owner: 'dortania', repo: 'OpenCore-Legacy-Patcher', path });
+                set = new Set(Buffer.from(data.content, 'base64').toString('utf8').split('\n').map(normYears).filter(Boolean));
+              } catch (e) { if (e.status !== 404) core.warning(`Could not read upstream ${path}: ${e.message}`); }
+              upstreamLicence.set(path, set);
+              return set;
+            }
+
+            async function scan(files) {
               const findings = [];
               for (const f of files) {
                 // Workflow files contain the detection patterns themselves (false positives).
@@ -70,7 +84,8 @@ jobs:
                     if (line.startsWith('-') && line.slice(1).trim()) rem.push(line.slice(1).trim());
                     if (line.startsWith('+')) add.add(normYears(line.slice(1)));
                   }
-                  const dropped = rem.filter(l => !add.has(normYears(l)));
+                  const upstream = await upstreamLicenceLines(f.filename);
+                  const dropped = rem.filter(l => !add.has(normYears(l)) && (!upstream || upstream.has(normYears(l))));
                   if (dropped.length) {
                     findings.push({ file: f.filename, reason: 'Licence text removed or changed', removed: dropped, added: [] });
                     continue;
@@ -151,7 +166,7 @@ jobs:
               const files = await github.paginate(github.rest.pulls.listFiles, {
                 owner, repo, pull_number: pr.number, per_page: 100,
               });
-              const findings = scan(files);
+              const findings = await scan(files);
               if (files.some(f => f.filename === 'README.md')) {
                 const { data: c } = await github.rest.repos.compareCommitsWithBasehead({
                   owner, repo, basehead: `${pr.base.sha}...${pr.head.sha}`,
@@ -195,7 +210,7 @@ jobs:
             const { data: cmp } = await github.rest.repos.compareCommitsWithBasehead({
               owner, repo, basehead: `${base}...${after}`,
             });
-            const findings = scan(cmp.files || []);
+            const findings = await scan(cmp.files || []);
             if ((cmp.files || []).some(f => f.filename === 'README.md')) {
               findings.push(...await readmeFindings(cmp.merge_base_commit.sha, owner, repo, after));
             }
