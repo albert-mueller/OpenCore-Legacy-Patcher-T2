@@ -389,8 +389,17 @@ class SettingsFrame(wx.Frame):
                     "variable": "",
                     "function": self.on_check_for_updates,
                     "description": [
-                        "Manually check for updates so you have the",
-                        "latest features and bug fixes."
+                        "Manually check for stable updates so you have",
+                        "the latest features and bug fixes."
+                    ],
+                },
+                "Check for pre-releases": {
+                    "type": "button",
+                    "variable": "",
+                    "function": self.on_check_for_prereleases,
+                    "description": [
+                        "Also look for alpha/beta builds marked as",
+                        "pre-release. These may be unstable.",
                     ],
                 },
                 "Snooze Updates": {
@@ -661,9 +670,17 @@ Hardware Information:
         if global_setting is not None:
             self._update_setting(global_setting, value)
 
-    def on_check_for_updates(self, event: wx.Event = None) -> None:
+    def on_check_for_prereleases(self, event: wx.Event = None) -> None:
         """
-        Manual "Check for updates" button.
+        Manual "Check for pre-releases" button: same as "Check for updates",
+        but GitHub releases marked as pre-release are considered too.
+        """
+        self.on_check_for_updates(event, include_prerelease=True)
+
+    def on_check_for_updates(self, event: wx.Event = None, include_prerelease: bool = False) -> None:
+        """
+        Manual "Check for updates" button (stable releases only), also used by
+        "Check for pre-releases" with include_prerelease=True.
 
         Unlike the startup check this ignores constants.has_checked_updates and
         always reports back - a user who clicks the button gets an answer even
@@ -680,13 +697,23 @@ Hardware Information:
         # Previously this looked for 'self.update_button', which never existed -
         # '_generate_elements()' only kept its buttons as locals, so the lookup
         # always returned None and the progress feedback silently did nothing.
-        button = self._buttons.get("Check for updates")
+        button = self._buttons.get("Check for pre-releases" if include_prerelease else "Check for updates")
+        # Both buttons share one worker thread - disable the other one too so
+        # the user can't start a second check while the first is still running.
+        other_button = self._buttons.get("Check for updates" if include_prerelease else "Check for pre-releases")
+        if other_button is not None:
+            other_button.Disable()
         original_label = button.GetLabel() if button is not None else None
         if button is not None:
             button.SetLabel("Checking...")
             button.Disable()
 
         def _restore_button() -> None:
+            if other_button is not None and other_button:
+                try:
+                    other_button.Enable()
+                except RuntimeError:
+                    pass
             # The user can hit Return while the check is still in flight, which
             # destroys the dialog and the button with it. The Python wrapper
             # outlives the C++ object, so verify it is still alive first -
@@ -702,7 +729,7 @@ Hardware Information:
 
         def _run_check() -> None:
             try:
-                main_frame._check_for_updates(manual=True)
+                main_frame._check_for_updates(manual=True, include_prerelease=include_prerelease)
             finally:
                 # This runs on the worker thread - every wx call has to be
                 # marshalled back to the main thread, otherwise this is a

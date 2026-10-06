@@ -345,7 +345,7 @@ class MainFrame(wx.Frame):
         # navigates), but constants persists for the whole process lifetime.
         self.constants.update_thread = self.update_thread
 
-    def _check_for_updates(self, manual: bool = False):
+    def _check_for_updates(self, manual: bool = False, include_prerelease: bool = False):
         if manual is False and self.constants.has_checked_updates is True:
             logging.info("We have already checked for updates.")
             return
@@ -353,15 +353,15 @@ class MainFrame(wx.Frame):
 
         checker = updates.CheckBinaryUpdates(self.constants)
         try:
-            update_dict = checker.check_binary_updates(manual=manual)
+            update_dict = checker.check_binary_updates(manual=manual, include_prerelease=include_prerelease)
         except Exception as e:
             logging.error(f"Update check failed: {e}")
             logging.exception("Stack Trace:")
-            self._report_manual_check(manual, None, str(e))
+            self._report_manual_check(manual, None, str(e), include_prerelease)
             return
 
         if not update_dict:
-            self._report_manual_check(manual, None, checker.last_error)
+            self._report_manual_check(manual, None, checker.last_error, include_prerelease)
             return
 
         remote_version_str = update_dict["Version"]
@@ -377,13 +377,13 @@ class MainFrame(wx.Frame):
 
                 if remote_v <= local_v:
                     logging.info(f"{self.constants.patcher_name} is up to date. (Local: {local_v} >= Remote: {remote_v})")
-                    self._report_manual_check(manual, None, None)
+                    self._report_manual_check(manual, None, None, include_prerelease)
                     return
 
             except version.InvalidVersion:
                 logging.info("The version is invalid, you'll not receive any further updates.")
                 if remote_version_str == local_version_str:
-                    self._report_manual_check(manual, None, None)
+                    self._report_manual_check(manual, None, None, include_prerelease)
                     return
 
         if getattr(self, 'exiting_app', False) or gui_support.is_app_exiting():
@@ -399,7 +399,7 @@ class MainFrame(wx.Frame):
             changelog = str(update_dict["Changelog"]).split("## Asset Information")[0]
 
         if not getattr(self, 'exiting_app', False) and not gui_support.is_app_exiting():
-            self._report_manual_check(manual, str(remote_version_str), None)
+            self._report_manual_check(manual, str(remote_version_str), None, include_prerelease)
             # A channel switch can install a build with a lower version number, so it
             # always goes through the confirmation dialog, never the silent auto-update.
             # With "Turn Off Auto Updates" enabled (auto_update False) the automatic
@@ -408,16 +408,16 @@ class MainFrame(wx.Frame):
             ask_first = manual or channel_switch or self.constants.auto_update is False
             wx.CallAfter(self.on_update, update_dict["Link"], remote_version_str, update_dict["Github Link"], changelog, ask_first, channel_switch)
 
-    def _report_manual_check(self, manual: bool, new_version, error) -> None:
+    def _report_manual_check(self, manual: bool, new_version, error, include_prerelease: bool = False) -> None:
         """
         Hand the result of a manual check back to the main thread. No-op for the
         automatic startup check, which stays silent when there is nothing new.
         """
         if manual is False:
             return
-        wx.CallAfter(self._on_manual_check_finished, new_version, error)
+        wx.CallAfter(self._on_manual_check_finished, new_version, error, include_prerelease)
 
-    def _on_manual_check_finished(self, new_version, error) -> None:
+    def _on_manual_check_finished(self, new_version, error, include_prerelease: bool = False) -> None:
         if getattr(self, 'exiting_app', False) or gui_support.is_app_exiting():
             return
 
@@ -442,8 +442,13 @@ class MainFrame(wx.Frame):
             )
             return
 
+        message = f"You are running the latest version ({self.constants.patcher_version_label})."
+        if include_prerelease:
+            message = f"You are running the latest version ({self.constants.patcher_version_label}), pre-releases included."
+        else:
+            message += "\n\nPre-releases were not included. Use \"Check for pre-releases\" in Settings to look for alpha/beta builds."
         wx.MessageBox(
-            f"You are running the latest version ({self.constants.patcher_version_label}).",
+            message,
             "No updates available",
             wx.OK | wx.ICON_INFORMATION, self
         )
