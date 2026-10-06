@@ -19,6 +19,7 @@ This release:
   - keeps this fork's own fixes for MacBookPro3,1 and MacBook5,1/5,2
 - Penryn (Core 2 Duo) Macs: adds the `-nomt_core` boot-arg so macOS 26 Tahoe boots reliably, ported from dortania/OpenCore-Legacy-Patcher@7007536, thx @Jazzzny and Dortania
 - AppleGraphicsPowerManagement: adds the missing iMac19,1 and iMac19,2 power management profiles (GFX0 + IGPU), ported from dortania/OpenCore-Legacy-Patcher@58f66ad, thx @Jazzzny and Dortania
+- fixes a bug where when clicking Checking for updates returns pre-release versions; instead, now for pre-release versions the user needs manually to opt-in
 
 - fixes a vulnerability inside gui_oc_settings.py where an attacker could manipulate the input:
 
