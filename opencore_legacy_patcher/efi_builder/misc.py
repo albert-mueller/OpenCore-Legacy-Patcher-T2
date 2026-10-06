@@ -505,12 +505,17 @@ class BuildMiscellaneous:
             self.config.setdefault("Kernel", {}).setdefault("Patch", [])
 
             # Prerequisite kext checks
-            for kext, ver, path in [
+            t2_prereqs = [
                 ("WhateverGreen.kext", self.constants.whatevergreen_version, self.constants.whatevergreen_path),
                 ("CryptexFixup.kext", "1.0.5", self.constants.kexts_path),
-                ("SpoofVMM.kext", "3.0.0", self.constants.kexts_path),
-                # ("AMFIPass.kext", "1.4.1", self.constants.kexts_path) # Temporarily disabled for testing AMFI stall
-            ]:
+            ]
+            if self.constants.t2_stage2_bypass is True:
+                logging.info("- T2 Stage 2 Bypass active: skipping SpoofVMM, enabling RestrictEvents for firmware suppression")
+                t2_prereqs.append(("RestrictEvents.kext", self.constants.restrictevents_version, self.constants.restrictevents_path))
+            else:
+                t2_prereqs.append(("SpoofVMM.kext", "3.0.0", self.constants.kexts_path))
+
+            for kext, ver, path in t2_prereqs:
                 obj = builder.get_kext_by_bundle_path(kext)
                 if not obj or obj.get("Enabled") is not True:
                     logging.info(f"- Enabling {kext}")

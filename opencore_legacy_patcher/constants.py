@@ -202,6 +202,7 @@ class Constants:
         self.thread_sleep_interval:    float = 0.01  #  Sleep interval between UI updates (seconds) - balance between UI responsiveness and CPU usage
         self.Experimental_Features:     bool = False
         self.t2_installer_workaround:   bool = False
+        self.t2_stage2_bypass:          bool = False
         self.allow_t2_experimental_kext:bool = False
         self.True_Developer_Mode:       bool = False
         self.oc_build_path:             Path = None

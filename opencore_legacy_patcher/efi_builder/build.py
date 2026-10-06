@@ -216,7 +216,10 @@ class BuildOpenCore:
                 scrubbed_args = " ".join([arg for arg in raw_args.split() if not arg.startswith("-lilu") and arg != "dart=0"])
 
                 # Append required T2 args safely without compounding spaces
-                t2_args = "-ibtcompatbeta -revbeta revpatch=sbvmm"
+                if self.constants.t2_stage2_bypass is True:
+                    t2_args = "-ibtcompatbeta -revbeta revpatch=sbvmm,fwsup"
+                else:
+                    t2_args = "-ibtcompatbeta -revbeta revpatch=sbvmm"
                 self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = f"{scrubbed_args} {t2_args}".strip()
 
                 # RestrictEvents.kext is intentionally NOT injected on T2 Macs; they will use a

@@ -500,6 +500,18 @@ class SettingsFrame(wx.Frame):
                     ],
                     "condition": self.constants.True_Developer_Mode
                 },
+                "T2 Stage 2 Firmware Bypass": {
+                    "type": "checkbox",
+                    "override_function": self._update_global_settings,
+                    "variable": "t2_stage2_bypass",
+                    "value": self.constants.t2_stage2_bypass,
+                    "warning": "You are enabling the T2 Stage 2 Firmware Bypass. This intercepts BridgeOS/ROM firmware update checks in the macOS Tahoe installer, allowing unsupported T2 Macs (2018-2019) to complete Stage 2 installation without failing.\n\nNative T2 hardware encryption, APFS storage, and Secure Enclave remain fully functional.",
+                    "description": [
+                        "Bypasses BridgeOS firmware update errors",
+                        "in Stage 2 installer on dropped T2 Macs."
+                    ],
+                    "condition": self.constants.True_Developer_Mode
+                },
             },
         }
 
