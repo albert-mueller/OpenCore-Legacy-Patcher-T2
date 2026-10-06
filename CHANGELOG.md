@@ -14,7 +14,7 @@ This release:
   - Metal 3802 (Intel Ivy Bridge / Haswell, Nvidia Kepler): Metal.framework 13.2.1-25, MTLCompiler.framework 13.6-25, GPUCompiler.framework 13.2.1-25 and the Tahoe 26.0-3802 default.metallib / AlloyCommonLibrary.metallib for Tungsten, VFX, VectorKit and RenderBox. The 13.2.1 Metal downgrade is no longer applied on Tahoe. Ivy Bridge uses the 11.7.10 HD4000 Metal driver again on Tahoe
   - Nvidia Kepler: adds ImageIO.framework, CMPhoto.framework and the nsattributedstringagent sandbox profile (26.0-25G229); on Macs with a Haswell iGPU next to the Kepler dGPU, OpenCL.framework 12.5 is installed as well
   - new shared Tahoe Graphics patchset (RenderBox default.metallib 26.0-3802) for AMD, Broadwell, Haswell, Ivy Bridge and Kepler, plus the Tahoe camera patch (CoreMediaIO.framework / AppleCameraAssistant, 14.0 Beta 1) for Broadwell and Haswell
-  - all referenced payloads ship in PatcherSupportPkg 2.0.5
+  - all referenced payloads ship in PatcherSupportPkg 2.0.6
 - fixes a bug where most Macs had no USB port map on macOS 26 Tahoe: `USB-Map-Tahoe.kext` had lost 233 of its 281 port mappings, so it loaded without any mapping on Ivy Bridge and newer Macs (MacBookPro9,x–12,x, MacBookAir5,x–7,x, iMac13,x–17,1, Macmini6,x/7,1, MacPro6,1) and without the per-controller EHCI/OHCI entries on older models. All mappings are restored from Dortania's Tahoe USB map (dortania/OpenCore-Legacy-Patcher@feca197), thx @Jazzzny and Dortania
   - keeps this fork's own fixes for MacBookPro3,1 and MacBook5,1/5,2
 - Penryn (Core 2 Duo) Macs: adds the `-nomt_core` boot-arg so macOS 26 Tahoe boots reliably, ported from dortania/OpenCore-Legacy-Patcher@7007536, thx @Jazzzny and Dortania
