@@ -887,7 +887,8 @@ Hardware Information:
         if self.constants.update_channel_switch_pending:
             message = (
                 f"Updates will now be downloaded from:\n{self.constants.update_repo_link}\n\n"
-                "Use \"Check for updates\" to switch to the newest build of this channel. "
+                "Use \"Check for updates\" to switch to the newest stable build of this channel, "
+                "or \"Check for pre-releases\" to also consider alpha/beta builds. "
                 "You will always be asked before a build from another channel is installed, "
                 "since it may have a lower version number than the one you are running."
             )

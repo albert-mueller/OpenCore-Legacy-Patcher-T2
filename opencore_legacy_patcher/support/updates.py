@@ -132,9 +132,12 @@ class CheckBinaryUpdates:
         explicitly clicked "Check for pre-releases" in Settings. Previously any
         manual check (manual=True) included them, so the plain "Check for
         updates" button offered pre-release builds to users who only wanted
-        stable releases. A pending channel switch still considers them, as
-        before: a fork channel may only publish pre-releases, and the switch
-        always goes through the confirmation dialog.
+        stable releases. The same applies to a pending channel switch: switching
+        channels used to consider pre-releases unconditionally, so picking
+        another channel (and the automatic check that follows it, since
+        has_checked_updates is reset) offered that channel's newest pre-release
+        instead of its newest stable build. A channel that only publishes
+        pre-releases can still be switched to via "Check for pre-releases".
 
         constants.auto_update is deliberately NOT checked here. It only decides
         whether a found update is installed silently or offered through the
@@ -229,10 +232,10 @@ class CheckBinaryUpdates:
                 continue
 
             # Skip pre-releases unless the user explicitly asked for them
-            # ("Check for pre-releases") or a channel switch is pending.
-            # Independent of 'manual': the regular "Check for updates" button
-            # must only ever offer stable releases.
-            if not include_prerelease and not channel_switch and release.get("prerelease", False):
+            # ("Check for pre-releases"). Independent of 'manual' and of a
+            # pending channel switch: neither the regular "Check for updates"
+            # button nor switching channels may land on a pre-release.
+            if not include_prerelease and release.get("prerelease", False):
                 logging.info(f"Skipping pre-release: {release['tag_name']} (pre-releases not requested)")
                 continue
 
@@ -246,10 +249,17 @@ class CheckBinaryUpdates:
                 highest_release = release
 
         if not highest_release:
-            if not include_prerelease and not channel_switch and any(r.get("prerelease", False) for r in releases if isinstance(r, dict)):
+            if not include_prerelease and any(r.get("prerelease", False) for r in releases if isinstance(r, dict)):
                 # Only pre-releases exist on this channel - not an error for a
                 # stable-only check, the GUI reports "up to date" plus a hint.
                 logging.info("No stable releases found, only pre-releases (not requested).")
+                if channel_switch:
+                    # Tell the user why the switch didn't happen instead of a
+                    # plain "up to date" (manual checks show last_error).
+                    self.last_error = (
+                        f"The {self.constants.update_channel_label} channel has no stable releases yet, only pre-releases. "
+                        "Use \"Check for pre-releases\" in Settings to switch to its newest pre-release."
+                    )
                 return None
             logging.error("Could not find any valid versions in the repository releases.")
             logging.info("Please check for updates in GitHub manually.")
