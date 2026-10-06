@@ -292,7 +292,6 @@ def run_as_root(*args, **kwargs):
             logging.error(f"Privileged Helper Tool failed ({_helper_error}).")
     elif not Path(OCLP_PRIVILEGED_HELPER).exists():
         logging.warning(f"Privileged Helper Tool not found at {OCLP_PRIVILEGED_HELPER}.")
-    return _run_via_authorization_services(_command, **kwargs)
 
     return _run_elevated_without_helper(_command, **kwargs)
 
@@ -328,9 +327,11 @@ def _run_via_authorization_services(command: list, timeout: Optional[float] = No
     err_path = os.path.join(work_dir, "stderr")
     status_path = os.path.join(work_dir, "status")
     try:
+        reason = kwargs.get("reason", "OpenCore-Patcher-T2 needs your administrative permission")
         launch = utilities.get_admin_permission(
             action="/bin/sh",
             args=["-c", _AUTH_SERVICES_WRAPPER, "oclp-elevated", out_path, err_path, status_path] + command,
+            reason=reason,
         )
         if launch.returncode != 0:
             # Cancelled or not authorized: nothing was started, report that as is.
@@ -394,6 +395,9 @@ def _run_elevated_without_helper(command: list, **kwargs) -> subprocess.Complete
     sudoers, or the plain password dialog could not be shown - does it fall back to
     osascript, whose native prompt also accepts a different administrator's name.
     """
+    if os.geteuid() == 0:
+        return subprocess.run(command, **kwargs)
+
     password = obtain_admin_password()
     if password is None:
         if _admin_password_cancelled:
@@ -482,10 +486,12 @@ def obtain_admin_password(admin_password_prompt: Optional[Callable[..., str]] = 
 
         for attempt in range(ADMIN_PROMPT_MAX_ATTEMPTS):
             message = ADMIN_PASSWORD_PROMPT_MESSAGE if attempt == 0 else ADMIN_PASSWORD_RETRY_MESSAGE
-            if admin_password_prompt is None:
-                password = request_admin_password(_admin_prompt_icon_path, message=message)
-            else:
+            if callable(admin_password_prompt):
                 password = admin_password_prompt(message=message)
+            elif isinstance(admin_password_prompt, str):
+                password = request_admin_password(_admin_prompt_icon_path, message=admin_password_prompt)
+            else:
+                password = request_admin_password(_admin_prompt_icon_path, message=message)
 
             if not password:
                 _admin_password_cancelled = True
@@ -750,23 +756,26 @@ def mount_dmg(
         return subprocess.CompletedProcess(args=cmd, returncode=process.returncode, stdout=stdout)
 
     logging.info("- Unprivileged hdiutil attach failed, retrying with administrator privileges")
-    # AuthorizationExecuteWithPrivileges() gives the child no stdin we can write to, so
-    # '-stdinpass' would read EOF and fail with "Authentication error". The passphrases
-    # used here are fixed, public constants (see dmg_mount.UNIVERSAL_BINARIES_PASSPHRASE,
-    # reroute_payloads), so passing them on argv exposes nothing.
-    elevated_cmd = [arg for arg in cmd if arg != "-stdinpass"]
     if password:
-        elevated_cmd.extend(["-passphrase", password])
+        if shadow_path:
+            sh_cmd = 'printf "%s" "$1" | /usr/bin/hdiutil attach -noverify "$2" -mountpoint "$3" -nobrowse -shadow "$4" -stdinpass'
+            elevated_cmd = ["/bin/sh", "-c", sh_cmd, "--", password, str(dmg_path), str(mount_point), str(shadow_path)]
+        else:
+            sh_cmd = 'printf "%s" "$1" | /usr/bin/hdiutil attach -noverify "$2" -mountpoint "$3" -nobrowse -stdinpass'
+            elevated_cmd = ["/bin/sh", "-c", sh_cmd, "--", password, str(dmg_path), str(mount_point)]
+    else:
+        elevated_cmd = ["/usr/bin/hdiutil", "attach", "-noverify", str(dmg_path), "-mountpoint", str(mount_point), "-nobrowse"]
+        if shadow_path:
+            elevated_cmd.extend(["-shadow", str(shadow_path)])
 
-    action = elevated_cmd.pop(0)
-    result = utilities.get_admin_permission(action=action, args=elevated_cmd, reason=admin_password_prompt)
+    result = _run_elevated_without_helper(
+        elevated_cmd,
+        capture_output=True,
+    )
 
-    # get_admin_permission() only reports whether authorization/launch succeeded, not
-    # hdiutil's own exit status (it always says "succeeded" once the tool is started).
-    # Check the mount point so a failed attach is not treated as mounted.
     if result.returncode == 0 and not os.path.ismount(mount_point):
         return subprocess.CompletedProcess(
-            args=cmd, returncode=1, stdout=stdout,
+            args=cmd, returncode=1, stdout=result.stdout or stdout,
             stderr=b"Elevated hdiutil attach did not mount the image",
         )
     return result

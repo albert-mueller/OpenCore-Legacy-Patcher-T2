@@ -82,7 +82,7 @@ def _load_assets() -> dict:
     return decoded
 
 
-def resolve_icon(icon) -> Path | None:
+def resolve_icon(icon) -> "Path | None":
     """
     Resolve a caller-facing icon reference to a file-like object.
 

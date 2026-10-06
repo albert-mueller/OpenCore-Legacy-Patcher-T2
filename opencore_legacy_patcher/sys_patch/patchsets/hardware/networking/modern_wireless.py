@@ -2,6 +2,8 @@
 modern_wireless.py: Modern Wireless detection
 """
 
+from pathlib import Path
+
 from ..base import BaseHardware, HardwareVariant
 
 from ...base import PatchType
@@ -58,7 +60,11 @@ class ModernWireless(BaseHardware):
         if self._constants.use_ybronst_wifi is True:
             # YBronst's WiFi set (-YB folders in PatcherSupportPkg), proven working on
             # Sonoma, Sequoia and Tahoe. Tahoe reuses the 13.7.2-24 build, as before.
-            source = (f"13.7.2-{self._xnu_major}" if self._xnu_major < os_data.tahoe.value else "13.7.2-24") + "-YB"
+            yb_source = (f"13.7.2-{self._xnu_major}" if self._xnu_major < os_data.tahoe.value else "13.7.2-24") + "-YB"
+            if (Path(self._constants.payload_local_binaries_root_path) / yb_source).exists():
+                source = yb_source
+            else:
+                source = f"13.7.2-{self._xnu_major}"
         else:
             # Dortania's set: dedicated 13.7.2-25 payloads on Tahoe (matches upstream).
             source = f"13.7.2-{self._xnu_major}"

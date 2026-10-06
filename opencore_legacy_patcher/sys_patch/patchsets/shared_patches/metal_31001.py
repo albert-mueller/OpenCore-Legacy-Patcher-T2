@@ -35,17 +35,7 @@ class LegacyMetal31001(BaseSharedPatchSet):
         return {}
 
     def _patches_metal_31001_metallibs(self) -> dict:
-        """
-        macOS 26 Tahoe introduces a WindowServer deadlock with AMD Legacy GCN, Polaris,
-        and Intel Skylake GPUs due to incompatibilities between the legacy drivers
-        and the Tahoe metallib format. Re-using the 3802 downgraded metallibs
-        from MetallibSupportPkg resolves this.
-        """
-        if self._xnu_major < os_data.tahoe.value:
-            return {}
-
-        from .metal_3802 import LegacyMetal3802
-        return LegacyMetal3802(self._xnu_major, self._xnu_minor, self._marketing_version)._patches_metal_3802_metallibs()
+        return {}
 
     def patches(self) -> dict:
         """
@@ -55,3 +45,4 @@ class LegacyMetal31001(BaseSharedPatchSet):
             **self._patches_metal_31001_common(),
             **self._patches_metal_31001_metallibs(),
         }
+

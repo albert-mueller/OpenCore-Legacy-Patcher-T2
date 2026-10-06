@@ -973,52 +973,14 @@ class PatchSysVolume:
                                         break
 
                         if not Path(source_file).exists():
-                            # _local_metallib_installed() only matches an already-installed
-                            # MetallibSupportPkg folder by macOS build name, never by verifying
-                            # every file inside it is actually present. If an earlier run left
-                            # behind a package that's missing files this patchset needs (e.g.
-                            # upstream shipped an incomplete release for this build and later
-                            # fixed it), every future preflight attempt would keep failing on the
-                            # same stale "already installed" cache forever. Force one fresh
-                            # re-download/install before giving up.
-                            if (
-                                self.metallib_path
-                                and source_file.startswith(str(self.metallib_path))
-                                and not self._metallib_preflight_refresh_attempted
-                            ):
-                                self._metallib_preflight_refresh_attempted = True
-                                logging.warning(f"- {source_file} missing from cached MetallibSupportPkg, forcing a fresh download")
-                                try:
-                                    refreshed_path = self._resolve_metallib_support_pkg(force_refresh=True)
-                                    self._resolve_dynamic_patchset.cache_clear()
-                                    required_patches[patch][method_type][install_patch_directory][install_file] = refreshed_path
-                                    source_file = refreshed_path + install_patch_directory + "/" + install_file
-                                # behebt eine Sicherheitslücke, indem das Fehler ausgedrückt wurde, aber das Prozess nicht richtig beendete und dass das Fehler nicht besonders verständlich war. Angreifern können davon ausnutzen ohne der Ahnung des Nutzers auszuführen, ohne überhaupt das zu loggen, um schädliches Code ungemerkt zu ausführen. Und auch, Angreifern können davon ausnutzen, um ClickFix-Angriffe zu starten.
-                                except Exception as e:
-                                    logging.error(f"- Failed to force-refresh MetallibSupportPkg: {e}")
-                                    logging.exception("Stack Trace:")
-                                    logging.info("Try reporting this issue to the OpenCore Legacy Patcher T2 repository and check for updates.")
-                                    sys.exit(3)
-
-                            if not Path(source_file).exists():
-                                if is_dynamic_patchset:
-                                    # Even after a fresh MetallibSupportPkg pull, this specific file is
-                                    # still missing. MetallibSupportPkg packages are generated per exact
-                                    # macOS build by a third-party service and aren't guaranteed to
-                                    # contain every single metallib for every build/Mac combination (see
-                                    # reports of e.g. missing VisionKitInternal.framework/.../default.metallib
-                                    # on multiple different builds, even after updating macOS). Treat a
-                                    # missing file sourced from it as non-fatal: skip installing just this
-                                    # one file instead of aborting root patching entirely, since these are
-                                    # supplemental shader libraries, not files every patch set depends on
-                                    # to function.
-                                    logging.warning(f"- MetallibSupportPkg is missing {install_patch_directory}/{install_file} for this build, skipping")
-                                    del required_patches[patch][method_type][install_patch_directory][install_file]
-                                    continue
-                                else:
-                                    logging.error(f"Failed to find {source_file}")
-                                    logging.exception("Stack Trace:")
-                                    raise Exception(f"Failed to find {source_file}")
+                            if is_dynamic_patchset:
+                                logging.warning(f"- MetallibSupportPkg is missing {install_patch_directory}/{install_file} for this build, skipping")
+                                del required_patches[patch][method_type][install_patch_directory][install_file]
+                                continue
+                            else:
+                                logging.error(f"Failed to find {source_file}")
+                                logging.exception("Stack Trace:")
+                                raise Exception(f"Failed to find {source_file}")
 
                         logging.debug(f"Verified file exists: {source_file}")
 

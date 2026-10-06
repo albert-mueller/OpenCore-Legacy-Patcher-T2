@@ -2,6 +2,7 @@
 legacy_wireless.py: Legacy Wireless detection
 """
 
+from pathlib import Path
 import packaging.version
 
 from ..base import BaseHardware, HardwareVariant
@@ -117,7 +118,12 @@ class LegacyWireless(BaseHardware):
         if self._constants.use_ybronst_wifi is True:
             # YBronst's WiFi set (-YB folders in PatcherSupportPkg), proven working on
             # Sequoia and Tahoe. Tahoe reuses the 12.7.2-24 build, as before.
-            binary_version = framework_version = ("12.7.2" if self._xnu_major < os_data.sequoia else "12.7.2-24") + "-YB"
+            yb_source = ("12.7.2" if self._xnu_major < os_data.sequoia else "12.7.2-24") + "-YB"
+            if (Path(self._constants.payload_local_binaries_root_path) / yb_source).exists():
+                binary_version = framework_version = yb_source
+            else:
+                binary_version    = "12.7.2" if self._xnu_major < os_data.sequoia or self._xnu_major >= os_data.tahoe else f"12.7.2-{self._xnu_major}"
+                framework_version = "12.7.2" if self._xnu_major < os_data.sequoia else f"12.7.2-{self._xnu_major}"
         else:
             # Dortania's set: Tahoe uses the dedicated 12.7.2-25 frameworks,
             # while wps/wifip2pd fall back to the plain 12.7.2 binaries (no -25 binaries exist).
