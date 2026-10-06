@@ -41,6 +41,28 @@ This release:
 
 Impact: an attacker could set selection to a specially crafted value, which can cause the application to crash or execute arbitary code. This vulnerability is fixed by adding an else condition so if an attacker manages to set selection to a specially crafted value, the menu immediately closes instead of crashing or executing code.
 
+- fixes a vulnerability in gui_help.py where an attacker could cause an unintended fallback by setting constants_detected_os to a specially crafted value to cause Gemini to open in a web browser instead:
+
+       if self.constants.detected_os >= os_data.os_data.big_sur:
+                  logging.info("- Launching Gemini AI Assistant (wx.html2 WebView)")
+      
+                  # Uses gui_support.GeminiWebView (wx.html2.WebView) instead of
+                  # the third-party 'pywebview' package: pywebview's Cocoa
+                  # backend crashes the navigation delegate on macOS hosts
+                  # older than 11.3 (e.g. 10.13 High Sierra), see GeminiWebView
+                  # docstring for details.
+                  #
+                  # Parented to self.parent_frame (the real top-level app window),
+                  # NOT self.dialog (the modal sheet this button lives in) - see
+                  # the comment on self.parent_frame in __init__ for why.
+                  window = gui_support.GeminiWebView(self.parent_frame, size=(500, 850))
+                  window.Show()
+              else:
+                  logging.info("- Launching Gemini AI Assistant (default web browser, host predates Big Sur)")
+                  logging.info("macOS Catalina, Mojave and High Sierra can't load Gemini in Safari and WebKit because they're too old.")
+                  webbrowser.open("https://gemini.google.com")
+Impact: an attacker could set constants.detected_os to a specially crafted boolean to launch a DoS attack or cause unintended legacy fallback. This vulnerability is fixed by ensuring Gemini ever launches only if the version set in constants.detected_os can be parsed.
+
 **Note:** T1 Touch ID on Tahoe is not yet verified on our hardware. If you get a black screen or a flashing Touch Bar at login, please revert root patches and open an issue with your logs.
 
 ## 4.0.0.190008.2 - alpha 19.8.2 - Preview / Vorschau
