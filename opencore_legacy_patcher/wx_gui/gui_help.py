@@ -133,7 +133,9 @@ class HelpFrame(wx.Frame):
             # the comment on self.parent_frame in __init__ for why.
             window = gui_support.GeminiWebView(self.parent_frame, size=(500, 850))
             window.Show()
-        else:
+        elif self.constants.detected_os < os_data.os_data.big_sur: # behebt eine Sicherheitslücke, die erlaubt Angreifern, Legacy-Fallback durch falsches Wert durchzuführen
             logging.info("- Launching Gemini AI Assistant (default web browser, host predates Big Sur)")
             logging.info("macOS Catalina, Mojave and High Sierra can't load Gemini in Safari and WebKit because they're too old.")
             webbrowser.open("https://gemini.google.com")
+        else:
+            logging.error("Failed to detect which macOS version is currently running.")

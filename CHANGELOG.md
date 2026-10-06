@@ -1,7 +1,7 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
 ## 4.0.0.190008.3 - 4.0.0 alpha 19.8.3
 This release:
-- fixes a bug where on unsupported Macs running Sequoia or Sonoma SMBIOS spoofing doesn't work
+- fixes a bug where on unsupported T2 Macs running Sequoia or Sonoma SMBIOS spoofing doesn't work
 - Atheros Wi-Fi (AirPortAtheros40) on macOS 26 Tahoe: ports Dortania's Tahoe Atheros kext (dortania/OpenCore-Legacy-Patcher@d9604c3), thx @Jazzzny and Dortania
   - bundles AirPortAtheros40-Tahoe.kext (v1.0.0), loaded on Darwin 25+ (MinKernel 25.0.0). The IO80211ElCap AirPortAtheros40 plugin is now capped at MaxKernel 24.99.99, so only one of them loads
 - T1 Macs (MacBookPro13,2, MacBookPro13,3, MacBookPro14,2, MacBookPro14,3): restores Touch ID on macOS 26 Tahoe by porting Dortania's Tahoe T1 support (dortania/OpenCore-Legacy-Patcher@9809024), thx @Jazzzny and Dortania
@@ -14,11 +14,54 @@ This release:
   - Metal 3802 (Intel Ivy Bridge / Haswell, Nvidia Kepler): Metal.framework 13.2.1-25, MTLCompiler.framework 13.6-25, GPUCompiler.framework 13.2.1-25 and the Tahoe 26.0-3802 default.metallib / AlloyCommonLibrary.metallib for Tungsten, VFX, VectorKit and RenderBox. The 13.2.1 Metal downgrade is no longer applied on Tahoe. Ivy Bridge uses the 11.7.10 HD4000 Metal driver again on Tahoe
   - Nvidia Kepler: adds ImageIO.framework, CMPhoto.framework and the nsattributedstringagent sandbox profile (26.0-25G229); on Macs with a Haswell iGPU next to the Kepler dGPU, OpenCL.framework 12.5 is installed as well
   - new shared Tahoe Graphics patchset (RenderBox default.metallib 26.0-3802) for AMD, Broadwell, Haswell, Ivy Bridge and Kepler, plus the Tahoe camera patch (CoreMediaIO.framework / AppleCameraAssistant, 14.0 Beta 1) for Broadwell and Haswell
-  - all referenced payloads ship in PatcherSupportPkg 2.0.5
+  - all referenced payloads ship in PatcherSupportPkg 2.0.6
 - fixes a bug where most Macs had no USB port map on macOS 26 Tahoe: `USB-Map-Tahoe.kext` had lost 233 of its 281 port mappings, so it loaded without any mapping on Ivy Bridge and newer Macs (MacBookPro9,x–12,x, MacBookAir5,x–7,x, iMac13,x–17,1, Macmini6,x/7,1, MacPro6,1) and without the per-controller EHCI/OHCI entries on older models. All mappings are restored from Dortania's Tahoe USB map (dortania/OpenCore-Legacy-Patcher@feca197), thx @Jazzzny and Dortania
   - keeps this fork's own fixes for MacBookPro3,1 and MacBook5,1/5,2
 - Penryn (Core 2 Duo) Macs: adds the `-nomt_core` boot-arg so macOS 26 Tahoe boots reliably, ported from dortania/OpenCore-Legacy-Patcher@7007536, thx @Jazzzny and Dortania
 - AppleGraphicsPowerManagement: adds the missing iMac19,1 and iMac19,2 power management profiles (GFX0 + IGPU), ported from dortania/OpenCore-Legacy-Patcher@58f66ad, thx @Jazzzny and Dortania
+
+- fixes a vulnerability inside gui_oc_settings.py where an attacker could manipulate the input:
+
+        if dialog.ShowModal() == wx.ID_OK:
+                        selection = dialog.GetSelection()
+                        if selection == 0:
+                            self.constants.build_profile = "standard"
+                        elif selection == 1:
+                            self.constants.build_profile = "test_b"
+                        elif selection == 2:
+                            self.constants.build_profile = "test_c"
+                        elif selection == 3:
+                            self.constants.build_profile = "test_c_spoofed"
+                        elif selection == 4:
+                            self.constants.build_profile = "test_d"
+                        # <- an attacker could set selection to a specially crafted value
+                        dialog.Destroy()
+                    else: #We asume that the user doesn't want to save OpenCore so we stop.
+                        dialog.Destroy()
+
+Impact: an attacker could set selection to a specially crafted value, which can cause the application to crash or execute arbitary code. This vulnerability is fixed by adding an else condition so if an attacker manages to set selection to a specially crafted value, the menu immediately closes instead of crashing or executing code.
+
+- fixes a vulnerability in gui_help.py where an attacker could cause an unintended fallback by setting constants_detected_os to a specially crafted value to cause Gemini to open in a web browser instead:
+
+       if self.constants.detected_os >= os_data.os_data.big_sur:
+                  logging.info("- Launching Gemini AI Assistant (wx.html2 WebView)")
+      
+                  # Uses gui_support.GeminiWebView (wx.html2.WebView) instead of
+                  # the third-party 'pywebview' package: pywebview's Cocoa
+                  # backend crashes the navigation delegate on macOS hosts
+                  # older than 11.3 (e.g. 10.13 High Sierra), see GeminiWebView
+                  # docstring for details.
+                  #
+                  # Parented to self.parent_frame (the real top-level app window),
+                  # NOT self.dialog (the modal sheet this button lives in) - see
+                  # the comment on self.parent_frame in __init__ for why.
+                  window = gui_support.GeminiWebView(self.parent_frame, size=(500, 850))
+                  window.Show()
+              else:
+                  logging.info("- Launching Gemini AI Assistant (default web browser, host predates Big Sur)")
+                  logging.info("macOS Catalina, Mojave and High Sierra can't load Gemini in Safari and WebKit because they're too old.")
+                  webbrowser.open("https://gemini.google.com")
+Impact: an attacker could set constants.detected_os to a specially crafted boolean to launch a DoS attack or cause unintended legacy fallback. This vulnerability is fixed by ensuring Gemini ever launches only if the version set in constants.detected_os can be parsed.
 
 **Note:** T1 Touch ID on Tahoe is not yet verified on our hardware. If you get a black screen or a flashing Touch Bar at login, please revert root patches and open an issue with your logs.
 
