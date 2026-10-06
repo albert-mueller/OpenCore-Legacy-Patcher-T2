@@ -1082,6 +1082,10 @@ class OCSettingsFrame(wx.Frame):
                     self.constants.build_profile = "test_c_spoofed"
                 elif selection == 4:
                     self.constants.build_profile = "test_d"
+                else: # behebt eine Sicherheitslücke, die erlaubt Angreifern, das Wert Selection auf beliebiges Wert zu stellen, um später beliebiges Code statt Profil-Auswählung durchzuführen                    
+                    logging.error("Your build profile is invalid. Please. select a valid profile.")
+                    dialog.Destroy()
+                    return
                 dialog.Destroy()
             else: #We asume that the user doesn't want to save OpenCore so we stop.
                 dialog.Destroy()
