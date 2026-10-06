@@ -20,6 +20,27 @@ This release:
 - Penryn (Core 2 Duo) Macs: adds the `-nomt_core` boot-arg so macOS 26 Tahoe boots reliably, ported from dortania/OpenCore-Legacy-Patcher@7007536, thx @Jazzzny and Dortania
 - AppleGraphicsPowerManagement: adds the missing iMac19,1 and iMac19,2 power management profiles (GFX0 + IGPU), ported from dortania/OpenCore-Legacy-Patcher@58f66ad, thx @Jazzzny and Dortania
 
+- fixes a vulnerability inside gui_oc_settings.py where an attacker could manipulate the input:
+
+        if dialog.ShowModal() == wx.ID_OK:
+                        selection = dialog.GetSelection()
+                        if selection == 0:
+                            self.constants.build_profile = "standard"
+                        elif selection == 1:
+                            self.constants.build_profile = "test_b"
+                        elif selection == 2:
+                            self.constants.build_profile = "test_c"
+                        elif selection == 3:
+                            self.constants.build_profile = "test_c_spoofed"
+                        elif selection == 4:
+                            self.constants.build_profile = "test_d"
+                        # <- an attacker could set selection to a specially crafted value
+                        dialog.Destroy()
+                    else: #We asume that the user doesn't want to save OpenCore so we stop.
+                        dialog.Destroy()
+
+Impact: an attacker could set selection to a specially crafted value, which can cause the application to crash or execute arbitary code. This vulnerability is fixed by adding an else condition so if an attacker manages to set selection to a specially crafted value, the menu immediately closes instead of crashing or executing code.
+
 **Note:** T1 Touch ID on Tahoe is not yet verified on our hardware. If you get a black screen or a flashing Touch Bar at login, please revert root patches and open an issue with your logs.
 
 ## 4.0.0.190008.2 - alpha 19.8.2 - Preview / Vorschau
