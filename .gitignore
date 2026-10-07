@@ -241,8 +241,8 @@ __pycache__/
 *.kext
 *.py[cod]
 *$py.class
-/docs/.vuepress/dist
-/docs/.vuepress/.config.js.swp
+/docs/.vitepress/dist
+/docs/.vitepress/cache
 /docs/yarn-error.log
 /docs/node_modules/
 /payloads/List.txt

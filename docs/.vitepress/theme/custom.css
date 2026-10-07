@@ -1,0 +1,27 @@
+/* Colours carried over from the former VuePress palette */
+:root {
+    --vp-c-brand-1: #19b3e7;
+    --vp-c-brand-2: #1497c4;
+    --vp-c-brand-3: #19b3e7;
+    --vp-c-brand-soft: rgba(25, 179, 231, 0.14);
+}
+
+.dark {
+    --vp-c-brand-1: #30bcd5;
+    --vp-c-brand-2: #29a3b9;
+    --vp-c-brand-3: #30bcd5;
+    --vp-c-brand-soft: rgba(48, 188, 213, 0.16);
+    --vp-c-bg: #2d3033;
+    --vp-c-bg-alt: #363b40;
+    --vp-c-bg-elv: #363b40;
+    --vp-c-text-1: #cccccc;
+}
+
+.VPHero .image-src {
+    max-width: 450px;
+}
+
+.medium-zoom-overlay,
+.medium-zoom-image--opened {
+    z-index: 100;
+}
