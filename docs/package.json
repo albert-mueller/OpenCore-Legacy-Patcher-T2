@@ -12,8 +12,9 @@
       "url": "git+https://github.com/dortania/OpenCore-Legacy-Patcher.git"
    },
    "scripts": {
-      "dev": "vuepress dev",
-      "build": "vuepress build",
+      "dev": "vitepress dev",
+      "build": "vitepress build",
+      "preview": "vitepress preview",
       "fix-lint": "run-script-os",
       "fix-lint:default": "(echo Attempting to fix lint... && markdownlint -c .markdownlint.json -p .markdownlintignore '**/*.md' -f && echo Fixed successfully, please commit.) || (echo Fix failed! && exit 1)",
       "fix-lint:win32": "(echo Attempting to fix lint... && markdownlint -c .markdownlint.json -p .markdownlintignore **/*.md -f && echo Fixed successfully, please commit.) || (echo Fix failed! && exit 1)",
@@ -32,25 +33,25 @@
       "test:win32": "npm run lint --silent & npm run spellcheck --silent"
    },
    "license": "CC-BY-NC-SA-4.0",
+   "engines": {
+      "node": ">=22"
+   },
    "devDependencies": {
-      "@vuepress/plugin-back-to-top": "^1.9.8",
-      "@vuepress/plugin-medium-zoom": "^1.9.8",
-      "markdown-it-multimd-table": "^4.2.0",
-      "markdown-link-check": "^3.10.3",
-      "markdownlint-cli": "^0.33.0",
+      "markdown-it-multimd-table": "^4.2.3",
+      "markdown-link-check": "^3.15.0",
+      "markdownlint-cli": "^0.49.1",
+      "medium-zoom": "^1.1.0",
       "run-script-os": "^1.1.6",
-      "spellchecker-cli": "^6.1.1",
-      "vuepress": "^1.9.8",
-      "vuepress-plugin-fulltext-search": "^2.2.1",
-      "vuepress-theme-succinct": "^1.7.2"
+      "spellchecker-cli": "^7.0.4",
+      "vitepress": "^1.6.4",
+      "vue": "^3.5.43"
    },
    "resolutions": {
-      "**/selfsigned/node-forge": "^1.4.0",
-      "**/vuepress-html-webpack-plugin/loader-utils": "^1.4.2",
-      "**/request/tough-cookie": "^4.1.4",
-      "**/request/form-data": "^2.5.5",
-      "**/micromatch/braces": "^3.0.3",
-      "**/chokidar/braces": "^3.0.3"
+      "vitepress/vite": "^6.4.3",
+      "**/get-uri/basic-ftp": "^6.2.2",
+      "markdownlint-cli/js-yaml": "^5.4.1",
+      "markdownlint-cli/smol-toml": "^1.9.0",
+      "**/micromark-extension-math/katex": "^0.18.2"
    },
    "homepage": "https://dortania.github.io/OpenCore-Legacy-Patcher/",
    "packageManager": "yarn@1.22.19+sha1.4ba7fc5c6e704fce2066ecbfb0b0d8976fe62447"
