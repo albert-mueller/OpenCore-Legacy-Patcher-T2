@@ -6,7 +6,9 @@ import os
 import wx
 import sys
 import time
+import atexit
 import shutil
+import tempfile
 import logging
 import threading
 import subprocess
@@ -95,7 +97,23 @@ class UpdateFrame(wx.Frame):
         # while the upstream Dortania nightly.link fallback (gui_macos_configeration.py)
         # still ships the original "OpenCore-Patcher.pkg" zipped up - keep expecting
         # whichever one this URL actually points to instead of hardcoding one name.
-        self.pkg_download_path = self.constants.payload_path / ("OpenCore-Patcher.pkg" if self.url.endswith(".zip") else "OpenCore-Patcher-T2.pkg")
+        #
+        # The update is downloaded into its own private temp directory instead of
+        # self.constants.payload_path. payload_path only becomes writable once
+        # reroute_payloads.py has mounted payloads.dmg with a shadow overlay, and
+        # this path used to be computed here in __init__ BEFORE the
+        # is_unpack_finished() wait further down - so whenever the update window
+        # opened before the background mount had finished (or the mount failed /
+        # the admin prompt was cancelled), payload_path still pointed into the
+        # app bundle itself (.../OpenCore-Patcher-T2.app/Contents/Frameworks/payloads).
+        # For the installed copy under /Library/Application Support that
+        # directory is root-owned and does not exist, so mkdir() failed with
+        # "[Errno 13] Permission denied" and the download aborted with
+        # "Could not prepare working directory". The update package has nothing
+        # to do with the payloads, so it should not depend on that mount at all.
+        self.update_work_dir = Path(tempfile.mkdtemp(prefix="OpenCore-Patcher-T2-update-"))
+        atexit.register(shutil.rmtree, self.update_work_dir, ignore_errors=True)
+        self.pkg_download_path = self.update_work_dir / ("OpenCore-Patcher.pkg" if self.url.endswith(".zip") else "OpenCore-Patcher-T2.pkg")
         # The download is written here and _extract_update() reads it back from the
         # same path. These used to be two different hardcoded names
         # ("OpenCore-Patcher-T2.pkg.zip" vs "OpenCore-Patcher.pkg.zip"), so the ZIP
@@ -350,7 +368,7 @@ class UpdateFrame(wx.Frame):
             subprocess.run(["/bin/rm", "-rf", str(self.pkg_download_path)])
 
         result = subprocess.run(
-            ["/usr/bin/ditto", "-xk", str(self.download_path), str(self.constants.payload_path)], capture_output=True
+            ["/usr/bin/ditto", "-xk", str(self.download_path), str(self.update_work_dir)], capture_output=True
         )
         if result.returncode != 0 or not self.pkg_download_path.exists():
             logging.error("Failed to extract update.")
@@ -478,9 +496,9 @@ class UpdateFrame(wx.Frame):
         Main thread: the update could not be installed silently, so open it in the
         macOS Installer instead, which asks for authorization itself.
 
-        The package is copied out of payload_path first: that directory is a temporary
-        overlay that reroute_payloads.py deletes when this app quits, which happened
-        right after the old fallback opened the package from there.
+        The package is copied out of update_work_dir first: that directory is a
+        temporary directory removed when this app quits, which happens right after
+        the package has been handed to the Installer.
         """
         target = Path.home() / "Downloads" / f"OpenCore-Patcher-T2-{self.version_label}.pkg"
         try:
