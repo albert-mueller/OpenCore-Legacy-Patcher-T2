@@ -44,6 +44,14 @@
       "vuepress-plugin-fulltext-search": "^2.2.1",
       "vuepress-theme-succinct": "^1.7.2"
    },
+   "resolutions": {
+      "**/selfsigned/node-forge": "^1.4.0",
+      "**/vuepress-html-webpack-plugin/loader-utils": "^1.4.2",
+      "**/request/tough-cookie": "^4.1.4",
+      "**/request/form-data": "^2.5.5",
+      "**/micromatch/braces": "^3.0.3",
+      "**/chokidar/braces": "^3.0.3"
+   },
    "homepage": "https://dortania.github.io/OpenCore-Legacy-Patcher/",
    "packageManager": "yarn@1.22.19+sha1.4ba7fc5c6e704fce2066ecbfb0b0d8976fe62447"
 }
