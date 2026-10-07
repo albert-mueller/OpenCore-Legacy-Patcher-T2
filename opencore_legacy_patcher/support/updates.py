@@ -121,11 +121,23 @@ class CheckBinaryUpdates:
 
         return first_version > second_version
 
-    def check_binary_updates(self, manual: bool = False) -> Optional[dict]:
+    def check_binary_updates(self, manual: bool = False, include_prerelease: bool = False) -> Optional[dict]:
         """
         Check if any updates are available for the OpenCore Legacy Patcher binary.
         Automatic checks respect the snooze window; manual checks bypass it so
         the user can still force a refresh when they choose to.
+
+        Pre-releases (alphas/betas, "prerelease": true on GitHub) are only
+        considered when include_prerelease is True, i.e. when the user
+        explicitly clicked "Check for pre-releases" in Settings. Previously any
+        manual check (manual=True) included them, so the plain "Check for
+        updates" button offered pre-release builds to users who only wanted
+        stable releases. The same applies to a pending channel switch: switching
+        channels used to consider pre-releases unconditionally, so picking
+        another channel (and the automatic check that follows it, since
+        has_checked_updates is reset) offered that channel's newest pre-release
+        instead of its newest stable build. A channel that only publishes
+        pre-releases can still be switched to via "Check for pre-releases".
 
         constants.auto_update is deliberately NOT checked here. It only decides
         whether a found update is installed silently or offered through the
@@ -187,7 +199,9 @@ class CheckBinaryUpdates:
             return self.latest_details
 
         # API URL of the selected update channel
-        # Use /releases instead of /releases/latest to ensure we fetch pre-releases (alphas/betas) as well
+        # Use /releases instead of /releases/latest: /releases/latest never returns
+        # pre-releases, which "Check for pre-releases" and channel switches need.
+        # Stable-only checks filter them out below.
         repo_latest_release_url = self.constants.update_releases_api_url
         channel_switch = self.constants.update_channel_switch_pending
         logging.info(f"Update channel: {self.constants.update_channel} ({self.constants.update_repo_link})")
@@ -217,9 +231,12 @@ class CheckBinaryUpdates:
             if "tag_name" not in release:
                 continue
 
-            # Skip pre-releases during automatic checks (manual=False), unless it's a channel switch
-            if manual is False and not channel_switch and release.get("prerelease", False):
-                logging.info(f"Skipping pre-release: {release['tag_name']} (automatic check)")
+            # Skip pre-releases unless the user explicitly asked for them
+            # ("Check for pre-releases"). Independent of 'manual' and of a
+            # pending channel switch: neither the regular "Check for updates"
+            # button nor switching channels may land on a pre-release.
+            if not include_prerelease and release.get("prerelease", False):
+                logging.info(f"Skipping pre-release: {release['tag_name']} (pre-releases not requested)")
                 continue
 
             try:
@@ -232,6 +249,18 @@ class CheckBinaryUpdates:
                 highest_release = release
 
         if not highest_release:
+            if not include_prerelease and any(r.get("prerelease", False) for r in releases if isinstance(r, dict)):
+                # Only pre-releases exist on this channel - not an error for a
+                # stable-only check, the GUI reports "up to date" plus a hint.
+                logging.info("No stable releases found, only pre-releases (not requested).")
+                if channel_switch:
+                    # Tell the user why the switch didn't happen instead of a
+                    # plain "up to date" (manual checks show last_error).
+                    self.last_error = (
+                        f"The {self.constants.update_channel_label} channel has no stable releases yet, only pre-releases. "
+                        "Use \"Check for pre-releases\" in Settings to switch to its newest pre-release."
+                    )
+                return None
             logging.error("Could not find any valid versions in the repository releases.")
             logging.info("Please check for updates in GitHub manually.")
             self.last_error = "No valid release versions were found in the repository."
@@ -273,6 +302,7 @@ class CheckBinaryUpdates:
                     "Changelog": data_set.get("body") or "",
                     "Channel": self.constants.update_channel,
                     "ChannelSwitch": channel_switch,
+                    "Prerelease": bool(data_set.get("prerelease", False)),
                 }
                 return self.latest_details
 
