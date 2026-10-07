@@ -50,7 +50,10 @@
       "**/request/tough-cookie": "^4.1.4",
       "**/request/form-data": "^2.5.5",
       "**/micromatch/braces": "^3.0.3",
-      "**/chokidar/braces": "^3.0.3"
+      "**/chokidar/braces": "^3.0.3",
+      "**/@vuepress/core/esbuild": "^0.25.0",
+      "**/@types/markdown-it/highlight.js": "^10.4.1",
+      "**/@types/webpack-dev-server/http-proxy-middleware": "^2.0.9"
    },
    "homepage": "https://dortania.github.io/OpenCore-Legacy-Patcher/",
    "packageManager": "yarn@1.22.19+sha1.4ba7fc5c6e704fce2066ecbfb0b0d8976fe62447"
