@@ -1,4 +1,8 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.190008.4 - 4.0.0 alpha 19.8.4
+This release:
+- fixes a bug where when trying to install updates automatically, the error Could not prepare working directory' (Errno 13) would appear
+
 ## 4.0.0.190008.3 - 4.0.0 alpha 19.8.3
 This release:
 - fixes a bug where on unsupported T2 Macs running Sequoia or Sonoma SMBIOS spoofing doesn't work
