@@ -425,6 +425,25 @@ class BuildOpenCore:
 
 
 
+    def _cpu_lacks_avx2(self) -> bool:
+        """
+        Returns True if the target CPU has no AVX2 support.
+
+        Building for the host: use the real CPUID leaf 7 flags if available.
+        Building for another model (or flags unavailable): fall back to the CPU
+        generation (AVX2 was introduced with Haswell).
+        """
+        computer = getattr(self.constants, "computer", None)
+        if not self.constants.custom_model and computer is not None and getattr(computer, "cpu", None) is not None:
+            leafs = [f.upper() for f in (getattr(computer.cpu, "leafs", None) or [])]
+            if leafs:
+                return "AVX2" not in leafs
+
+        if self.model not in smbios_data.smbios_dictionary:
+            # Unknown model: don't inject, cryptex=0 on an AVX2 CPU is the bug we're avoiding
+            return False
+        return smbios_data.smbios_dictionary[self.model]["CPU Generation"] <= cpu_data.CPUGen.ivy_bridge.value
+
     def _build_opencore(self) -> None:
         """
         Kick off the build process
@@ -493,11 +512,19 @@ class BuildOpenCore:
                 smbios.BuildSMBIOS(self.model, self.constants, self.config).set_smbios()
 
             # Tahoe Base Boot-args injection
-            if self.constants.build_profile in ["standard", "test_c", "test_c_spoofed", "test_d"] or self.model == "MacBookPro14,3":
-                logging.info("Profile TEST: Injecting Tahoe boot-args (cryptex=0).")
-                current_boot_args = self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"].get("boot-args", "")
-                if "cryptex=0" not in current_boot_args:
-                    self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = f"{current_boot_args} cryptex=0".strip()
+            # cryptex=0 is only needed on CPUs without AVX2 (Ivy Bridge and older), same
+            # criterion as CryptexFixup in firmware.py. Previously this ran for every
+            # "standard" build (i.e. practically every Mac) plus a hard-coded
+            # MacBookPro14,3 override, so Haswell+ Macs (incl. all T2 Macs) got it too.
+            boot_args_key = self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]
+            current_boot_args = boot_args_key.get("boot-args", "")
+            if self.constants.build_profile in ["standard", "test_c", "test_c_spoofed", "test_d"] and self._cpu_lacks_avx2():
+                logging.info("Injecting Tahoe boot-args (cryptex=0) - CPU lacks AVX2.")
+                if "cryptex=0" not in current_boot_args.split():
+                    boot_args_key["boot-args"] = f"{current_boot_args} cryptex=0".strip()
+            elif "cryptex=0" in current_boot_args.split():
+                logging.info("Removing cryptex=0 boot-arg - CPU supports AVX2.")
+                boot_args_key["boot-args"] = " ".join(a for a in current_boot_args.split() if a != "cryptex=0")
 
             # Haswell / Broadwell GPU Boot-args
             if any(self.model.startswith(prefix) for prefix in ["MacBookPro11,", "MacBookPro12,", "iMac14,", "iMac15,", "Macmini7,"]):
