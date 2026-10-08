@@ -5,13 +5,16 @@
     Designed as an alternative to an XPC service,
     this tool is used to run commands as root.
     ------------------------------------------------
-    Server and client must have the same signing
-    certificate in order to run commands.
+    Release builds only accept a caller with the
+    app's identifier, signed with the exact leaf
+    certificate this helper is signed with, using
+    the hardened runtime (see "Caller pinning").
     ------------------------------------------------
 */
 
 #import <Foundation/Foundation.h>
 #import <Security/Security.h>
+#include <CommonCrypto/CommonDigest.h>
 #include <libproc.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -31,6 +34,36 @@
 #define OCLP_PHT_ERROR_COMMAND_FAILED              169
 #define OCLP_PHT_ERROR_CATCH_ALL                   170
 #define OCLP_PHT_ERROR_COMMAND_NOT_ALLOWED         171
+#define OCLP_PHT_ERROR_CALLER_NOT_HARDENED         172
+
+/*
+    Caller pinning (release builds)
+    ------------------------------------------------
+    A caller is accepted only if it satisfies the code requirement
+
+        identifier "<OCLP_CLIENT_IDENTIFIER>" and certificate leaf = H"<SHA-1>"
+
+    and its signature validates (dynamically for the running process, strictly
+    for the code on disk), and it uses the hardened runtime.
+
+    <SHA-1> is the leaf certificate of THIS helper's own, validated signature, so
+    the helper only trusts apps signed with the exact certificate it was signed
+    with - nothing that merely has a matching bundle ID or a look-alike chain.
+    Build with -DOCLP_PINNED_LEAF_SHA1=\"<40 hex chars>\" (make CERT_SHA1=...)
+    to additionally hard-code the expected hash; the helper then also refuses to
+    run if its own signature does not carry that certificate.
+
+    Before this change the helper only compared the certificate arrays returned
+    by SecCodeCopySigningInformation() without ever validating either signature.
+    Those certificates are public, and an unvalidated signature blob can be
+    grafted onto any binary, so a modified copy of the app passed the check.
+*/
+#ifndef OCLP_CLIENT_IDENTIFIER
+#define OCLP_CLIENT_IDENTIFIER "com.dortania.opencore-legacy-patcher-t2"
+#endif
+
+// kSecCodeSignatureRuntime (SDK 10.14+); the literal keeps older SDKs building.
+#define OCLP_CS_RUNTIME_FLAG 0x10000
 
 
 NSDictionary *getSigningInformationFromPath(NSString *path) {
@@ -71,6 +104,128 @@ BOOL isSBitSet(NSString *path) {
     }
     return (attributes.filePosixPermissions & S_ISUID) != 0;
 }
+
+#ifndef DEBUG
+static NSString *leafCertificateSHA1(NSDictionary *signingInformation) {
+    NSArray *certificates = signingInformation[(__bridge NSString *)kSecCodeInfoCertificates];
+    if (certificates.count == 0) {
+        return nil;
+    }
+    SecCertificateRef leaf = (__bridge SecCertificateRef)certificates[0];
+    CFDataRef der = SecCertificateCopyData(leaf);
+    if (der == NULL) {
+        return nil;
+    }
+    unsigned char digest[CC_SHA1_DIGEST_LENGTH];
+    CC_SHA1(CFDataGetBytePtr(der), (CC_LONG)CFDataGetLength(der), digest);
+    CFRelease(der);
+
+    NSMutableString *hex = [NSMutableString stringWithCapacity:CC_SHA1_DIGEST_LENGTH * 2];
+    for (int i = 0; i < CC_SHA1_DIGEST_LENGTH; i++) {
+        [hex appendFormat:@"%02X", digest[i]];
+    }
+    return hex;
+}
+
+/*
+    Validate this helper's own signature and return the SHA-1 of its leaf
+    certificate - the pin every caller is checked against. nil = refuse.
+*/
+static NSString *validatedSelfLeafSHA1(NSString *processPath) {
+    SecStaticCodeRef selfCode = NULL;
+    if (SecStaticCodeCreateWithPath((__bridge CFURLRef)[NSURL fileURLWithPath:processPath],
+                                    kSecCSDefaultFlags, &selfCode) != errSecSuccess) {
+        return nil;
+    }
+
+    NSString *sha1 = nil;
+    CFDictionaryRef info = NULL;
+    if (SecStaticCodeCheckValidity(selfCode, kSecCSStrictValidate | kSecCSCheckAllArchitectures, NULL) == errSecSuccess &&
+        SecCodeCopySigningInformation(selfCode, kSecCSSigningInformation, &info) == errSecSuccess) {
+        sha1 = leafCertificateSHA1((__bridge NSDictionary *)info);
+    }
+    if (info != NULL) CFRelease(info);
+    CFRelease(selfCode);
+
+#ifdef OCLP_PINNED_LEAF_SHA1
+    if (sha1 == nil || [sha1 caseInsensitiveCompare:@OCLP_PINNED_LEAF_SHA1] != NSOrderedSame) {
+        return nil;
+    }
+#endif
+    return sha1;
+}
+
+/*
+    Validate the process that launched us. Uses the running process (by pid),
+    not just a path on disk, so a binary swapped after launch or a process whose
+    code pages were invalidated is rejected as well.
+*/
+static int validateCaller(NSString *pinnedSHA1) {
+    pid_t parentPid = getppid();
+    if (parentPid <= 1) {
+        return OCLP_PHT_ERROR_PARENT_PATH_MISSING;
+    }
+
+    NSString *requirementString = [NSString stringWithFormat:
+        @"identifier \"%s\" and certificate leaf = H\"%@\"", OCLP_CLIENT_IDENTIFIER, pinnedSHA1];
+
+    SecRequirementRef requirement = NULL;
+    SecCodeRef        guest       = NULL;
+    SecStaticCodeRef  guestStatic = NULL;
+    CFDictionaryRef   guestInfo   = NULL;
+    NSDictionary     *attributes  = nil;
+    NSNumber         *flags       = nil;
+    int result = OCLP_PHT_ERROR_INVALID_CERTIFICATES;
+
+    if (SecRequirementCreateWithString((__bridge CFStringRef)requirementString,
+                                       kSecCSDefaultFlags, &requirement) != errSecSuccess) {
+        goto out;
+    }
+
+    attributes = @{ (__bridge NSString *)kSecGuestAttributePid: @(parentPid) };
+    if (SecCodeCopyGuestWithAttributes(NULL, (__bridge CFDictionaryRef)attributes,
+                                       kSecCSDefaultFlags, &guest) != errSecSuccess) {
+        goto out;
+    }
+
+    // Running process: dynamic validity + requirement (also checks the bundle's resources)
+    if (SecCodeCheckValidity(guest, kSecCSDefaultFlags, requirement) != errSecSuccess) {
+        goto out;
+    }
+
+    // Same code on disk: strict validation + requirement
+    if (SecCodeCopyStaticCode(guest, kSecCSDefaultFlags, &guestStatic) != errSecSuccess ||
+        SecStaticCodeCheckValidity(guestStatic, kSecCSStrictValidate | kSecCSCheckAllArchitectures, requirement) != errSecSuccess) {
+        goto out;
+    }
+
+    // Hardened runtime: without it, DYLD_INSERT_LIBRARIES or a debugger attached
+    // by the same user could make the genuine, validly signed app call us.
+    if (SecCodeCopySigningInformation(guestStatic, kSecCSSigningInformation, &guestInfo) != errSecSuccess) {
+        goto out;
+    }
+    flags = ((__bridge NSDictionary *)guestInfo)[(__bridge NSString *)kSecCodeInfoFlags];
+    if (flags == nil || (flags.unsignedIntValue & OCLP_CS_RUNTIME_FLAG) == 0) {
+        result = OCLP_PHT_ERROR_CALLER_NOT_HARDENED;
+        goto out;
+    }
+
+    // We were reparented (caller exited) while validating - the pid is no longer our caller.
+    if (getppid() != parentPid) {
+        result = OCLP_PHT_ERROR_PARENT_PATH_MISSING;
+        goto out;
+    }
+
+    result = 0;
+
+out:
+    if (guestInfo   != NULL) CFRelease(guestInfo);
+    if (guestStatic != NULL) CFRelease(guestStatic);
+    if (guest       != NULL) CFRelease(guest);
+    if (requirement != NULL) CFRelease(requirement);
+    return result;
+}
+#endif /* !DEBUG */
 
 #ifdef DEBUG
 /*
@@ -226,30 +381,29 @@ int main(int argc, const char * argv[]) {
             return OCLP_PHT_ERROR_SET_UID_FAILED;
         }
 
-        NSString *parentProcessPath = getParentProcessPath();
-        if (parentProcessPath == nil) {
-            return OCLP_PHT_ERROR_PARENT_PATH_MISSING;
-        }
-
-        NSDictionary *processSigningInformation = getSigningInformationFromPath(processPath);
-        NSDictionary *parentProcessSigningInformation = getSigningInformationFromPath(parentProcessPath);
-
-        if (processSigningInformation == nil || parentProcessSigningInformation == nil) {
-            return OCLP_PHT_ERROR_SIGNING_INFORMATION_MISSING;
-        }
-
         #ifdef DEBUG
         // Certificate check is skipped in debug mode, so any local process can
         // talk to this helper. The DEBUG-only command allowlist below is what
         // limits the damage.
         // DO NOT USE IN PRODUCTION - prefer a self-signed release build.
+        NSString *parentProcessPath = getParentProcessPath();
+        if (parentProcessPath == nil) {
+            return OCLP_PHT_ERROR_PARENT_PATH_MISSING;
+        }
+        NSDictionary *processSigningInformation = getSigningInformationFromPath(processPath);
+        if (processSigningInformation == nil || getSigningInformationFromPath(parentProcessPath) == nil) {
+            return OCLP_PHT_ERROR_SIGNING_INFORMATION_MISSING;
+        }
         #else
-        // Check Certificates
-        if (processSigningInformation[@"certificates"] == nil ||
-            parentProcessSigningInformation[@"certificates"] == nil ||
-            ![processSigningInformation[@"certificates"]
-                isEqualToArray:parentProcessSigningInformation[@"certificates"]]) {
-            return OCLP_PHT_ERROR_INVALID_CERTIFICATES;
+        // Pin to our own (validated) leaf certificate, then require the caller
+        // to match it - see "Caller pinning" at the top of this file.
+        NSString *pinnedSHA1 = validatedSelfLeafSHA1(processPath);
+        if (pinnedSHA1 == nil) {
+            return OCLP_PHT_ERROR_SIGNING_INFORMATION_MISSING;
+        }
+        int callerStatus = validateCaller(pinnedSHA1);
+        if (callerStatus != 0) {
+            return callerStatus;
         }
         #endif
 

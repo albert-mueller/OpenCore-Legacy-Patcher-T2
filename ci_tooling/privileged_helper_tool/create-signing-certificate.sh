@@ -3,15 +3,23 @@
 # create-signing-certificate.sh
 #
 # Erstellt ein selbstsigniertes Code-Signing-Zertifikat fuer den lokalen Build
-# von OpenCore-Patcher-T2 und importiert es in den Anmeldeschlussel.
+# von OpenCore-Patcher-T2 - in einem EIGENEN, gesperrten Schluesselbund
+# (nicht im Anmeldeschluesselbund).
 #
 # Creates a self signed code signing certificate for local builds of
-# OpenCore-Patcher-T2 and imports it into the login keychain.
+# OpenCore-Patcher-T2 - in its OWN, locked keychain (not the login keychain).
+#
+# Warum / why: the privileged helper trusts exactly this certificate. With a
+# self signed certificate the private key IS the trust root - unlocked in the
+# login keychain, any process running as your user could sign a client the
+# helper accepts.
 #
 # Nutzung / Usage:
-#   ./create-signing-certificate.sh
-#   ./create-signing-certificate.sh --name "Mein Zertifikat"
-#   ./create-signing-certificate.sh --force      # vorhandene ersetzen / replace existing
+#   ./create-signing-certificate.sh                     create (once)
+#   ./create-signing-certificate.sh --name "Name"       custom certificate name
+#   ./create-signing-certificate.sh --force             replace existing ones (incl. login keychain)
+#   ./create-signing-certificate.sh --export key.p12    export, then remove the keychain from this Mac
+#   ./create-signing-certificate.sh --import key.p12    bring an exported key back for a build
 #
 
 set -euo pipefail
@@ -19,127 +27,170 @@ set -euo pipefail
 CERT_NAME="OCLP Self Signed"
 VALID_DAYS=3650
 FORCE=0
+MODE="create"
+P12_FILE=""
 
 LOGIN_KEYCHAIN="${HOME}/Library/Keychains/login.keychain-db"
 SYSTEM_KEYCHAIN="/Library/Keychains/System.keychain"
+SIGNING_KEYCHAIN="${HOME}/Library/Keychains/oclp-signing.keychain-db"
+AUTOLOCK_SECONDS=300
 
 # ---------------------------------------------------------------- Argumente --
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --name)
-            CERT_NAME="${2:-}"
-            if [[ -z "${CERT_NAME}" ]]; then
-                echo "[!] --name benoetigt einen Wert / --name requires a value" >&2
-                exit 1
-            fi
-            shift 2
-            ;;
-        --days)
-            VALID_DAYS="${2:-}"
-            shift 2
-            ;;
-        --force)
-            FORCE=1
-            shift
-            ;;
-        -h|--help)
-            sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
-            exit 0
-            ;;
-        *)
-            echo "[!] Unbekannte Option / unknown option: $1" >&2
-            exit 1
-            ;;
+        --name)   CERT_NAME="${2:?--name requires a value}"; shift 2 ;;
+        --days)   VALID_DAYS="${2:?--days requires a value}"; shift 2 ;;
+        --force)  FORCE=1; shift ;;
+        --export) MODE="export"; P12_FILE="${2:?--export requires a file}"; shift 2 ;;
+        --import) MODE="import"; P12_FILE="${2:?--import requires a file}"; shift 2 ;;
+        -h|--help) sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) echo "[!] Unbekannte Option / unknown option: $1" >&2; exit 1 ;;
     esac
 done
 
-# ------------------------------------------------------------ Vorbedingungen --
-
 if [[ "$(uname)" != "Darwin" ]]; then
-    echo "[!] Dieses Skript laeuft nur unter macOS."
-    echo "[!] This script only runs on macOS."
-    exit 1
+    echo "[!] Nur macOS / macOS only"; exit 1
 fi
 
-if ! command -v openssl >/dev/null 2>&1; then
-    echo "[!] openssl wurde nicht gefunden / openssl not found"
-    exit 1
-fi
+# ----------------------------------------------------------------- Helfer --
 
-# ------------------------------------------------- Vorhandene Identitaeten --
+# Signing keychain in the user search list, so codesign and
+# 'security find-identity' (Build-Project.command) find the identity.
+add_to_search_list() {
+    local current=()
+    while IFS= read -r line; do
+        line="${line#"${line%%[![:space:]]*}"}"   # trim leading whitespace
+        line="${line%\"}"; line="${line#\"}"
+        [[ -n "$line" && "$line" != "${SIGNING_KEYCHAIN}" ]] && current+=("$line")
+    done < <(security list-keychains -d user)
+    security list-keychains -d user -s "${current[@]}" "${SIGNING_KEYCHAIN}"
+}
 
-existing_count=$(security find-identity -v -p codesigning 2>/dev/null \
-    | grep -c "\"${CERT_NAME}\"" || true)
-
-if [[ "${existing_count}" -gt 0 ]]; then
-    echo "--- Vorhandene Zertifikate gefunden / existing certificates found ---"
-    echo "    ${existing_count}x \"${CERT_NAME}\""
-    echo
-
-    if [[ "${FORCE}" -eq 0 ]]; then
-        if [[ "${existing_count}" -eq 1 ]]; then
-            echo "Ein gueltiges Zertifikat ist bereits vorhanden. Nichts zu tun."
-            echo "A valid certificate already exists. Nothing to do."
-            echo
-            echo "Zum Ersetzen / to replace it: $0 --force"
-            exit 0
-        fi
-
-        echo "[!] Mehrere Zertifikate mit gleichem Namen - codesign kann sie nicht"
-        echo "    unterscheiden (\"ambiguous\"). Mit --force werden alle entfernt"
-        echo "    und genau eines neu erstellt."
-        echo "[!] Several certificates share this name - codesign cannot tell them"
-        echo "    apart (\"ambiguous\"). Use --force to remove them all and create"
-        echo "    exactly one replacement."
-        exit 1
+ensure_signing_keychain() {
+    if [[ ! -f "${SIGNING_KEYCHAIN}" ]]; then
+        echo "--- Neuer Schluesselbund / new keychain: ${SIGNING_KEYCHAIN}"
+        echo "    Eigenes Passwort waehlen (NICHT das Anmeldepasswort)"
+        echo "    Choose a separate password (NOT your login password)"
+        security create-keychain "${SIGNING_KEYCHAIN}"
     fi
+    # -l: lock on sleep, -t: lock after N seconds idle (no -u: never 'stay unlocked')
+    security set-keychain-settings -l -t "${AUTOLOCK_SECONDS}" "${SIGNING_KEYCHAIN}"
+    add_to_search_list
+    security unlock-keychain "${SIGNING_KEYCHAIN}"
+}
 
-    echo "--- Entferne alte Zertifikate / removing old certificates ---"
-    while security find-certificate -c "${CERT_NAME}" "${LOGIN_KEYCHAIN}" \
-            >/dev/null 2>&1; do
-        sha1=$(security find-certificate -c "${CERT_NAME}" -Z "${LOGIN_KEYCHAIN}" \
+# codesign may use the key without a prompt - only while the keychain is unlocked.
+allow_codesign() {
+    echo "--- Passwort des Signier-Schluesselbunds / signing keychain password:"
+    read -rs KC_PASS
+    security set-key-partition-list -S apple-tool:,apple:,codesign: \
+        -s -k "${KC_PASS}" "${SIGNING_KEYCHAIN}" >/dev/null 2>&1 \
+        || echo "    [!] Fehlgeschlagen - codesign fragt ggf. nach / failed, codesign may prompt"
+    unset KC_PASS
+}
+
+leaf_sha1() {
+    security find-certificate -c "${CERT_NAME}" -Z "${SIGNING_KEYCHAIN}" 2>/dev/null \
+        | awk '/SHA-1 hash:/ { print toupper($3); exit }'
+}
+
+delete_identities_in() {
+    local keychain=$1 sha1
+    while security find-certificate -c "${CERT_NAME}" "${keychain}" >/dev/null 2>&1; do
+        sha1=$(security find-certificate -c "${CERT_NAME}" -Z "${keychain}" \
             | awk '/SHA-1 hash:/ { print $3; exit }')
         [[ -z "${sha1}" ]] && break
-        security delete-identity -Z "${sha1}" "${LOGIN_KEYCHAIN}" >/dev/null 2>&1 \
-            || security delete-certificate -Z "${sha1}" "${LOGIN_KEYCHAIN}" \
-                >/dev/null 2>&1 \
+        security delete-identity -Z "${sha1}" "${keychain}" >/dev/null 2>&1 \
+            || security delete-certificate -Z "${sha1}" "${keychain}" >/dev/null 2>&1 \
             || break
-        echo "    ${sha1} entfernt / removed (login)"
+        echo "    ${sha1} entfernt / removed ($(basename "${keychain}"))"
     done
+}
 
-    # Kopien im System-Schluesselbund ebenfalls entfernen - sie fuehren sonst
-    # zu "ambiguous". / Also remove copies from the system keychain, they cause
-    # the same "ambiguous" error otherwise.
-    if security find-certificate -c "${CERT_NAME}" "${SYSTEM_KEYCHAIN}" \
-            >/dev/null 2>&1; then
-        echo "    Entferne Kopien im System-Schluesselbund (sudo)"
-        echo "    Removing copies from the system keychain (sudo)"
-        sudo security delete-certificate -c "${CERT_NAME}" "${SYSTEM_KEYCHAIN}" \
-            >/dev/null 2>&1 || true
-    fi
+finish() {
+    security lock-keychain "${SIGNING_KEYCHAIN}" 2>/dev/null || true
     echo
+    echo "Leaf-Zertifikat SHA-1 / leaf certificate SHA-1: $(leaf_sha1)"
+    echo "    Notieren - verify-signature.sh vergleicht damit."
+    echo "    Write it down - verify-signature.sh compares against it."
+    echo "    Optional fest einbauen / optionally hard-code: make CERT_SHA1=$(leaf_sha1)"
+}
+
+# ----------------------------------------------------------------- Export --
+
+if [[ "${MODE}" == "export" ]]; then
+    [[ -f "${SIGNING_KEYCHAIN}" ]] || { echo "[!] ${SIGNING_KEYCHAIN} fehlt / missing"; exit 1; }
+    security unlock-keychain "${SIGNING_KEYCHAIN}"
+    echo "--- Export (Passphrase fuer die .p12 waehlen / choose a passphrase for the .p12)"
+    security export -k "${SIGNING_KEYCHAIN}" -t identities -f pkcs12 -o "${P12_FILE}"
+    chmod 600 "${P12_FILE}"
+    echo
+    echo "Exportiert nach / exported to: ${P12_FILE}"
+    echo "Auf ein externes Medium verschieben / move it to external storage."
+    read -r -p "Schluesselbund jetzt von diesem Mac entfernen? / Remove the keychain from this Mac now? [y/N] " answer
+    if [[ "${answer}" =~ ^[YyJj]$ ]]; then
+        security delete-keychain "${SIGNING_KEYCHAIN}"
+        echo "Entfernt / removed. Fuer den naechsten Build / for the next build: $0 --import <file>"
+    fi
+    exit 0
 fi
 
-# --------------------------------------------------------- Arbeitsverzeichnis --
+# ----------------------------------------------------------------- Import --
+
+if [[ "${MODE}" == "import" ]]; then
+    [[ -f "${P12_FILE}" ]] || { echo "[!] ${P12_FILE} fehlt / missing"; exit 1; }
+    ensure_signing_keychain
+    security import "${P12_FILE}" -k "${SIGNING_KEYCHAIN}" -f pkcs12 -T /usr/bin/codesign
+    allow_codesign
+    finish
+    exit 0
+fi
+
+# ----------------------------------------------------------------- Create --
+
+if ! command -v openssl >/dev/null 2>&1; then
+    echo "[!] openssl nicht gefunden / openssl not found"; exit 1
+fi
+
+in_login=0;   security find-certificate -c "${CERT_NAME}" "${LOGIN_KEYCHAIN}"   >/dev/null 2>&1 && in_login=1
+in_signing=0; [[ -f "${SIGNING_KEYCHAIN}" ]] && security find-certificate -c "${CERT_NAME}" "${SIGNING_KEYCHAIN}" >/dev/null 2>&1 && in_signing=1
+in_system=0;  security find-certificate -c "${CERT_NAME}" "${SYSTEM_KEYCHAIN}"  >/dev/null 2>&1 && in_system=1
+
+if [[ "${FORCE}" -eq 0 ]]; then
+    if [[ "${in_login}" -eq 1 || "${in_system}" -eq 1 ]]; then
+        echo "[!] \"${CERT_NAME}\" liegt im Anmelde- oder System-Schluesselbund."
+        echo "    Jeder Prozess deines Benutzers koennte damit Code signieren, dem das Helper Tool vertraut."
+        echo "    Mit --force entfernen und im eigenen Schluesselbund neu erstellen"
+        echo "    (danach App UND Helper Tool neu bauen/signieren)."
+        echo "[!] \"${CERT_NAME}\" is in the login or system keychain."
+        echo "    Any process running as your user could sign code the helper tool trusts."
+        echo "    Use --force to remove it and create a new one in the dedicated keychain"
+        echo "    (then rebuild/re-sign BOTH the app and the helper tool)."
+        exit 1
+    fi
+    if [[ "${in_signing}" -eq 1 ]]; then
+        echo "Zertifikat vorhanden / certificate already exists. Nichts zu tun / nothing to do."
+        echo "SHA-1: $(leaf_sha1)"
+        exit 0
+    fi
+else
+    echo "--- Entferne alte Zertifikate / removing old certificates ---"
+    delete_identities_in "${LOGIN_KEYCHAIN}"
+    [[ -f "${SIGNING_KEYCHAIN}" ]] && { security unlock-keychain "${SIGNING_KEYCHAIN}"; delete_identities_in "${SIGNING_KEYCHAIN}"; }
+    if [[ "${in_system}" -eq 1 ]]; then
+        echo "    System-Schluesselbund (sudo) / system keychain (sudo)"
+        sudo security delete-certificate -c "${CERT_NAME}" "${SYSTEM_KEYCHAIN}" >/dev/null 2>&1 || true
+    fi
+fi
 
 WORKDIR=$(mktemp -d)
-cleanup() {
-    rm -rf "${WORKDIR}"
-}
-trap cleanup EXIT
-
-# Zufaelliges Passwort - die .p12 existiert nur fuer Sekunden.
-# Random password - the .p12 only exists for a few seconds.
+trap 'rm -rf "${WORKDIR}"' EXIT
 P12_PASS=$(openssl rand -hex 24)
 
-# ---------------------------------------------- Zertifikat erzeugen / create --
+echo "--- Erzeuge Zertifikat / creating certificate: ${CERT_NAME} (${VALID_DAYS} days)"
 
-echo "--- Erzeuge Zertifikat / creating certificate ---"
-echo "    Name:          ${CERT_NAME}"
-echo "    Gueltig / valid: ${VALID_DAYS} Tage / days"
-
-cat > "${WORKDIR}/cert.cnf" << EOF
+cat > "${WORKDIR}/cert.cnf" << CNF
 [ req ]
 distinguished_name = dn
 x509_extensions    = v3
@@ -153,157 +204,37 @@ basicConstraints     = critical,CA:true
 keyUsage             = critical,digitalSignature
 extendedKeyUsage     = critical,codeSigning
 subjectKeyIdentifier = hash
-EOF
+CNF
 
 openssl req -x509 -newkey rsa:2048 -nodes -days "${VALID_DAYS}" \
-    -config "${WORKDIR}/cert.cnf" \
-    -keyout "${WORKDIR}/key.pem" \
-    -out "${WORKDIR}/cert.pem" 2>/dev/null
+    -config "${WORKDIR}/cert.cnf" -keyout "${WORKDIR}/key.pem" -out "${WORKDIR}/cert.pem" 2>/dev/null
 
-# macOS (SecKeychainItemImport) versteht nur die alten PKCS#12-Algorithmen.
-# OpenSSL 3 nutzt standardmaessig AES-256 + SHA-256 und der Import scheitert
-# mit "MAC verification failed". Deshalb 3DES + SHA-1 erzwingen.
-#
-# macOS (SecKeychainItemImport) only understands the legacy PKCS#12 algorithms.
-# OpenSSL 3 defaults to AES-256 + SHA-256, which makes the import fail with
-# "MAC verification failed". Force 3DES + SHA-1 instead.
-openssl pkcs12 -export \
-    -inkey "${WORKDIR}/key.pem" \
-    -in "${WORKDIR}/cert.pem" \
-    -name "${CERT_NAME}" \
-    -out "${WORKDIR}/bundle.p12" \
-    -keypbe PBE-SHA1-3DES \
-    -certpbe PBE-SHA1-3DES \
-    -macalg sha1 \
+# macOS only imports legacy PKCS#12 (3DES + SHA-1); OpenSSL 3 defaults to AES-256.
+openssl pkcs12 -export -inkey "${WORKDIR}/key.pem" -in "${WORKDIR}/cert.pem" -name "${CERT_NAME}" \
+    -out "${WORKDIR}/bundle.p12" -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1 \
     -passout "pass:${P12_PASS}" 2>/dev/null \
-  || openssl pkcs12 -export \
-    -inkey "${WORKDIR}/key.pem" \
-    -in "${WORKDIR}/cert.pem" \
-    -name "${CERT_NAME}" \
-    -out "${WORKDIR}/bundle.p12" \
-    -passout "pass:${P12_PASS}"
+  || openssl pkcs12 -export -inkey "${WORKDIR}/key.pem" -in "${WORKDIR}/cert.pem" -name "${CERT_NAME}" \
+    -out "${WORKDIR}/bundle.p12" -passout "pass:${P12_PASS}"
 
-# ------------------------------------------------------- Import / Vertrauen --
+ensure_signing_keychain
 
-echo "--- Importiere in Anmeldeschluessel / importing into login keychain ---"
+# Only codesign may use the key - not /usr/bin/security, not any other app.
+security import "${WORKDIR}/bundle.p12" -k "${SIGNING_KEYCHAIN}" -P "${P12_PASS}" \
+    -T /usr/bin/codesign >/dev/null
+rm -f "${WORKDIR}/key.pem" "${WORKDIR}/bundle.p12"
 
-import_p12() {
-    security import "${WORKDIR}/bundle.p12" \
-        -k "${LOGIN_KEYCHAIN}" \
-        -P "${P12_PASS}" \
-        -T /usr/bin/codesign \
-        -T /usr/bin/security >/dev/null 2>&1
-}
+allow_codesign
 
-# Fallback: Schluessel und Zertifikat einzeln als PEM importieren.
-# Fallback: import key and certificate separately as PEM.
-import_pem() {
-    security import "${WORKDIR}/key.pem" \
-        -k "${LOGIN_KEYCHAIN}" \
-        -t priv -f openssl \
-        -T /usr/bin/codesign \
-        -T /usr/bin/security >/dev/null 2>&1 \
-    && security import "${WORKDIR}/cert.pem" \
-        -k "${LOGIN_KEYCHAIN}" \
-        -t cert -f openssl \
-        -T /usr/bin/codesign \
-        -T /usr/bin/security >/dev/null 2>&1
-}
-
-if ! import_p12; then
-    echo "    PKCS#12-Import fehlgeschlagen, versuche PEM-Import."
-    echo "    PKCS#12 import failed, trying PEM import."
-    if ! import_pem; then
-        echo "[!] Import fehlgeschlagen / import failed"
-        exit 1
-    fi
+# Trust in the USER domain only (never System.keychain - that creates a second
+# copy and codesign reports "ambiguous").
+if security find-identity -v -p codesigning "${SIGNING_KEYCHAIN}" | grep "\"${CERT_NAME}\"" | grep -q CSSMERR \
+   || ! security find-identity -v -p codesigning "${SIGNING_KEYCHAIN}" | grep -q "\"${CERT_NAME}\""; then
+    echo "--- Setze Vertrauensstellung / setting trust"
+    security add-trusted-cert -r trustRoot -p codeSign -k "${SIGNING_KEYCHAIN}" "${WORKDIR}/cert.pem" >/dev/null 2>&1 \
+        || echo "    [!] Vertrauensstellung fehlgeschlagen / could not set trust (signing still works)"
 fi
 
-echo "--- Erlaube Zugriff ohne Rueckfrage / allowing access without prompts ---"
-echo "    Anmeldepasswort / login password:"
-read -rs LOGIN_PASS
-security set-key-partition-list -S apple-tool:,apple:,codesign: \
-    -s -k "${LOGIN_PASS}" "${LOGIN_KEYCHAIN}" >/dev/null 2>&1 \
-    || echo "    [!] Fehlgeschlagen - codesign fragt ggf. nach / failed, codesign may prompt"
-unset LOGIN_PASS
-
-# ----------------------------------------------------------- Pruefung / check --
-
-identity_lines() {
-    security find-identity -v -p codesigning 2>/dev/null \
-        | grep "\"${CERT_NAME}\"" || true
-}
-
-count_identities() {
-    identity_lines | grep -c . || true
-}
-
-# Nicht vertrauenswuerdige Zertifikate erscheinen mit einem Zusatz wie
-# "(CSSMERR_TP_NOT_TRUSTED)". Build-Project.command hat solche Eintraege
-# frueher verworfen, deshalb hier pruefen und Vertrauen setzen.
-#
-# Certificates that are not trusted show up with a suffix such as
-# "(CSSMERR_TP_NOT_TRUSTED)". Build-Project.command used to discard those
-# entries, so detect the case and set trust.
-count_untrusted() {
-    identity_lines | grep -c "CSSMERR" || true
-}
-
+security find-identity -v -p codesigning "${SIGNING_KEYCHAIN}" | grep "\"${CERT_NAME}\"" || true
+finish
 echo
-echo "--- Pruefe Ergebnis / verifying ---"
-found=$(count_identities)
-
-# Nur falls das Zertifikat noch nicht als vertrauenswuerdig gilt, Vertrauen in
-# der BENUTZERDOMAENE setzen. Nicht "add-trusted-cert -d ... -k System.keychain"
-# verwenden: das legt eine zweite Kopie des Zertifikats im System-Schluesselbund
-# an und codesign meldet danach wieder "ambiguous".
-#
-# Only set trust if the certificate is not considered valid yet, and only in the
-# USER domain. Do not use "add-trusted-cert -d ... -k System.keychain": that puts
-# a second copy of the certificate into the system keychain, after which codesign
-# reports "ambiguous" again.
-if [[ "${found}" -eq 0 || "$(count_untrusted)" -gt 0 ]]; then
-    echo "    Setze Vertrauensstellung / setting trust"
-    security add-trusted-cert -r trustRoot -p codeSign \
-        -k "${LOGIN_KEYCHAIN}" "${WORKDIR}/cert.pem" >/dev/null 2>&1 \
-        || echo "    [!] Vertrauensstellung fehlgeschlagen / could not set trust"
-    found=$(count_identities)
-fi
-
-untrusted=$(count_untrusted)
-
-if [[ "${found}" -eq 1 && "${untrusted}" -eq 0 ]]; then
-    identity_lines
-    echo
-    echo "Fertig. Jetzt bauen mit:"
-    echo "Done. Now build with:"
-    echo "    python3 Build-Project.command"
-    exit 0
-fi
-
-if [[ "${untrusted}" -gt 0 ]]; then
-    identity_lines
-    echo
-    echo "[!] Das Zertifikat gilt nicht als vertrauenswuerdig."
-    echo "    In der Schluesselbundverwaltung: Zertifikat doppelklicken >"
-    echo "    Vertrauen > Codesignatur: \"Immer vertrauen\""
-    echo "[!] The certificate is not trusted."
-    echo "    In Keychain Access: double-click the certificate >"
-    echo "    Trust > Code Signing: \"Always Trust\""
-    exit 1
-fi
-
-echo "[!] Es wurden ${found} Identitaeten gefunden, erwartet war 1."
-echo "[!] Found ${found} identities, expected 1."
-
-if [[ "${found}" -gt 1 ]]; then
-    echo
-    echo "    Betroffene Schluesselbunde / affected keychains:"
-    security find-certificate -a -c "${CERT_NAME}" -Z 2>/dev/null \
-        | grep -E "keychain:|SHA-1 hash:" | sed 's/^/    /'
-    echo
-    echo "    Alle entfernen und neu erstellen / remove all and start over:"
-    echo "        $0 --force"
-fi
-
-exit 1
+echo "Fertig / done. Jetzt bauen / now build: python3 Build-Project.command"

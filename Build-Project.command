@@ -298,13 +298,32 @@ def available_codesigning_identities() -> list:
     return identities
 
 
+SIGNING_KEYCHAIN = Path.home() / "Library/Keychains/oclp-signing.keychain-db"
+
+
+def lock_signing_keychain() -> None:
+    """
+    Lock the dedicated signing keychain (ci_tooling/privileged_helper_tool/create-signing-certificate.sh)
+    again once signing is done, success or not.
+
+    The privileged helper trusts exactly the certificate whose key lives there, so the key
+    should only be usable while a build is signing. codesign unlocks it on demand (macOS
+    asks for the keychain password); it also auto-locks after 5 minutes idle and on sleep.
+    """
+    if not SIGNING_KEYCHAIN.exists():
+        return
+    subprocess.run(["/usr/bin/security", "lock-keychain", str(SIGNING_KEYCHAIN)],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 def resolve_application_identity(requested: str, auto_detect: bool) -> "str | None":
     """
     Decide which identity the app and the privileged helper tool get signed with
 
-    Both must end up carrying the same certificate: at runtime the helper compares its own
-    certificate chain against its parent process' chain (ci_tooling/privileged_helper_tool/main.m)
-    and refuses to run anything as root when they differ. It runs no trust evaluation, so a
+    Both must end up carrying the same certificate: at runtime the helper requires its parent
+    process to satisfy 'certificate leaf = H"<SHA-1 of the helper's own leaf>"' plus the app's
+    identifier and the hardened runtime (ci_tooling/privileged_helper_tool/main.m), and refuses
+    to run anything as root otherwise. It runs no trust evaluation, so a
     self signed certificate satisfies it just as well as a Developer ID one - but an unsigned
     or ad-hoc signed build carries no certificates at all and can never pass.
     """
@@ -468,6 +487,8 @@ def main() -> None:
         # which turns any error raised deep in a build module into a repo-wide hunt.
         traceback.print_exc()
         sys.exit(3)
+    finally:
+        lock_signing_keychain()
 
 
 def _run_build() -> None:

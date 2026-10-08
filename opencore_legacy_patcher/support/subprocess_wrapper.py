@@ -76,6 +76,7 @@ class PrivilegedHelperErrorCodes(enum.IntEnum):
     OCLP_PHT_ERROR_COMMAND_FAILED              = 169
     OCLP_PHT_ERROR_CATCH_ALL                   = 170
     OCLP_PHT_ERROR_COMMAND_NOT_ALLOWED         = 171
+    OCLP_PHT_ERROR_CALLER_NOT_HARDENED         = 172
 
 
 # Errors that will not go away by retrying within this session: the helper (or the app
@@ -84,6 +85,7 @@ _HELPER_PERMANENT_ERRORS = (
     PrivilegedHelperErrorCodes.OCLP_PHT_ERROR_SIGNING_INFORMATION_MISSING.value,
     PrivilegedHelperErrorCodes.OCLP_PHT_ERROR_INVALID_TEAM_ID.value,
     PrivilegedHelperErrorCodes.OCLP_PHT_ERROR_INVALID_CERTIFICATES.value,
+    PrivilegedHelperErrorCodes.OCLP_PHT_ERROR_CALLER_NOT_HARDENED.value,
 )
 
 # Errors where the helper ran fine, verified its caller, and then deliberately refused the
