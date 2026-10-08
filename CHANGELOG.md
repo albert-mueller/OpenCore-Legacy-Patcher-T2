@@ -99,6 +99,10 @@ Impact: an attacker could set constants.detected_os to a specially crafted value
 - fixes a vulnerability where for the Priveleged Helper Tool the minimum requirements are OS X Mavericks, while the patcher requires minimum macOS High Sierra. This creates a massive attack surface where an attacker could install the Priveleged Helper Tool without the actual patcher.
 Impact: a malicious application could install this Priveleged Helper Tool on versions of macOS that this patcher doesn't support to execute arbitary code as root. This vulnerability has been fixed by setting the minimum requirements to match the patcher's.
 
+- fixes a vulnerability where an attacker could abuse the prebuilt Priveleged Helper Tool inside the repository for malware operations by removing it from the repo altogether and requiring every developer that wants the helper built in, to build themselves and as such an attacker can't abuse my own signature for malware delivery. It's like to give your keys for your house or your car to a stranger who wants to steal your personal belongings.
+
+Impact: an attacker could abuse the freely available prebuilt Priveleged Helper Tool my signature for malware delivery. 
+
 ### Other changes
 
 - updates PatcherSupportPkg to 2.0.7 to add missing patches for NVIDIA Web Driver and Kepler, replace the old Skylake patchset with the new one and remove a payload that only OCLP-Plus ever used
