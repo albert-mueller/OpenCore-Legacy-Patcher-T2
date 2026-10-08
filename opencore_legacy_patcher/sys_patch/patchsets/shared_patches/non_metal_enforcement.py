@@ -31,13 +31,6 @@ class NonMetalEnforcement(BaseSharedPatchSet):
         Note: Metal kexts in High Sierra rely on IOAccelerator, thus 'Non-Metal IOAccelerator Common'
         is needed for proper linking
         """
-        if self._xnu_major >= os_data.tahoe.value:
-            # Non-Metal GPU patches currently cause kernel panics on macOS 26, Tahoe.
-            # Safety guard: skip this patchset entirely until a working fix is found.
-            # Also avoids forcing non-Metal rendering without its supporting IOAccelerator
-            # patch (see note above), which is itself skipped for the same reason on Tahoe.
-            return {}
-
         if self._os_requires_patches() is False:
             return {}
 

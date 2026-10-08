@@ -60,28 +60,10 @@ class IntelSkylake(BaseHardware):
         return HardwareVariantGraphicsSubclass.METAL_31001_GRAPHICS
 
 
-    def _is_skylake_metal_supported_on_current_os(self) -> bool:
-        """
-        Check if Skylake Metal acceleration packages are fully compatible on current OS.
-        On macOS 26 Tahoe and newer, legacy Monterey SKL Metal bundles cause a black screen
-        with cursor due to unresolved metallib symbols and WindowServer compositor failure.
-        Skipping unless experimental developer override is explicitly active.
-        """
-        if self._xnu_major >= os_data.tahoe.value:
-            if not self._dortania_internal_check():
-                return False
-        return True
-
-
     def _model_specific_patches(self) -> dict:
         """
         Model specific patches
         """
-        if not self._is_skylake_metal_supported_on_current_os():
-            # Return empty patchset on Tahoe to preserve unaccelerated display stability
-            # and prevent the black screen / freeze state.
-            return {}
-
         return {
             "Intel Skylake": {
                 PatchType.OVERWRITE_SYSTEM_VOLUME: {
@@ -109,9 +91,6 @@ class IntelSkylake(BaseHardware):
         Patches for Intel Skylake iGPUs
         """
         if self.native_os() is True:
-            return {}
-
-        if not self._is_skylake_metal_supported_on_current_os():
             return {}
 
         return {
