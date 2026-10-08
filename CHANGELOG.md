@@ -1,9 +1,81 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
-## 4.0.0.190008.5 - 4.0.0 alpha 19.8.5
+## 4.0.0.190009 - 4.0.0 alpha 19.9
 This release:
 - updates PatcherSupportPkg to 2.0.7 to add missing patches for NVIDIA Web Driver and Kepler, replace the old Skylake patchset with the new one and remove a payload that only OCLP-Plus ever used
 - fixes a bug where cryptex=0 was injected on AVX2 Macs, including T1 and T2 Macs
 - updates Spoof-VMM to 4.9.1 to mitigate an issue where while trying to install unsupported macOS versions on T2 Macs where it may fail to get paths for the system root hash/rmtree manifest
+- fixes a bug where 2 times except Exception as ui_error: inside gui_install_oc.py for the Ask Gemini UI error handling
+- fixes a vulnerability where inside gui_install_oc.py, an attacker could set constants.detected_os to a specially crafted value:
+
+                    try:
+                          error_dialog = wx.Dialog(self, title="Installation Error", size=(460, 200))
+          
+                          main_sizer = wx.BoxSizer(wx.VERTICAL)
+                          button_sizer = wx.BoxSizer(wx.HORIZONTAL)
+          
+                          error_msg = "OpenCore installation failed.\n\nWould you like to report this issue or ask Gemini for help?"
+                          msg_text = wx.StaticText(error_dialog, label=error_msg)
+                          msg_text.SetFont(gui_support.font_factory(12, wx.FONTWEIGHT_NORMAL))
+          
+                          btn_report = wx.Button(error_dialog, id=wx.ID_OK, label="Report Issue")
+                          btn_gemini = wx.Button(error_dialog, id=wx.ID_ANY, label="Ask Gemini")
+                          btn_close  = wx.Button(error_dialog, id=wx.ID_CANCEL, label="Close")
+          
+                          # Define a custom return code identifier for Gemini tracking
+                          GEMINI_CLICKED_ID = 10001
+          
+                          # Bind an event so clicking the button closes the dialog and returns our custom identifier
+                          error_dialog.Bind(wx.EVT_BUTTON, lambda event: error_dialog.EndModal(GEMINI_CLICKED_ID), btn_gemini)
+          
+                          main_sizer.Add(msg_text, 1, wx.ALL | wx.EXPAND, 20)
+                          button_sizer.Add(btn_report, 0, wx.RIGHT, 10)
+                          button_sizer.Add(btn_gemini, 0, wx.RIGHT, 10)
+                          button_sizer.Add(btn_close, 0)
+          
+                          main_sizer.Add(button_sizer, 0, wx.ALIGN_RIGHT | wx.BOTTOM | wx.RIGHT, 20)
+          
+                          error_dialog.SetSizer(main_sizer)
+                          error_dialog.Layout()
+                          error_dialog.Centre()
+          
+                          response = error_dialog.ShowModal()
+          
+                          if response == wx.ID_OK:
+                              webbrowser.open("https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues")
+          
+                          # Check directly for your custom event return hook code
+                          # Unter macOS Catalina und älter Gemini funktioniert nicht richtig unter Safari/WebKit
+                          elif response == GEMINI_CLICKED_ID:
+                              # Gemini can't see the install log on its own, so copy it to the clipboard
+                              # and tell the user to paste it in, rather than making them go hunt for
+                              # the text box and select/copy it manually.
+                              try:
+                                  clipboard = wx.Clipboard.Get()
+                                  if not clipboard.IsOpened():
+                                      clipboard.Open()
+                                  clipboard.SetData(wx.TextDataObject(self.text_box.GetValue()))
+                                  clipboard.Close()
+                                  wx.MessageDialog(
+                                      self,
+                                      "The installation log has been copied to your clipboard.\n\nPaste it into the Gemini chat so it can help diagnose the error.",
+                                      "Copied to Clipboard",
+                                      wx.OK | wx.ICON_INFORMATION
+                                  ).ShowModal()
+                              except Exception as clipboard_error:
+                                  logging.error(f"Failed to copy installation log to clipboard: {clipboard_error}")
+          
+                              if self.constants.detected_os >= os_data.os_data.big_sur:
+                                  logging.info("- Launching Gemini AI Assistant (wx.html2 WebView)")
+                                  gemini_window = gui_support.GeminiWebView(self, title="Gemini AI Assistant")
+                                  gemini_window.Show()
+                              else: # <- an attacker could set constants.detected_os to a specially crafted value
+                                  logging.info("- Launching Gemini AI Assistant (default web browser, host predates Big Sur)")
+                                  logging.info("macOS Catalina, Mojave and High Sierra can't load Gemini in Safari and WebKit because they're too old.")
+                                  webbrowser.open("https://gemini.google.com")
+          
+                          error_dialog.Destroy()
+Impact: an attacker could set constants.detected_os to a specially crafted value to cause an unintended legacy fallback or worse, crash the application to launch a DoS attack. This vulnerability has been fixed by ensuring that Gemini ever opens up if constants.detected_os can be parsed.
+
 ## 4.0.0.190008.4 - 4.0.0 alpha 19.8.4
 This release:
 - fixes a bug where when trying to install updates automatically, the error Could not prepare working directory' (Errno 13) would appear
