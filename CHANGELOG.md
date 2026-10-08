@@ -1,4 +1,9 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.190008.5 - 4.0.0 alpha 19.8.5
+This release:
+- updates PatcherSupportPkg to 2.0.7 to add missing patches for NVIDIA Web Driver and Kepler, replace the old Skylake patchset with the new one and remove a payload that only OCLP-Plus ever used
+- fixes a bug where cryptex=0 was injected on AVX2 Macs, including T1 and T2 Macs
+- updates Spoof-VMM to 4.9.1 to mitigate an issue where while trying to install unsupported macOS versions on T2 Macs where it may fail to get paths for the system root hash/rmtree manifest
 ## 4.0.0.190008.4 - 4.0.0 alpha 19.8.4
 This release:
 - fixes a bug where when trying to install updates automatically, the error Could not prepare working directory' (Errno 13) would appear
