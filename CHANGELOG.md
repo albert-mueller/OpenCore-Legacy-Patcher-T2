@@ -1,9 +1,9 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
 ## 4.0.0.190009.2 - 4.0.0 alpha 19.9.2
 This release:
-- fixes a kernel panic on macOS 26 Tahoe on Macs with a USB top case (internal keyboard/trackpad driven by AppleUSBTopCase.kext): adds the `IOHIDFamily USB topcase panic` kernel patch (`IOHIDDevice::didTerminate`, MinKernel 25.0.0) and enables it wherever AppleUSBTopCase.kext is injected (ported from Dortania d147e58)
-- fixes the NVIDIA Web Driver patchset on Tahoe: CoreDisplay now uses the `10.13.6-25` payload instead of the Sequoia one (ported from Dortania dd681ac)
-- fixes the Skylake graphics patches on Tahoe: T1 Macs now get the `KyberInTheSEPRegisteredKeys` MessageProtection feature flag turned off during root patching (ported from Dortania b8ae03e)
+- fixes a kernel panic on macOS 26 Tahoe on Macs with a USB top case (internal keyboard/trackpad driven by AppleUSBTopCase.kext): adds the `IOHIDFamily USB topcase panic` kernel patch (`IOHIDDevice::didTerminate`, MinKernel 25.0.0) and enables it wherever AppleUSBTopCase.kext is injected (ported from Dortania d147e58), thx @Jazzzny and Dortania
+- fixes the NVIDIA Web Driver patchset on Tahoe: CoreDisplay now uses the `10.13.6-25` payload instead of the Sequoia one (ported from Dortania dd681ac), thx @Jazzzny and Dortania
+- fixes the Skylake graphics patches on Tahoe: T1 Macs now get the `KyberInTheSEPRegisteredKeys` MessageProtection feature flag turned off during root patching (ported from Dortania b8ae03e), thx @Jazzzny and Dortania
 - removes the Tahoe safety guard that skipped the Skylake graphics patchset unless DortaniaInternal was active
 - fixes Skylake root patching on Ventura and Sonoma: AppleIntelSKLGraphicsMTLDriver.bundle was looked up in the `12.5-22` payload, which only contains the Broadwell driver; it now uses `12.5` like Dortania
 - re-enables root patching for non-Metal GPUs (NVIDIA Web Driver, NVIDIA Tesla, AMD TeraScale 1/2, Intel Iron Lake/Sandy Bridge) on Tahoe by removing the safety guards added in 6d6eea9
