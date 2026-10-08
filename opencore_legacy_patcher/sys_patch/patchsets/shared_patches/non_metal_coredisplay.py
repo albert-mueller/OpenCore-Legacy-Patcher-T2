@@ -40,9 +40,10 @@ class NonMetalCoreDisplay(BaseSharedPatchSet):
             "Non-Metal CoreDisplay Common": {
                 PatchType.MERGE_SYSTEM_VOLUME: {
                     "/System/Library/Frameworks": {
-                        # Note: PatcherSupportPkg only ships 10.13.6-<xnu_major> payloads up to xnu_major 24 (Sequoia),
-                        # cap the lookup there for Sequoia+ hosts (e.g. Tahoe) instead of requesting a non-existent folder.
-                        "CoreDisplay.framework": f"10.13.6-{self._xnu_major}" if self._xnu_major < os_data.sequoia.value else "10.13.6-24",
+                        # PatcherSupportPkg ships 10.13.6-<xnu_major> CoreDisplay up to xnu_major 25 (Tahoe);
+                        # cap there for newer hosts instead of requesting a non-existent folder.
+                        # Tahoe now uses 10.13.6-25 like upstream (dortania/OpenCore-Legacy-Patcher dd681ac).
+                        "CoreDisplay.framework": f"10.13.6-{min(self._xnu_major, os_data.tahoe.value)}",
                     },
                 },
             },

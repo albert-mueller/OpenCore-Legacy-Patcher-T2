@@ -93,7 +93,7 @@ class IntelSkylake(BaseHardware):
                             "12.5-26" if self._xnu_major >= os_data.golden_gate.value
                             else ("12.5-25" if self._xnu_major >= os_data.tahoe.value
                             else ("12.5-24" if self._xnu_major >= os_data.sequoia.value
-                            else "12.5-22"))
+                            else "12.5"))  # 12.5-22 only ships the BDW MTLDriver, not SKL
                         ),
                         "AppleIntelSKLGraphicsVADriver.bundle":  "12.5",
                         "AppleIntelSKLGraphicsVAME.bundle":      "12.5",
