@@ -48,6 +48,22 @@ _T2_NO_IGPU_MODELS = {
 }
 
 
+def is_unsupported_t2_mac(model: str) -> bool:
+    """
+    True if `model` is a T2 Mac that Apple does not support on macOS Tahoe
+    (e.g. Macmini8,1, MacBookPro16,3, iMacPro1,1). Such models only ever use
+    OCLP to run Tahoe and newer, so they must always be treated as a Tahoe target,
+    regardless of which macOS the build host is currently running.
+
+    Indexes smbios_dictionary directly on purpose: every model in T2Macs must have
+    an entry, and a missing one should fail loudly instead of being silently
+    classified as "natively supported".
+    """
+    if model not in model_array.T2Macs:
+        return False
+    return smbios_data.smbios_dictionary[model]["Max OS Supported"] < os_data.os_data.tahoe
+
+
 class BuildSecurity:
     """
     Build Library for Security Patch Support
@@ -62,18 +78,11 @@ class BuildSecurity:
 
         # ── Global Hardware & OS Targets Scopes ───────────────────────
         # Tahoe target detection.
-        # detected_os is the macOS the *build host* is currently running, not the macOS the
-        # EFI is being built for. An unsupported T2 Mac (Max OS Supported < Tahoe, e.g.
-        # Macmini8,1) usually builds its EFI while still booted into native Sequoia, so
-        # checking detected_os alone left is_tahoe_target False and silently dropped
-        # SpoofVMM.kext and -spoofvmmbid from the config. For those models OCLP is only ever
-        # needed for Tahoe and newer, so they are always treated as a Tahoe target.
+        # detected_os is the macOS the build host is running, not the build target, so an
+        # unsupported T2 Mac building from native Sequoia must be caught via the model.
         self.is_tahoe_target: bool = (
             self.constants.detected_os >= os_data.os_data.tahoe
-            or (
-                self.model in model_array.T2Macs
-                and smbios_data.smbios_dictionary.get(self.model, {}).get("Max OS Supported", os_data.os_data.tahoe) < os_data.os_data.tahoe
-            )
+            or is_unsupported_t2_mac(self.model)
         )
         self.is_ice_lake: bool = (self.model == "MacBookAir9,1")
         self.is_mac_mini: bool = (self.model == "Macmini8,1")
@@ -293,7 +302,7 @@ class BuildSecurity:
         needs_amfipass = False
 
         if self._is_t2_mac():
-            if self.is_tahoe_target or smbios_data.smbios_dictionary[self.model]["Max OS Supported"] < os_data.os_data.tahoe:
+            if self.is_tahoe_target:
                 needs_amfipass = True
         else:
             if self.model in model_array.T2Macs:
@@ -338,7 +347,7 @@ class BuildSecurity:
                     # from Tahoe can't find a matching manifest during installation
                     # (Stage 2). Natively supported T2 Macs (Max OS Supported >= Tahoe)
                     # don't need the swap, so they keep the real board-id (Wi-Fi calibration).
-                    if smbios_data.smbios_dictionary[self.model]["Max OS Supported"] < os_data.os_data.tahoe:
+                    if is_unsupported_t2_mac(self.model):
                         logging.info("- Enabling SpoofVMM board-id swap (-spoofvmmbid) for unsupported T2 Mac")
                         self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args", "-spoofvmmbid")
 
