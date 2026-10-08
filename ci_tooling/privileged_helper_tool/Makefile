@@ -4,8 +4,19 @@ OUTPUT=com.albert-mueller.opencore-patcher-t2.privileged-helper
 # Optional, release builds only:
 #   make CERT_SHA1=<40 hex chars>        also hard-code the expected leaf certificate
 #   make CLIENT_ID=<bundle identifier>   if the app's bundle identifier was changed
-#   make ARCHS="-arch x86_64"            Xcode 11 and older (no arm64 support)
+#   make ARCHS="-arch x86_64 -arch arm64" force a Universal build (e.g. Catalina + Xcode 12.2+)
+#   make ARCHS="-arch x86_64"            force an Intel-only build
+#
+# Default architectures depend on the build host: before macOS 11 Big Sur the
+# toolchain (Xcode/Command Line Tools <= 11, e.g. on High Sierra) has no arm64
+# support and fails with "Unsupported architecture" in <sys/cdefs.h>, so build
+# Intel-only there. 10.16 is Big Sur reporting itself in compatibility mode.
+HOST_PRE_BIG_SUR := $(shell sw_vers -productVersion 2>/dev/null | awk -F. '$$1 == 10 && $$2 < 16 { print "yes" }')
+ifeq ($(HOST_PRE_BIG_SUR),yes)
+ARCHS ?= -arch x86_64
+else
 ARCHS ?= -arch x86_64 -arch arm64
+endif
 # Same minimum as the app (LSMinimumSystemVersion in OpenCore-Patcher-GUI.spec).
 # The arm64 slice is raised to macOS 11.0 by clang automatically.
 MACOS_MIN ?= 10.13.6

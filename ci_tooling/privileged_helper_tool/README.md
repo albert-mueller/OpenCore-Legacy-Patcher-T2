@@ -107,7 +107,7 @@ Optional:
 
 ```
 make CERT_SHA1=<SHA-1 from step 1>     # also hard-code your certificate into the binary
-make ARCHS="-arch x86_64"              # Xcode 11 and older (no arm64 support)
+make ARCHS="-arch x86_64 -arch arm64"  # force Universal (default is Intel-only before macOS 11 Big Sur)
 make CLIENT_ID=<bundle identifier>     # only if you changed the app's bundle identifier
 ```
 
