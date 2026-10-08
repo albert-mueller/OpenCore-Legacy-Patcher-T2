@@ -25,14 +25,6 @@ Impact: the helper is installed setuid root and runs any command its caller pass
 
 **Action required.** The fixes only take effect once the helper is rebuilt: run `make` in `ci_tooling/privileged_helper_tool`, run `./create-signing-certificate.sh --force` once (this creates a new certificate, so rebuild and re-sign both app and helper), then check the installed build with `./verify-signature.sh`. Until then, any installed helper from an earlier version remains vulnerable - if you do not use OpenCore-Patcher-T2 regularly, remove it with `sudo rm /Library/PrivilegedHelperTools/com.albert-mueller.opencore-patcher-t2.privileged-helper`.
 
-### Other changes
-
-- updates PatcherSupportPkg to 2.0.7 to add missing patches for NVIDIA Web Driver and Kepler, replace the old Skylake patchset with the new one and remove a payload that only OCLP-Plus ever used
-- fixes a bug where cryptex=0 was injected on AVX2 Macs, including T1 and T2 Macs
-- updates Spoof-VMM to 4.9.1 to mitigate an issue where while trying to install unsupported macOS versions on T2 Macs where it may fail to get paths for the system root hash/rmtree manifest
-- adds the -spoofvmmbid boot-arg on T2 Macs that are unsupported by macOS Tahoe, so SpoofVMM 4.9.1 enables its (now opt-in) board-id swap and MobileSoftwareUpdate finds the manifest during installation
-- fixes the SpoofVMM payload path: constants still pointed at the non-existent SpoofVMM-v1.0.0-RELEASE.zip instead of the bundled SpoofVMM-4.9.1-Release/Debug.zip
-- fixes a bug where 2 times except Exception as ui_error: inside gui_install_oc.py for the Ask Gemini UI error handling
 - fixes a vulnerability where inside gui_install_oc.py, an attacker could set constants.detected_os to a specially crafted value:
 
                     try:
@@ -103,6 +95,19 @@ Impact: the helper is installed setuid root and runs any command its caller pass
           
                           error_dialog.Destroy()
 Impact: an attacker could set constants.detected_os to a specially crafted value to cause an unintended legacy fallback or worse, crash the application to launch a DoS attack. This vulnerability has been fixed by ensuring that Gemini ever opens up if constants.detected_os can be parsed.
+
+- fixes a vulnerability where for the Priveleged Helper Tool the minimum requirements are OS X Mavericks, while the patcher requires minimum macOS High Sierra. This creates a massive attack surface where an attacker could install the Priveleged Helper Tool without the actual patcher.
+Impact: a malicious application could install this Priveleged Helper Tool on versions of macOS that this patcher doesn't support to execute arbitary code as root. This vulnerability has been fixed by setting the minimum requirements to match the patcher's.
+
+### Other changes
+
+- updates PatcherSupportPkg to 2.0.7 to add missing patches for NVIDIA Web Driver and Kepler, replace the old Skylake patchset with the new one and remove a payload that only OCLP-Plus ever used
+- fixes a bug where cryptex=0 was injected on AVX2 Macs, including T1 and T2 Macs
+- updates Spoof-VMM to 4.9.1 to mitigate an issue where while trying to install unsupported macOS versions on T2 Macs where it may fail to get paths for the system root hash/rmtree manifest
+- adds the -spoofvmmbid boot-arg on T2 Macs that are unsupported by macOS Tahoe, so SpoofVMM 4.9.1 enables its (now opt-in) board-id swap and MobileSoftwareUpdate finds the manifest during installation
+- fixes the SpoofVMM payload path: constants still pointed at the non-existent SpoofVMM-v1.0.0-RELEASE.zip instead of the bundled SpoofVMM-4.9.1-Release/Debug.zip
+- fixes a bug where 2 times except Exception as ui_error: inside gui_install_oc.py for the Ask Gemini UI error handling
+- fixes a bug where when compiling the Priveleged Helper Tool on hosts running macOS High Sierra, Mojave or Catalina may fail because by default it sets Priveleged Helper Tool to be built using the Universal architecture that on High Sierra simply doesn't exist.
 
 ## 4.0.0.190008.4 - 4.0.0 alpha 19.8.4
 This release:
