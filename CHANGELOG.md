@@ -6,7 +6,7 @@ This release:
 - fixes the Skylake graphics patches on Tahoe: T1 Macs now get the `KyberInTheSEPRegisteredKeys` MessageProtection feature flag turned off during root patching (ported from Dortania b8ae03e)
 - removes the Tahoe safety guard that skipped the Skylake graphics patchset unless DortaniaInternal was active
 - fixes Skylake root patching on Ventura and Sonoma: AppleIntelSKLGraphicsMTLDriver.bundle was looked up in the `12.5-22` payload, which only contains the Broadwell driver; it now uses `12.5` like Dortania
-- re-enables root patching for non-Metal GPUs (NVIDIA Web Driver/Kepler-less NVIDIA, Tesla, AMD TeraScale 1/2, Intel Iron Lake/Sandy Bridge) on Tahoe by removing the safety guards added in 6d6eea9
+- re-enables root patching for non-Metal GPUs (NVIDIA Web Driver, NVIDIA Tesla, AMD TeraScale 1/2, Intel Iron Lake/Sandy Bridge) on Tahoe by removing the safety guards added in 6d6eea9
 - replaces the non-Metal shared patchsets (`non_metal.py`, `non_metal_ioaccel.py`, `non_metal_coredisplay.py`, `non_metal_enforcement.py`) with Dortania's current versions, so they use the Tahoe-era PatcherSupportPkg payloads. This affects every macOS version, not just Tahoe:
   - SkyLight: only the `SkyLight`/`SkyLightOriginal` binaries are replaced with a build matching the macOS version (`26.7-25` on Tahoe) instead of merging the old 10.14.6 `SkyLight.framework`; the QuartzCore merge is gone
   - adds `iconservicesagent` from 26.0 on Tahoe
