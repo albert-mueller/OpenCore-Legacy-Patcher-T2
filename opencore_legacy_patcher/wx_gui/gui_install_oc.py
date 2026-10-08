@@ -418,24 +418,19 @@ class InstallOCFrame(wx.Frame):
                         logging.info("- Launching Gemini AI Assistant (wx.html2 WebView)")
                         gemini_window = gui_support.GeminiWebView(self, title="Gemini AI Assistant")
                         gemini_window.Show()
-                    else:
+                    elif self.constants.detected_os < os_data.os_data.big_sur:
                         logging.info("- Launching Gemini AI Assistant (default web browser, host predates Big Sur)")
                         logging.info("macOS Catalina, Mojave and High Sierra can't load Gemini in Safari and WebKit because they're too old.")
                         webbrowser.open("https://gemini.google.com")
+                    else:
+                        wx.MessageDialog(
+                            "A critical error occured while trying to determine which macOS version is currently running.",
+                            "Copied to Clipboard",
+                            wx.OK
+                        ).ShowModal()
 
                 error_dialog.Destroy()
 
-            except Exception as ui_error:
-                logging.error("An invalid syntax prevented from displaying the error. The error is the following:")
-                logging.exception("Stack Trace:")
-                logging.info("Please report this issue.")
-                logging.info("To fix this bug, please check for updates and update as soon as the next release is out.")
-                print("\n" + "="*50)
-                print(f"CRITICAL UI ERROR CAUGHT: {ui_error}")
-                print(traceback.format_exc())
-                print("="*50 + "\n")
-                time.sleep(90)
-                sys.exit(3)
             except Exception as ui_error:
                 logging.error("An invalid syntax prevented from displaying the error. The error is the following:")
                 logging.exception("Stack Trace:")

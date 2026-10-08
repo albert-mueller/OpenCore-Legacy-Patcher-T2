@@ -2,9 +2,11 @@
 #
 # Asks the reporter for their exact macOS and OpenCore Legacy Patcher versions
 # when an issue doesn't contain them (or only says "latest", "new", "N/A", ...).
-# Security reports and suggestions / change requests (also icon or artwork
-# contributions) are skipped. The bot comment and label are removed
-# automatically once the versions are added (by editing the issue or replying).
+# Security / malicious-site / typosquatting reports (detected from the form's
+# issue type or the reporter's own text, never the form headings) and
+# suggestions / change requests (also icon or artwork contributions) are
+# skipped. The bot comment and label are removed automatically once the
+# versions are added (by editing the issue or replying).
 
 name: Ask for missing version info
 
@@ -58,8 +60,21 @@ jobs:
             // ---- 1. Skip security reports and non-bug issues ----------------
             const SKIP_LABELS = ['security', 'vulnerability', 'enhancement', 'feature request', 'question', 'documentation'];
             if (labels.some(l => SKIP_LABELS.includes(l))) return cleanUp('Skipped: issue has a skip label');
+            // Only look at what the reporter wrote. The form's own headings say
+            // "malicious forks, typosquatting sites or security vulnerabilities",
+            // so matching keywords against the raw body hits every form issue.
+            const userBody = body.split('\n').filter(l => !/^###\s/.test(l)).join('\n');
+            const userText = `${title}\n${userBody}`;
+            const usedForm = /^###\s+(mac model|mac-modell|issue type|typ fehler)/im.test(body);
+            const issueType = section(/issue type|typ fehler/i);
+            // Form dropdown: security vulnerability / malicious website / typosquatting site / typosquatting repo / malicious fork
+            const SECURITY_TYPE_RE = /security|vulnerab|sicherheitsl|malicious|malware|bösartig|typosquat|tippfehler|fork/i;
+            const MALICIOUS_RE = /\b(typo-?squat\w*|phishing|malware|malicious|impersonat\w*|homoglyph\w*|look-?alike (site|domain|repo\w*)|fake (site|website|domain|download|repo\w*|copy)|scam\w*|bösartig\w*|tippfehler-?\w*|gefälscht\w*)\b/i;
             const SECURITY_RE = /\b(security|vulnerab\w*|cve-\d{4}-\d+|ghsa-[\w-]+|exploit\w*|rce|remote code execution|code injection|command injection|privilege escalation)\b/i;
-            if (SECURITY_RE.test(issueText)) return cleanUp('Skipped: looks like a security report');
+            const isSecurityReport = usedForm
+              ? (!!issueType && SECURITY_TYPE_RE.test(issueType)) || MALICIOUS_RE.test(userText)
+              : SECURITY_RE.test(userText) || MALICIOUS_RE.test(userText);
+            if (isSecurityReport) return cleanUp('Skipped: security / malicious-site report');
 
             // ---- 2. Version patterns ----------------------------------------
             // macOS: 10.15.7, 13.6, 26.6.1 ... or a build number like 25G76 / 25G5065a
@@ -84,13 +99,11 @@ jobs:
             // Suggestions, change requests and contributions (icons, artwork, ...)
             // don't need a Mac model or versions. Everything else, including
             // issues opened without the form, is treated as a problem report.
-            const usedForm = /^###\s+(mac model|mac-modell|issue type|typ fehler)/im.test(body);
             const SUGGEST_RE = /\b(suggest\w*|feature request|request(ing)? (a |an |the )?(feature|change|option)|would be (nice|great|cool|awesome)|(could|can) you (please )?add|please add|propos(e|al|ing)|vorschlag\w*|vorschlagen|wäre (schön|toll|cool|super))\b|bitte hinzufügen/i;
             const SUGGEST_TITLE_RE = /\b(icons?|logos?|artwork|wallpapers?|themes?|design|mockup|features?|ideas?|idee|improvements?|verbesserung\w*|changes?|enhancements?|translations?)\b|änderung|übersetzung/i;
             const PROBLEM_RE = /\b(bug|panic\w*|crash\w*|boot\w*|freez\w*|froze|hang(s|ing)?|hängt|stuck|error\w*|fehler\w*|fail\w*|broken|kaputt|missing|fehlt|not (working|showing|loading)|(doesn'?t|does not|won'?t|will not|can'?t|cannot) (work|boot|start|install|open|load|show)|black screen|kext|kernel)\b/i;
             // Titles like "Add ...", "Change ...", "[Feature] ..." are requests even if they mention booting etc.
             const REQUEST_TITLE_RE = /^\s*\[(feature|suggestion|request|idea|vorschlag)\]|^\s*(add|change|make|allow|improve|implement|replace|rename|support for|option to|füge|ergänze|ändere)\b/i;
-            const issueType = section(/issue type|typ fehler/i);
             const isSuggestion = usedForm
               ? !!issueType && /suggestion|empfehlung|feature/i.test(issueType)
               : SUGGEST_RE.test(issueText) || REQUEST_TITLE_RE.test(title) || (SUGGEST_TITLE_RE.test(title) && !PROBLEM_RE.test(issueText));
