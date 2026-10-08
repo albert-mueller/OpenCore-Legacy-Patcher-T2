@@ -24,8 +24,6 @@ Impact: the helper is installed setuid root and runs any command its caller pass
 5. **Signing key exposed in the login keychain** (CWE-522). create-signing-certificate.sh imported the private key into the always-unlocked login keychain and granted `/usr/bin/security` and `codesign` access without prompts. With a self signed certificate that key is the helper's only trust root: any process running as the user could sign its own binary (or export the key) and pass the helper's check.
    Fixed: dedicated keychain with its own password, codesign-only access, auto-lock, locked after every build, optional export off the machine. The script refuses to continue while the certificate is still in the login or System keychain until `--force` replaces it.
 
-**Action required.** The fixes only take effect once the helper is rebuilt: run `make` in `ci_tooling/privileged_helper_tool`, run `./create-signing-certificate.sh --force` once (this creates a new certificate, so rebuild and re-sign both app and helper), then check the installed build with `./verify-signature.sh`. Until then, any installed helper from an earlier version remains vulnerable - if you do not use OpenCore-Patcher-T2 regularly, remove it with `sudo rm /Library/PrivilegedHelperTools/com.albert-mueller.opencore-patcher-t2.privileged-helper`.
-
 - fixes a vulnerability where inside gui_install_oc.py, an attacker could set constants.detected_os to a specially crafted value:
 
                     try:
