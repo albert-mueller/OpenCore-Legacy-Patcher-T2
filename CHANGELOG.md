@@ -1,4 +1,9 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.190009.1 - 4.0.0 alpha 19.9.1
+This release:
+- fixes a bug where smbios_data listed the 16-inch 2019 MacBook Pro supports maximum Sequoia, although Apple natively supports Tahoe on these models
+- fixes a bug where on unsupported T2 Macs Spoof-VMM is enabled but none of the boot arguments are injected due to a bug where the logic checked if the Mac was running Tahoe instead of checking if it is unsupported by Tahoe
+
 ## 4.0.0.190009 - 4.0.0 alpha 19.9
 This release:
 - fixes several vulnerabilities in the Privileged Helper Tool and the self signing workflow that allowed **local privilege escalation to root without a password** (see "Security fixes" below)
