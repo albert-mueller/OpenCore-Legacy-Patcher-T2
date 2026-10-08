@@ -17,6 +17,16 @@ ARCHS ?= -arch x86_64
 else
 ARCHS ?= -arch x86_64 -arch arm64
 endif
+# Compile and link against the SDK instead of the running system. Without a
+# sysroot, older Command Line Tools (e.g. 10.x on High Sierra) link against the
+# .tbd stubs in /System/Library/Frameworks, which fall out of sync with the real
+# libraries after OS updates ("text-based stub file ... are out of sync"). Newer
+# toolchains already use this SDK by default. Override with make SDKROOT=<path>.
+SDKROOT ?= $(shell xcrun --sdk macosx --show-sdk-path 2>/dev/null)
+SYSROOT_FLAGS=
+ifneq ($(wildcard $(SDKROOT)/SDKSettings.plist),)
+SYSROOT_FLAGS= -isysroot $(SDKROOT)
+endif
 # Same minimum as the app (LSMinimumSystemVersion in OpenCore-Patcher-GUI.spec).
 # The arm64 slice is raised to macOS 11.0 by clang automatically.
 MACOS_MIN ?= 10.13.6
@@ -31,10 +41,10 @@ endif
 all: clean release
 
 release: main.m
-	$(CC) -framework Foundation -framework Security $(ARCHS) -mmacosx-version-min=$(MACOS_MIN) $(PIN_FLAGS) -o $(OUTPUT) main.m
+	$(CC) $(SYSROOT_FLAGS) -framework Foundation -framework Security $(ARCHS) -mmacosx-version-min=$(MACOS_MIN) $(PIN_FLAGS) -o $(OUTPUT) main.m
 
 debug: main.m
-	$(CC) -framework Foundation -framework Security $(ARCHS) -mmacosx-version-min=$(MACOS_MIN) -o $(OUTPUT) main.m -DDEBUG
+	$(CC) $(SYSROOT_FLAGS) -framework Foundation -framework Security $(ARCHS) -mmacosx-version-min=$(MACOS_MIN) -o $(OUTPUT) main.m -DDEBUG
 
 clean:
 	/bin/rm -f $(OUTPUT)
