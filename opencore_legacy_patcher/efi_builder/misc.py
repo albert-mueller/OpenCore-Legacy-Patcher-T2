@@ -228,6 +228,22 @@ class BuildMiscellaneous:
             else:
                 logging.error("FireWire support for macOS 26 Tahoe is gone - Apple has deprecated FireWire. Skipping injection of FireWire related kexts.")
 
+    def _enable_topcase_panic_patch(self) -> None:
+        """
+        Enable the IOHIDFamily kernel patch that prevents the USB top case panic
+        on macOS 26 Tahoe (IOHIDDevice::didTerminate). Ported from upstream
+        dortania/OpenCore-Legacy-Patcher d147e58. MinKernel 25.0.0 is set in config.plist.
+        """
+        patch = support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(
+            self.config["Kernel"]["Patch"], "Comment", "IOHIDFamily USB topcase panic"
+        )
+        if patch is None:
+            logging.error("- IOHIDFamily USB topcase panic patch missing from config")
+            return
+        if patch["Enabled"] is False:
+            logging.info("- Enabling IOHIDFamily USB topcase panic patch")
+        patch["Enabled"] = True
+
     def _topcase_handling(self) -> None:
         """USB/SPI Top Case Handler."""
         if self.model.startswith("MacBook") and self.model in smbios_data.smbios_dictionary:
@@ -248,6 +264,8 @@ class BuildMiscellaneous:
                 if obj:
                     obj["Enabled"] = True
 
+            self._enable_topcase_panic_patch()
+
             if self.computer.internal_keyboard_type == "Legacy":
                 builder.enable_kext("LegacyKeyboardInjector.kext", self.constants.legacy_keyboard, self.constants.legacy_keyboard_path)
             if self.computer.trackpad_type == "Legacy":
@@ -266,11 +284,13 @@ class BuildMiscellaneous:
                         if obj:
                             obj["Enabled"] = True
                     builder.enable_kext("AppleUSBMultitouch.kext", self.constants.multitouch_version, self.constants.multitouch_path)
+                    self._enable_topcase_panic_patch()
 
             if self.model == "MacBook5,2":
                 builder = support.BuildSupport(self.model, self.constants, self.config)
                 builder.enable_kext("AppleUSBTrackpad.kext", self.constants.apple_trackpad, self.constants.apple_trackpad_path)
                 builder.enable_kext("LegacyKeyboardInjector.kext", self.constants.legacy_keyboard, self.constants.legacy_keyboard_path)
+                self._enable_topcase_panic_patch()
 
     def _thunderbolt_handling(self) -> None:
         """Thunderbolt Handler."""
