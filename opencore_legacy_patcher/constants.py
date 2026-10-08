@@ -72,7 +72,7 @@ class Constants:
         self.nvmefix_version:            str = "1.1.3"  #      NVMeFix
         self.applealc_version:           str = "1.9.8"  #      AppleALC
         self.restrictevents_version:     str = "1.1.6"  #      RestrictEvents
-        self.spoofvmm_version:           str = "1.0.0"  #      SpoofVMM
+        self.spoofvmm_version:           str = "4.9.1"  #      SpoofVMM
         self.featureunlock_version:      str = "1.1.8"  #      FeatureUnlock
         self.debugenhancer_version:      str = "1.1.0"  #      DebugEnhancer
         self.cpufriend_version:          str = "1.3.0"  #      CPUFriend
@@ -453,7 +453,7 @@ class Constants:
 
     @property
     def spoofvmm_path(self):
-        return self.payload_kexts_path / Path(f"Acidanthera/SpoofVMM-v{self.spoofvmm_version}-RELEASE.zip")
+        return self.payload_kexts_path / Path(f"Acidanthera/SpoofVMM-{self.spoofvmm_version}-{self.kext_variant.capitalize()}.zip")
 
 
 

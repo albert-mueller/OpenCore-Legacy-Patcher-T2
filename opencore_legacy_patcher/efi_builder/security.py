@@ -320,6 +320,15 @@ class BuildSecurity:
                         "SpoofVMM.kext", self.constants.spoofvmm_version, self.constants.spoofvmm_path
                     )
 
+                    # SpoofVMM >= 4.9.1: the board-id swap is opt-in via -spoofvmmbid.
+                    # Without it, MobileSoftwareUpdate (MSU) on T2 Macs that Apple dropped
+                    # from Tahoe can't find a matching manifest during installation
+                    # (Stage 2). Natively supported T2 Macs (Max OS Supported >= Tahoe)
+                    # don't need the swap, so they keep the real board-id (Wi-Fi calibration).
+                    if smbios_data.smbios_dictionary[self.model]["Max OS Supported"] < os_data.os_data.tahoe:
+                        logging.info("- Enabling SpoofVMM board-id swap (-spoofvmmbid) for unsupported T2 Mac")
+                        self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args", "-spoofvmmbid")
+
                 if self.constants.t2_installer_workaround is True:
                     logging.info("- Enabling T2 Installer Workarounds (VESA Mode & AMFI bypass)")
                     self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args", "-radvesa -igfxvesa -amfipassbeta")

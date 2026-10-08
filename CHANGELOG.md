@@ -4,6 +4,8 @@ This release:
 - updates PatcherSupportPkg to 2.0.7 to add missing patches for NVIDIA Web Driver and Kepler, replace the old Skylake patchset with the new one and remove a payload that only OCLP-Plus ever used
 - fixes a bug where cryptex=0 was injected on AVX2 Macs, including T1 and T2 Macs
 - updates Spoof-VMM to 4.9.1 to mitigate an issue where while trying to install unsupported macOS versions on T2 Macs where it may fail to get paths for the system root hash/rmtree manifest
+- adds the -spoofvmmbid boot-arg on T2 Macs that are unsupported by macOS Tahoe, so SpoofVMM 4.9.1 enables its (now opt-in) board-id swap and MobileSoftwareUpdate finds the manifest during installation
+- fixes the SpoofVMM payload path: constants still pointed at the non-existent SpoofVMM-v1.0.0-RELEASE.zip instead of the bundled SpoofVMM-4.9.1-Release/Debug.zip
 - fixes a bug where 2 times except Exception as ui_error: inside gui_install_oc.py for the Ask Gemini UI error handling
 - fixes a vulnerability where inside gui_install_oc.py, an attacker could set constants.detected_os to a specially crafted value:
 
