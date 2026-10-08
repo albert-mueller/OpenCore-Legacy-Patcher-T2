@@ -1,9 +1,32 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
 ## 4.0.0.190009 - 4.0.0 alpha 19.9
 This release:
-- hardens the self signed Privileged Helper Tool: callers must now satisfy `identifier "com.dortania.opencore-legacy-patcher-t2" and certificate leaf = H"<SHA-1 of the helper's own certificate>"`, validated against the running process and strictly on disk, and must use the hardened runtime (new error 172). Before, the helper only compared certificate lists without validating either signature, so a modified copy of the app passed. The helper binary has to be rebuilt (`make`) and re-signed
-- create-signing-certificate.sh now keeps the signing key in its own locked keychain (oclp-signing.keychain-db, codesign-only access, auto-lock) instead of the login keychain, can export it off the machine and import it again; Build-Project.command locks it after every build
-- adds verify-signature.sh to confirm a self signed (not notarized) build is your own before accepting the Gatekeeper warning; install.sh refuses unsigned helpers
+- fixes several vulnerabilities in the Privileged Helper Tool and the self signing workflow that allowed **local privilege escalation to root without a password** (see "Security fixes" below)
+- create-signing-certificate.sh now keeps the signing key in its own locked keychain (oclp-signing.keychain-db, codesign-only access, auto-lock after 5 minutes and on sleep) instead of the login keychain, and can export the key off the machine (`--export`) and import it again (`--import`); Build-Project.command locks the keychain after every build
+- adds verify-signature.sh to confirm a self signed (not notarized) build is your own before accepting the Gatekeeper warning; install.sh refuses unsigned or ad-hoc signed helpers and sets root:wheel 4755 explicitly
+
+### Security fixes - Privileged Helper Tool
+
+Severity: **High** - local privilege escalation (CVSS 3.1 AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H, 7.8).
+Affected: every release (non-DEBUG) build of `com.albert-mueller.opencore-patcher-t2.privileged-helper` up to and including the prebuilt binary shipped with this version, whether signed with a Developer ID or a self signed certificate. DEBUG builds (`make debug`) were never meant to be secure and are unchanged; they still skip the caller check and rely on the command allowlist.
+
+Impact: the helper is installed setuid root and runs any command its caller passes. Any process running as the logged-in user - malware, a malicious script, a compromised app - that got past the caller check could run arbitrary commands as root without an administrator password: modify or replace system files and the sealed system volume, install persistent LaunchDaemons or kernel extensions, read every user's data and disable security features. No user interaction was needed.
+
+1. **Caller signature was never validated** (CWE-347). The helper compared the certificate lists returned by `SecCodeCopySigningInformation()` for itself and its parent process, but never called `SecStaticCodeCheckValidity()` / `SecCodeCheckValidity()`. Certificates are public and that function does not verify the signature, so a modified copy of OpenCore-Patcher-T2.app, or any binary carrying a copied signature blob, presented the "right" certificates and was accepted.
+   Fixed: the helper validates its own signature, then requires the running parent process to satisfy `identifier "com.dortania.opencore-legacy-patcher-t2" and certificate leaf = H"<SHA-1 of the helper's own leaf certificate>"`, checked dynamically (running process) and strictly on disk (all architectures).
+2. **No identifier pinning** (CWE-863). Any binary signed with the same certificate counted as a valid caller, including other tools in the app bundle (e.g. RSRRepair, bundled interpreters/libraries). Any of them that can be made to launch an arbitrary child process became a path to root.
+   Fixed: the requirement pins the app's identifier (`make CLIENT_ID=...` if the bundle identifier is changed).
+3. **Caller identified by file path, not by the running code** (CWE-367). The parent was looked up with `proc_pidpath()` and its file on disk was inspected, so the code that actually ran was never checked (TOCTOU: the file could differ from what was executing).
+   Fixed: the parent is obtained by PID with `SecCodeCopyGuestWithAttributes()`, validated as running code, and the helper refuses if it was reparented (caller exited) during validation.
+4. **Hardened runtime not enforced** (CWE-693). A caller signed without the hardened runtime was accepted; such a build of the genuine app can be taken over by the same user via `DYLD_INSERT_LIBRARIES` or a debugger and made to call the helper.
+   Fixed: callers without the hardened runtime are refused with the new error 172 (OCLP_PHT_ERROR_CALLER_NOT_HARDENED, handled like the other permanent signing errors). Note: macOS 10.13 does not enforce the hardened runtime, so this part offers no protection there.
+5. **Signing key exposed in the login keychain** (CWE-522). create-signing-certificate.sh imported the private key into the always-unlocked login keychain and granted `/usr/bin/security` and `codesign` access without prompts. With a self signed certificate that key is the helper's only trust root: any process running as the user could sign its own binary (or export the key) and pass the helper's check.
+   Fixed: dedicated keychain with its own password, codesign-only access, auto-lock, locked after every build, optional export off the machine. The script refuses to continue while the certificate is still in the login or System keychain until `--force` replaces it.
+
+**Action required.** The fixes only take effect once the helper is rebuilt: run `make` in `ci_tooling/privileged_helper_tool`, run `./create-signing-certificate.sh --force` once (this creates a new certificate, so rebuild and re-sign both app and helper), then check the installed build with `./verify-signature.sh`. Until then, any installed helper from an earlier version remains vulnerable - if you do not use OpenCore-Patcher-T2 regularly, remove it with `sudo rm /Library/PrivilegedHelperTools/com.albert-mueller.opencore-patcher-t2.privileged-helper`.
+
+### Other changes
+
 - updates PatcherSupportPkg to 2.0.7 to add missing patches for NVIDIA Web Driver and Kepler, replace the old Skylake patchset with the new one and remove a payload that only OCLP-Plus ever used
 - fixes a bug where cryptex=0 was injected on AVX2 Macs, including T1 and T2 Macs
 - updates Spoof-VMM to 4.9.1 to mitigate an issue where while trying to install unsupported macOS versions on T2 Macs where it may fail to get paths for the system root hash/rmtree manifest
