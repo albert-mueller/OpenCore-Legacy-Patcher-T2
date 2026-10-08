@@ -4,6 +4,7 @@ This release:
 - fixes several vulnerabilities in the Privileged Helper Tool and the self signing workflow that allowed **local privilege escalation to root without a password** (see "Security fixes" below)
 - create-signing-certificate.sh now keeps the signing key in its own locked keychain (oclp-signing.keychain-db, codesign-only access, auto-lock after 5 minutes and on sleep) instead of the login keychain, and can export the key off the machine (`--export`) and import it again (`--import`); Build-Project.command locks the keychain after every build
 - adds verify-signature.sh to confirm a self signed (not notarized) build is your own before accepting the Gatekeeper warning; install.sh refuses unsigned or ad-hoc signed helpers and sets root:wheel 4755 explicitly
+- moves the SpoofVMM kext payloads from `payloads/Kexts/Acidanthera` to the new `payloads/Kexts/Albert` folder, since SpoofVMM is not an Acidanthera kext
 
 ### Security fixes - Privileged Helper Tool
 
