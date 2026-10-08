@@ -61,7 +61,20 @@ class BuildSecurity:
         self.computer: device_probe.Computer = self.constants.computer
 
         # ── Global Hardware & OS Targets Scopes ───────────────────────
-        self.is_tahoe_target: bool = (self.constants.detected_os >= os_data.os_data.tahoe)
+        # Tahoe target detection.
+        # detected_os is the macOS the *build host* is currently running, not the macOS the
+        # EFI is being built for. An unsupported T2 Mac (Max OS Supported < Tahoe, e.g.
+        # Macmini8,1) usually builds its EFI while still booted into native Sequoia, so
+        # checking detected_os alone left is_tahoe_target False and silently dropped
+        # SpoofVMM.kext and -spoofvmmbid from the config. For those models OCLP is only ever
+        # needed for Tahoe and newer, so they are always treated as a Tahoe target.
+        self.is_tahoe_target: bool = (
+            self.constants.detected_os >= os_data.os_data.tahoe
+            or (
+                self.model in model_array.T2Macs
+                and smbios_data.smbios_dictionary.get(self.model, {}).get("Max OS Supported", os_data.os_data.tahoe) < os_data.os_data.tahoe
+            )
+        )
         self.is_ice_lake: bool = (self.model == "MacBookAir9,1")
         self.is_mac_mini: bool = (self.model == "Macmini8,1")
 
