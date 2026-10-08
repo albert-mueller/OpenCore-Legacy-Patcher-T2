@@ -35,19 +35,15 @@ class NonMetalIOAccelerator(BaseSharedPatchSet):
                 PatchType.OVERWRITE_SYSTEM_VOLUME: {
                     "/System/Library/Extensions": {
                         "IOAcceleratorFamily2.kext":     "10.13.6",
-                        "IOSurface.kext":                "10.14.6",
                     },
                 },
                 PatchType.MERGE_SYSTEM_VOLUME: {
                     "/System/Library/Frameworks": {
-                        # PatcherSupportPkg ships 10.14.6-<xnu_major> / 10.13.6-<xnu_major> payloads up to
-                        # xnu_major 25 (Tahoe); cap there for newer hosts instead of requesting a non-existent folder.
-                        "IOSurface.framework": f"10.14.6-{min(self._xnu_major, os_data.tahoe.value)}",
                         "OpenCL.framework":     "10.13.6",
                     },
                     "/System/Library/PrivateFrameworks": {
                         "GPUSupport.framework":     "10.13.6",
-                        "IOAccelerator.framework": f"10.13.6-{min(self._xnu_major, os_data.tahoe.value)}",
+                        "IOAccelerator.framework": f"10.13.6-{self._xnu_major}",
                     },
                 },
                 PatchType.REMOVE_SYSTEM_VOLUME: {

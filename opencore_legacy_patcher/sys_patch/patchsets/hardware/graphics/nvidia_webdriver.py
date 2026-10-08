@@ -155,7 +155,7 @@ class NvidiaWebDriver(BaseHardware):
             return {**self._model_specific_patches()}
 
         return {
-            **NonMetal(self._xnu_major, self._xnu_minor, self._os_build).patches(),
+            **NonMetal(self._xnu_major, self._xnu_minor, self._os_build, iosurface_version="10.14.6").patches(),
             **NonMetalIOAccelerator(self._xnu_major, self._xnu_minor, self._os_build).patches(),
             **NonMetalCoreDisplay(self._xnu_major, self._xnu_minor, self._os_build).patches(),
             **MontereyWebKit(self._xnu_major, self._xnu_minor, self._os_build).patches(),

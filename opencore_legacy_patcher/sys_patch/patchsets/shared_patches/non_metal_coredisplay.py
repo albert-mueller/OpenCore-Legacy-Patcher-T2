@@ -33,10 +33,7 @@ class NonMetalCoreDisplay(BaseSharedPatchSet):
             "Non-Metal CoreDisplay Common": {
                 PatchType.MERGE_SYSTEM_VOLUME: {
                     "/System/Library/Frameworks": {
-                        # PatcherSupportPkg ships 10.13.6-<xnu_major> CoreDisplay up to xnu_major 25 (Tahoe);
-                        # cap there for newer hosts instead of requesting a non-existent folder.
-                        # Tahoe now uses 10.13.6-25 like upstream (dortania/OpenCore-Legacy-Patcher dd681ac).
-                        "CoreDisplay.framework": f"10.13.6-{min(self._xnu_major, os_data.tahoe.value)}",
+                        "CoreDisplay.framework": f"10.13.6-{self._xnu_major}",
                     },
                 },
             },
