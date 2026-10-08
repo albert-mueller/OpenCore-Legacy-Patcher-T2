@@ -1,6 +1,9 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
 ## 4.0.0.190009 - 4.0.0 alpha 19.9
 This release:
+- hardens the self signed Privileged Helper Tool: callers must now satisfy `identifier "com.dortania.opencore-legacy-patcher-t2" and certificate leaf = H"<SHA-1 of the helper's own certificate>"`, validated against the running process and strictly on disk, and must use the hardened runtime (new error 172). Before, the helper only compared certificate lists without validating either signature, so a modified copy of the app passed. The helper binary has to be rebuilt (`make`) and re-signed
+- create-signing-certificate.sh now keeps the signing key in its own locked keychain (oclp-signing.keychain-db, codesign-only access, auto-lock) instead of the login keychain, can export it off the machine and import it again; Build-Project.command locks it after every build
+- adds verify-signature.sh to confirm a self signed (not notarized) build is your own before accepting the Gatekeeper warning; install.sh refuses unsigned helpers
 - updates PatcherSupportPkg to 2.0.7 to add missing patches for NVIDIA Web Driver and Kepler, replace the old Skylake patchset with the new one and remove a payload that only OCLP-Plus ever used
 - fixes a bug where cryptex=0 was injected on AVX2 Macs, including T1 and T2 Macs
 - updates Spoof-VMM to 4.9.1 to mitigate an issue where while trying to install unsupported macOS versions on T2 Macs where it may fail to get paths for the system root hash/rmtree manifest

@@ -33,37 +33,73 @@ If possible, we highly recommend creating a developer account with Apple and sig
 
 If this is not possible, we recommend using [OpenCore Legacy Patcher's prebuilt binaries](../../SOURCE.md) instead.
 
-## Self signing Priveleged Helper Tool - prefered over make debug
-Self signing the Priveleged Helper Tool is prefered to running make debug, as it doesn't come with security compromises while giving the ability to use it without paying the Apple Tax. To do so, you need to compile the Priveleged Helper Tool like this, after you have created a self signed certificate via the Keychain app (doesn't matter if you're running High Sierra, Sequoia or Tahoe, on all of them it works just fine):
+## Self signing the Privileged Helper Tool - preferred over make debug
 
-## macOS 11 Big Sur and newer:
+A self signed release build keeps the caller check without paying for an Apple Developer ID.
 
-cd ci_tooling/privileged_helper_tool # (replace this with the path of the Priveleged Helper Tool folder)
+### What the helper checks (release builds)
 
-make                                   # release build, keeps the certificate check
+1. Its own signature must validate. The SHA-1 of its **leaf certificate** becomes the pin.
+2. The **running** parent process must satisfy
 
-codesign -f -s "OCLP Self Signed" com.albert-mueller.opencore-patcher-t2.privileged-helper
+   ```
+   identifier "com.dortania.opencore-legacy-patcher-t2" and certificate leaf = H"<that SHA-1>"
+   ```
 
-codesign -dvvv com.albert-mueller.opencore-patcher-t2.privileged-helper 2>&1 | grep Authority
+   checked with `SecCodeCheckValidity` (running process) and `SecStaticCodeCheckValidity`
+   (strict, on disk) - a modified app or a signature blob grafted onto another binary fails.
+3. The caller must use the hardened runtime (otherwise error 172), so DYLD injection or a
+   debugger cannot turn the genuine app into a client.
 
-sudo ./install.sh                      # copies to /Library/PrivilegedHelperTools + sets the setuid bit
+There is no identifier-only match. Re-signing the helper with another certificate moves the pin
+with it - nothing to edit in `main.m`. To also hard-code the hash: `make CERT_SHA1=<sha1>`.
+If you changed the app's bundle identifier: `make CLIENT_ID=<identifier>`.
 
-## macOS 10.15 Catalina and older:
+### 1. Create the certificate (once)
 
+```
+./create-signing-certificate.sh
+```
+
+The identity goes into its own keychain, `~/Library/Keychains/oclp-signing.keychain-db`, with a
+separate password - **not** the login keychain. Only `codesign` may use the key, the keychain
+locks after 5 minutes idle and on sleep, and `Build-Project.command` locks it after every build.
+
+Why: with a self signed certificate the private key *is* the trust root. Unlocked in the login
+keychain, anything running as your user could sign a client the helper accepts. If the script
+finds the certificate in the login keychain it stops; `--force` removes it there and creates a
+new one (then rebuild and re-sign **both** the app and the helper).
+
+Keep the key off the machine between builds:
+
+```
+./create-signing-certificate.sh --export /Volumes/USB/oclp-signing.p12   # offers to delete the keychain
+./create-signing-certificate.sh --import /Volumes/USB/oclp-signing.p12   # before the next build
+```
+
+### 2. Build, sign, install
+
+```
 cd ci_tooling/privileged_helper_tool
+make                          # release build - keeps the check
+codesign -f -s "OCLP Self Signed" com.albert-mueller.opencore-patcher-t2.privileged-helper
+sudo ./install.sh             # refuses unsigned/ad-hoc binaries, sets root:wheel 4755
+```
 
-clang -framework Foundation -framework Security -arch x86_64 \
-  -mmacosx-version-min=10.9 -o com.albert-mueller.opencore-patcher-t2.privileged-helper main.m
-  
-codesign -f -s "OCLP Self Signed" --timestamp=none com.albert-mueller.opencore-patcher-t2.privileged-helper
+macOS 10.15 and older: build x86_64 only and add `--timestamp=none` to `codesign`.
 
-sudo ./install.sh
+The app must be signed with the same certificate and the hardened runtime -
+`Build-Project.command` does both.
 
-## If you encounter any issues with self signing the app afterwards, run this:
+### 3. Verify what you run
 
-chmod +x ci_tooling/create-signing-certificate.sh
+A self signed build is not notarized, so Gatekeeper still warns on first launch. Before you
+accept that warning, check that it is your build:
 
-And then:
+```
+./verify-signature.sh [app] [helper] [expected SHA-1]
+```
 
-create-signing-certificate.sh
-
+It compares the leaf certificate SHA-1 of app and helper with yours (from the signing keychain,
+or the hash printed when you created the certificate), runs the exact requirement the helper
+enforces, and checks the hardened runtime and the helper's permissions.

@@ -13,42 +13,37 @@
 # ---------------------------
 helperName="com.albert-mueller.opencore-patcher-t2.privileged-helper"
 helperPath="/Library/PrivilegedHelperTools/$helperName"
-
-# MARK: Functions
-# ---------------------------
-
-function _setSUIDBit() {
-    local binaryPath=$1
-
-    # Check if path is a directory
-    if [[ -d $binaryPath ]]; then
-        /bin/chmod -R +s $binaryPath
-    else
-        /bin/chmod +s $binaryPath
-    fi
-}
-
-function _copyHelper() {
-    local sourcePath=$1
-    local destinationPath=$2
-
-    # Check if destination path exists
-    if [[ -e $destinationPath ]]; then
-        # Check if destination path is a directory
-        if [[ -d $destinationPath ]]; then
-            /bin/rm -rf $destinationPath
-        else
-            /bin/rm -f $destinationPath
-        fi
-    fi
-
-    # Copy source to destination
-    /bin/cp -R $sourcePath $destinationPath
-}
+sourcePath="./$helperName"
 
 
 # MARK: Main
 # ---------------------------
 
-_copyHelper "./$helperName" $helperPath
-_setSUIDBit $helperPath
+if [[ $EUID -ne 0 ]]; then
+    echo "Run with sudo"
+    exit 1
+fi
+
+if [[ ! -f "$sourcePath" || -L "$sourcePath" ]]; then
+    echo "Helper not found (or a symlink): $sourcePath"
+    exit 1
+fi
+
+# A release build only trusts callers signed with its own leaf certificate,
+# so an unsigned or ad-hoc signed helper would refuse every command anyway.
+if ! /usr/bin/codesign --verify --strict "$sourcePath" 2>/dev/null; then
+    echo "Helper is not validly signed - sign it first (see README.md)"
+    exit 1
+fi
+if ! /usr/bin/codesign -dvv "$sourcePath" 2>&1 | /usr/bin/grep -q "^Authority="; then
+    echo "Helper is ad-hoc signed (no certificate) - sign it with your certificate first"
+    exit 1
+fi
+
+/bin/mkdir -p /Library/PrivilegedHelperTools
+/bin/rm -rf "$helperPath"
+/bin/cp "$sourcePath" "$helperPath"
+/usr/sbin/chown root:wheel "$helperPath"
+/bin/chmod 4755 "$helperPath"
+
+echo "Installed: $(/usr/bin/stat -f '%Su:%Sg %Lp' "$helperPath") $helperPath"
