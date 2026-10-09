@@ -4,7 +4,7 @@ OpenCore is a sophisticated boot loader used to inject and patch data in memory,
 
 We recommend viewing the [OpenCore Patcher Terminology Page](./TERMS.md) if you have questions.
 
-For troubleshooting, see our troubleshooting pages below or join the [OpenCore Patcher Paradise Discord Server.](https://discord.gg/rqdPgH8xSN)
+For troubleshooting, see our troubleshooting pages below or ask in our [GitHub Discussions](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/discussions).
 
 - [Application troubleshooting](./TROUBLESHOOT-APP.md)
 - [Booting, installer and other troubleshooting](./TROUBLESHOOT-MISC.md)
