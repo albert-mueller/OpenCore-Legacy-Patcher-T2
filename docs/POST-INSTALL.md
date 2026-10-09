@@ -9,7 +9,7 @@
 
 Once you've installed macOS through OpenCore, you can boot up and go through the regular install process. To boot without the USB drive plugged in is quite simple:
 
-* Download OpenCore Legacy Patcher
+* Download OpenCore Legacy Patcher T2
 * Change Patcher settings as you'd like
 * Build OpenCore again
 * Install OpenCore to internal drive
@@ -166,7 +166,7 @@ Upgraded Macs:
 
 ### Other information
 
-Below entries represent GPUs no longer natively supported, ie. requiring root volume patching with OpenCore Legacy Patcher:
+Below entries represent GPUs no longer natively supported, ie. requiring root volume patching with OpenCore Legacy Patcher T2:
 
 :::details GPUs requiring patching in different macOS versions
 

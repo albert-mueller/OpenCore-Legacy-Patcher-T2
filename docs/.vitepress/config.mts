@@ -29,8 +29,8 @@ const titles: Record<string, string> = {
     "LICENSE": "OpenCore Legacy Patcher License",
     "ISSUES-HOLD": "The current hold on new issues and pull requests",
     "TERMS": "OpenCore Patcher Terminology",
-    "HOW": "Boot Process with OpenCore Legacy Patcher",
-    "PATCHEXPLAIN": "Explaining the patches in OpenCore Legacy Patcher"
+    "HOW": "Boot Process with OpenCore Legacy Patcher T2",
+    "PATCHEXPLAIN": "Explaining the patches in OpenCore Legacy Patcher T2"
 }
 
 const group = (text: string, pages: string[]) => ({
@@ -40,7 +40,7 @@ const group = (text: string, pages: string[]) => ({
 })
 
 export default defineConfig({
-    title: 'OpenCore Legacy Patcher',
+    title: 'OpenCore Legacy Patcher T2',
     description: 'Guide to put macOS on unsupported devices',
     base: '/OpenCore-Legacy-Patcher-T2/',
     rewrites: {

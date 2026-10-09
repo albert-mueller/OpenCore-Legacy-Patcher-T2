@@ -1,6 +1,6 @@
 # Application issues
 
-* [OpenCore Legacy Patcher not launching](#opencore-legacy-patcher-not-launching)
+* [OpenCore Legacy Patcher T2 not launching](#opencore-legacy-patcher-t2-not-launching)
 * [Privileged Helper Tool not found](#privileged-helper-tool-not-found)
 * ["You don't have permission to save..." error when creating USB installer](#you-don-t-have-permission-to-save-error-when-creating-usb-installer)
 * [Internal disk missing when building OpenCore](#internal-disk-missing-when-building-opencore)
@@ -8,7 +8,7 @@
 * [System version mismatch error when root patching](#system-version-mismatch-error-when-root-patching)
 
 
-## OpenCore Legacy Patcher not launching
+## OpenCore Legacy Patcher T2 not launching
 
 If the application won't launch (e.g. icon will bounce in the Dock), try launching OCLP via Terminal by typing the following command.
 
@@ -33,17 +33,17 @@ In some cases, a following error saying "The bless of the installer disk failed"
 </div>
 
 
-To resolve this, you may try adding Full Disk Access permission for OpenCore Legacy Patcher. To add it, first go to the settings
+To resolve this, you may try adding Full Disk Access permission for OpenCore Legacy Patcher T2. To add it, first go to the settings
 
 * Ventura and Sonoma: Go to System Settings -> Privacy and Security -> Full Disk Access
 
 * Big Sur and Monterey: Go to System Preferences -> Security and Privacy -> Full Disk Access
 
-Enable OpenCore-Patcher in the list. If not found on the list, press the + sign to add a new entity and find OpenCore Legacy Patcher from Applications.
+Enable OpenCore-Patcher in the list. If not found on the list, press the + sign to add a new entity and find OpenCore Legacy Patcher T2 from Applications.
 
-Restart OpenCore Legacy Patcher and try creating your USB drive again.
+Restart OpenCore Legacy Patcher T2 and try creating your USB drive again.
 
-Optional: After you've created your USB drive, you can remove OpenCore Legacy Patcher from Full Disk Access again.
+Optional: After you've created your USB drive, you can remove OpenCore Legacy Patcher T2 from Full Disk Access again.
 
 ## Internal disk missing when building OpenCore
 

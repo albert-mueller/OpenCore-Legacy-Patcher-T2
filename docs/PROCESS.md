@@ -1,6 +1,6 @@
 # Background process
 
-OpenCore Legacy Patcher utilizes a background process to:
+OpenCore Legacy Patcher T2 utilizes a background process to:
 - Check for mismatched configurations and warn the user (e.g. installed MacBookPro11,1 config on MacBookPro11,5)
 - Monitor the status of installed Root Patches and OpenCore
 - Ask you to install Root Patches in case they aren't detected (typically after an update)

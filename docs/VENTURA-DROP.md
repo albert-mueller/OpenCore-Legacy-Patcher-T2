@@ -6,7 +6,7 @@ With the release of OpenCore Legacy Patcher v0.5.0 and newer, early support for 
 
 ## Newly dropped hardware
 
-Ventura's release dropped a large amount of Intel hardware, thus requiring the usage of OpenCore Legacy Patcher on the following models (in addition to previously removed models):
+Ventura's release dropped a large amount of Intel hardware, thus requiring the usage of OpenCore Legacy Patcher T2 on the following models (in addition to previously removed models):
 
 * iMac16,1 (21.5-inch, Late 2015)
 * iMac16,2 (21.5-inch and 21.5-inch 4K, Late 2015)
@@ -26,7 +26,7 @@ Ventura's release dropped a large amount of Intel hardware, thus requiring the u
 
 ## Current status
 
-OpenCore Legacy Patcher supports Ventura for the models below, however some challenges remain. You can find information about them further down on this page.
+OpenCore Legacy Patcher T2 supports Ventura for the models below, however some challenges remain. You can find information about them further down on this page.
 
 <img width="625" alt="" src="./images/OCLP-060-Initial-Support.png">
 
@@ -46,7 +46,7 @@ For users with 2008 to 2013 Mac Pros (MacPro3,1-6,1) and 2009 to 2011 iMacs (iMa
 
 * CPUs supporting AVX2.0 are Haswell or newer, which no pre-2019 Mac Pros can be upgraded with.
 
-Currently at this time, OpenCore Legacy Patcher only supports patching the AMD Polaris and Vega Graphics stack to no longer require AVX2.0. We're recently received an AMD RX 6600 donation, so hopefully in the future the project can support AMD Navi with pre-Haswell Macs. However, no time estimates can be given.
+Currently at this time, OpenCore Legacy Patcher T2 only supports patching the AMD Polaris and Vega Graphics stack to no longer require AVX2.0. We're recently received an AMD RX 6600 donation, so hopefully in the future the project can support AMD Navi with pre-Haswell Macs. However, no time estimates can be given.
 
 Following GPUs are applicable:
 
@@ -94,7 +94,7 @@ The following machines shipped stock with these cards:
 * MacPro5,1 and older
 
 
-Currently BCM943224, BCM94331, BCM94360 and BCM943602 are still fully supported by OpenCore Legacy Patcher. Consider upgrading to these cards if possible.
+Currently BCM943224, BCM94331, BCM94360 and BCM943602 are still fully supported by OpenCore Legacy Patcher T2. Consider upgrading to these cards if possible.
 
 :::
 

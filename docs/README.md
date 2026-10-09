@@ -2,11 +2,11 @@
 layout: home
 
 hero:
-  name: OpenCore Legacy Patcher
+  name: OpenCore Legacy Patcher T2
   tagline: Experience macOS just like before
   image:
     src: /homepage.png
-    alt: OpenCore Legacy Patcher
+    alt: OpenCore Legacy Patcher T2
   actions:
     - theme: brand
       text: Getting Started →

@@ -6,7 +6,7 @@
 * [Cannot boot macOS without the USB](#cannot-boot-macos-without-the-usb)
 * [Infinite Recovery OS Booting](#infinite-recovery-os-booting)
 * [Stuck on boot after root patching](#stuck-on-boot-after-root-patching)
-* [Booting Recovery through OpenCore Legacy Patcher](#booting-recovery-through-opencore-legacy-patcher)
+* [Booting Recovery through OpenCore Legacy Patcher T2](#booting-recovery-through-opencore-legacy-patcher-t2)
 * [Black Screen on MacBookPro11,3 in macOS Monterey](#black-screen-on-macbookpro11-3-in-macos-monterey)
 
 #### Installer
@@ -35,13 +35,13 @@ However, if the 🚫 Symbol only appears after the boot process has already star
 
 By default, the OpenCore Patcher won't install OpenCore onto the internal drive itself during installs.
 
-After installing macOS, OpenCore Legacy Patcher should automatically prompt you to install OpenCore onto the internal drive. However, if it doesn't show the prompt, you'll need to either [manually transfer](https://dortania.github.io/OpenCore-Post-Install/universal/oc2hdd.html) OpenCore to the internal drive's EFI or Build and Install again and select your internal drive.
+After installing macOS, OpenCore Legacy Patcher T2 should automatically prompt you to install OpenCore onto the internal drive. However, if it doesn't show the prompt, you'll need to either [manually transfer](https://dortania.github.io/OpenCore-Post-Install/universal/oc2hdd.html) OpenCore to the internal drive's EFI or Build and Install again and select your internal drive.
 
 Reminder that once this is done, you'll need to select OpenCore in the boot picker again for your hardware to remember this entry and auto boot from then on.
 
 ## Infinite Recovery OS Booting
 
-With OpenCore Legacy Patcher, we rely on Apple Secure Boot to ensure OS updates work correctly and reliably with Big Sur. However this installs NVRAM variables that will confuse your Mac if not running with OpenCore. To resolve this, simply uninstall OpenCore and [reset NVRAM](https://support.apple.com/en-mide/HT201255).
+With OpenCore Legacy Patcher T2, we rely on Apple Secure Boot to ensure OS updates work correctly and reliably with Big Sur. However this installs NVRAM variables that will confuse your Mac if not running with OpenCore. To resolve this, simply uninstall OpenCore and [reset NVRAM](https://support.apple.com/en-mide/HT201255).
 
 * Note: Machines with modified root volumes will also result in an infinite recovery loop until integrity is restored.
 
@@ -75,7 +75,7 @@ cd "/Volumes/Macintosh HD - Data/Library/Extensions" && ls | grep -v "HighPoint*
 
 Then restart and now your system should be restored to the unpatched snapshot and should be able to boot again.
 
-## Booting Recovery through OpenCore Legacy Patcher
+## Booting Recovery through OpenCore Legacy Patcher T2
 
 Booting into Recovery through the regular key combination (cmd+r) will result in a "no entry" screen, due to the checks detecting an unsupported Mac. 
 

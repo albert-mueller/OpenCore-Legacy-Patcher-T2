@@ -209,7 +209,7 @@ Before we continue, please keep in mind that SMBIOS Spoofing is an advanced feat
 
 ::: details macOS Sequoia
 
-Firstly run OpenCore Legacy Patcher.
+Firstly run OpenCore Legacy Patcher T2.
 
 Then go to **Settings** and **SMBIOS** tab, set SMBIOS Spoof Level to **Moderate**. Set SMBIOS Spoof Model **one listed next to your native model in the table for spoofed models below.**
 
@@ -241,7 +241,7 @@ Spoofing to any model with native Sequoia support should work, but these are the
 
 ::: details macOS Sonoma
 
-Firstly run OpenCore Legacy Patcher.
+Firstly run OpenCore Legacy Patcher T2.
 
 Then go to **Settings** and **SMBIOS** tab, set SMBIOS Spoof Level to **Moderate**. Set SMBIOS Spoof Model **one listed next to your native model in the table for spoofed models below.**
 
@@ -273,7 +273,7 @@ Spoofing to any model with native Sonoma support should work, but these are the 
 
 ::: details macOS Ventura
 
-Firstly run OpenCore Legacy Patcher.
+Firstly run OpenCore Legacy Patcher T2.
 
 Then go to **Settings** and **SMBIOS** tab, set SMBIOS Spoof Level to **Moderate**. Set SMBIOS Spoof Model **one listed next to your native model in the table for spoofed models below.**
 
@@ -305,7 +305,7 @@ Spoofing to any model with native Ventura support should work, but these are the
 
 ::: details macOS Monterey
 
-Firstly, run OpenCore Legacy Patcher. Secondly, go to **Settings** then the **App** tab and tick **Allow native models**.
+Firstly, run OpenCore Legacy Patcher T2. Secondly, go to **Settings** then the **App** tab and tick **Allow native models**.
 
 [](./images/OCLP-App-Allow-Native-Models.png)
 

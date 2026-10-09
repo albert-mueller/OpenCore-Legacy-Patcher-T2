@@ -170,7 +170,7 @@ A great rule of thumb is that Macs older than 2012 are non-Metal, with the excep
 
 ::: details macOS GPU Chart
 
-Intel GMA series is completely unsupported, even when using OpenCore Legacy Patcher. 
+Intel GMA series is completely unsupported, even when using OpenCore Legacy Patcher T2. 
 
 AMD Navi (RX 5000 - 6000 series) GPUs are non-functional in Mac Pro 2008 to 2012 using Ventura and newer due to lack of AVX2 support.
 
