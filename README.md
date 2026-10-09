@@ -113,7 +113,7 @@ Note 2: Currently, OpenCore Legacy Patcher officially supports patching to run m
 
 To start using the project, please see our in-depth guide:
 
-* [OpenCore Legacy Patcher Guide](https://dortania.github.io/OpenCore-Legacy-Patcher/)
+* [OpenCore Legacy Patcher T2 Guide](https://albert-mueller.github.io/OpenCore-Legacy-Patcher-T2/)
 
 ## Support
 
@@ -121,7 +121,7 @@ This project is offered on an AS-IS basis, we do not guarantee support for any i
 
 * [OpenCore Patcher Paradise Discord Server](https://discord.gg/rqdPgH8xSN)
   * Keep in mind that the Discord server is maintained by the community, so we ask everyone to be respectful.
-  * Please review our docs on [how to debug with OpenCore](https://dortania.github.io/OpenCore-Legacy-Patcher/DEBUG.html) to gather important information to help others with troubleshooting.
+  * Please review our docs on [how to debug with OpenCore](https://albert-mueller.github.io/OpenCore-Legacy-Patcher-T2/DEBUG.html) to gather important information to help others with troubleshooting.
 
 ## Running from source
 

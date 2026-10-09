@@ -29,7 +29,7 @@ class Constants:
 
         # URLs
         self.url_patcher_support_pkg:         str = "https://github.com/albert-mueller/PatcherSupportPkg/releases/download/"
-        self.guide_link:                      str = "https://dortania.github.io/OpenCore-Legacy-Patcher/"
+        self.guide_link:                      str = "https://albert-mueller.github.io/OpenCore-Legacy-Patcher-T2/"
         self.repo_link:                       str = "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/"
 
         # Update channels (Settings > App > "Update Channel")

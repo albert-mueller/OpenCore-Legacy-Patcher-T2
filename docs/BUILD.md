@@ -4,7 +4,7 @@ Now that we have a macOS installer, let's now build our OpenCore configuration!
 
 If you haven't downloaded OpenCore Patcher yet, do so now:
 
-* [OpenCore Legacy Patcher Releases](https://github.com/dortania/Opencore-Legacy-Patcher/releases)
+* [OpenCore Legacy Patcher T2 Releases](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/releases)
 
 Next, run the `OpenCore-Patcher.app`
 
