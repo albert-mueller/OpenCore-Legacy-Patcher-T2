@@ -26,7 +26,7 @@ macOS 26 Tahoe natively supports only these Intel Macs: MacBook Pro (16-inch, 20
 * iMac Pro (2017)
 
 ::: danger Alpha: research is still ongoing
-Bringing macOS Tahoe to these T2 Macs is the main goal of OpenCore Legacy Patcher T2, and research is still ongoing. At the moment, the Tahoe installer stops with "Failed to install a software update" before macOS is written to the disk, so these models cannot run Tahoe yet.
+Bringing macOS Tahoe to these T2 Macs is the main goal of OpenCore Legacy Patcher T2, and research is still ongoing. At the moment, the Tahoe installer stops with "Failed to install a software update" when sealing the root volume, so these models cannot run Tahoe yet.
 
 We hope to have these Macs booting to the desktop soon. Until then, OpenCore Legacy Patcher T2 is considered alpha software.
 :::
