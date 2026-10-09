@@ -42,7 +42,7 @@ const group = (text: string, pages: string[]) => ({
 export default defineConfig({
     title: 'OpenCore Legacy Patcher',
     description: 'Guide to put macOS on unsupported devices',
-    base: '/OpenCore-Legacy-Patcher/',
+    base: '/OpenCore-Legacy-Patcher-T2/',
     rewrites: {
         'README.md': 'index.md',
     },
@@ -50,7 +50,7 @@ export default defineConfig({
     lastUpdated: true,
     ignoreDeadLinks: true,
     head: [
-        ['link', { rel: 'icon', href: '/OpenCore-Legacy-Patcher/favicon.ico' }],
+        ['link', { rel: 'icon', href: '/OpenCore-Legacy-Patcher-T2/favicon.ico' }],
         ['meta', { name: 'theme-color', content: '#3eaf7c' }],
         ['meta', { name: 'apple-mobile-web-app-capable', content: 'yes' }],
         ['meta', { name: 'apple-mobile-web-app-status-bar-style', content: 'black' }],
@@ -68,10 +68,10 @@ export default defineConfig({
         logo: '/homepage.png',
         outline: [2, 2],
         socialLinks: [
-            { icon: 'github', link: 'https://github.com/dortania/OpenCore-Legacy-Patcher/' },
+            { icon: 'github', link: 'https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/' },
         ],
         editLink: {
-            pattern: 'https://github.com/dortania/OpenCore-Legacy-Patcher/edit/main/docs/:path',
+            pattern: 'https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/edit/main/docs/:path',
             text: 'Help us improve this page!',
         },
         search: {
