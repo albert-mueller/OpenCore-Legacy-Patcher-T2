@@ -20,13 +20,14 @@
 
 
 ## Application requirements
-The patcher application requires **OS X Yosemite 10.10** or later to run.
+The patcher application requires **OS X High Sierra 10.13.6** or later to run.
 
 Due to limitations with Apple's `createinstallmedia` tool used for installer creation, the following are required:
 * **El Capitan 10.11** to make installers for macOS Ventura.
-* **High Sierra 10.13** to make installers for macOS Sonoma and newer.
+* **High Sierra 10.13** to make installers for macOS Sonoma and Sequoia.
+* **Catalina 10.14** to make installers for macOS Tahoe.
 
-The patcher is designed to target **macOS Big Sur 11.x to macOS Sequoia 15.x**.
+The patcher is designed to target **macOS Big Sur 11.x to macOS Sequoia 26.x**.
 * Other versions may work, albeit in a broken state. No support is provided for any version outside of the above.
 
 ## Application versioning
@@ -50,7 +51,7 @@ In OpenCore Legacy Patcher 2.1.0 and newer, the status of settings are saved und
 
 In case of issues, delete the file and restart the application to revert the GUI to default settings, then rebuild OpenCore with newly configured settings.
 
-**Ticking the options in Settings alone will not apply the settings until the "Build and Install OpenCore" process has been redone**, which rebuilds a new OpenCore with the selected settings. Applied settings are saved to a config.plist file inside your EFI partition by the building process.
+**Ticking the options in Settings alone will not apply the settings until the "Install OpenCore" process has been redone**, which rebuilds a new OpenCore with the selected settings. Applied settings are saved to a config.plist file inside your EFI partition by the building process.
 
 ::: warning
 
