@@ -11,6 +11,8 @@ It is **extremely recommended** to update your Mac to its latest native version 
 
 ::: warning 3GB+ RAM required for installing macOS Sonoma and newer
 Models with 2GB RAM will not be able to install macOS Sonoma or macOS Sequoia, additionally macOS Sequoia may be unable to boot. These versions may be installed using a disk swap method where installation is done on another system but your mileage may vary and this is not recommended.
+
+For these models, it is recommended to use macOS Mojave via [dosdude1's Mojave Patcher](https://dosdude1.com/mojave/) instead.
 :::
 
 The below tables can be used to reference issues with a particular model, and see which OS would work best on your machine.
