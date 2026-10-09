@@ -6,7 +6,10 @@ This guide explains how to get fully up to date application, bootloader and patc
 
 When you open the app, it checks for a newer version. If an update is detected, the app downloads and installs it automatically, no confirmation needed.
 
-* If you'd rather confirm updates yourself, enable `Turn Off Auto Updates` in `Settings -> Advanced`. The app still checks for updates when opened, but shows the new version with its changelog and asks before installing it.
+* If you'd rather confirm updates yourself, you can turn off automatic updates. The app will still check for updates when opened, but shows the new version with its changelog and asks before installing it. The option is in the `Advanced` tab, which is only shown when Experimental Features are enabled:
+   1. Open `Settings -> App` and tick `Enable Experimental Features`.
+   2. Confirm the warning. The app restarts itself to apply the change.
+   3. Open `Settings -> Advanced` and tick `Turn Off Auto Updates`.
 * You can also check for updates at any time with the `Check for updates` button.
 * Automatic updates are disabled when running the app from source or on special builds.
 
