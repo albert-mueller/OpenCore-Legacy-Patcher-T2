@@ -1,15 +1,15 @@
 {
-   "name": "OpenCore-Legacy-Patcher",
+   "name": "OpenCore-Legacy-Patcher-T2",
    "version": "0.0.1",
    "description": "Guide to put macOS on unsupported devices",
    "main": "",
    "author": {
-      "name": "Dortania",
-      "url": "https://github.com/dortania"
+      "name": "Alber Müller",
+      "url": "https://github.com/albert-mueller"
    },
    "repository": {
       "type": "git",
-      "url": "git+https://github.com/dortania/OpenCore-Legacy-Patcher.git"
+      "url": "git+https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2.git"
    },
    "scripts": {
       "dev": "vitepress dev",
@@ -53,6 +53,6 @@
       "markdownlint-cli/smol-toml": "^1.9.0",
       "**/micromark-extension-math/katex": "^0.18.2"
    },
-   "homepage": "https://dortania.github.io/OpenCore-Legacy-Patcher/",
+   "homepage": "https://albert-mueller.github.io/docs/OpenCore-Patcher-T2/",
    "packageManager": "yarn@1.22.19+sha1.4ba7fc5c6e704fce2066ecbfb0b0d8976fe62447"
 }
