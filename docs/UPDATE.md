@@ -4,9 +4,13 @@ This guide explains how to get fully up to date application, bootloader and patc
 
 ## Updating the application, OpenCore and patches
 
-Latest versions of OCLP can download updates by themselves, you will get notified of a new update with the changelog.
+When you open the app, it checks for a newer version. If an update is detected, the app downloads and installs it automatically, no confirmation needed.
 
-[You can also manually download the latest release here.](https://github.com/dortania/OpenCore-Legacy-Patcher/releases)
+* If you'd rather confirm updates yourself, enable `Turn Off Auto Updates` in `Settings -> Advanced`. The app still checks for updates when opened, but shows the new version with its changelog and asks before installing it.
+* You can also check for updates at any time with the `Check for updates` button.
+* Automatic updates are disabled when running the app from source or on special builds.
+
+[You can also manually download the latest release here.](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/releases)
 
 After the update, the application asks if you want to update OpenCore and root patches. 
 
@@ -15,7 +19,7 @@ After the update, the application asks if you want to update OpenCore and root p
    * In case you selected "No", you will have to manually build and install OpenCore and then manually install new root patches to ensure you're running on the latest OpenCore with your settings and the fixes for on-disk patches. 
 
 
-| Update available | App update success, patch update question |
+| Update available (with auto updates turned off) | App update success, patch update question |
 | :--- | :--- |
 | <img src="./images/OCLP_Update_Available.png" alt="Update Available" width="500" /> | <img src="./images/OCLP_Update_Successful.png" alt="Update Successful" width="400" /> | 
 
