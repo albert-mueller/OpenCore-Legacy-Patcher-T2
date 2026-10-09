@@ -27,13 +27,6 @@ class NonMetalIOAccelerator(BaseSharedPatchSet):
         TeraScale 2 and Nvidia Web Drivers broke in Mojave due to mismatched structs in
         the IOAccelerator stack
         """
-        if self._xnu_major >= os_data.tahoe.value:
-            # Non-Metal GPU patches currently cause kernel panics on macOS 26, Tahoe.
-            # Safety guard: skip this patchset entirely until a working fix is found.
-            # Unrelated patchsets (eg. Legacy Wireless) are unaffected, as they come
-            # from separate hardware/shared patch classes and are not gated here.
-            return {}
-
         if self._os_requires_patches() is False:
             return {}
 
@@ -42,20 +35,15 @@ class NonMetalIOAccelerator(BaseSharedPatchSet):
                 PatchType.OVERWRITE_SYSTEM_VOLUME: {
                     "/System/Library/Extensions": {
                         "IOAcceleratorFamily2.kext":     "10.13.6",
-                        "IOSurface.kext":                "10.14.6",
                     },
                 },
                 PatchType.MERGE_SYSTEM_VOLUME: {
                     "/System/Library/Frameworks": {
-                        # Note: PatcherSupportPkg only ships 10.14.6-<xnu_major> / 10.13.6-<xnu_major> payloads up to
-                        # xnu_major 24 (Sequoia), cap the lookup there for Sequoia+ hosts (e.g. Tahoe) instead of
-                        # requesting a non-existent folder.
-                        "IOSurface.framework": f"10.14.6-{self._xnu_major}" if self._xnu_major < os_data.sequoia.value else "10.14.6-24",
                         "OpenCL.framework":     "10.13.6",
                     },
                     "/System/Library/PrivateFrameworks": {
                         "GPUSupport.framework":     "10.13.6",
-                        "IOAccelerator.framework": f"10.13.6-{self._xnu_major}" if self._xnu_major < os_data.sequoia.value else "10.13.6-24",
+                        "IOAccelerator.framework": f"10.13.6-{self._xnu_major}",
                     },
                 },
                 PatchType.REMOVE_SYSTEM_VOLUME: {

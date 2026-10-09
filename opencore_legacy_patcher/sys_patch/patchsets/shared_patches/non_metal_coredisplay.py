@@ -26,13 +26,6 @@ class NonMetalCoreDisplay(BaseSharedPatchSet):
         """
         Nvidia Web Drivers require an older build of CoreDisplay
         """
-        if self._xnu_major >= os_data.tahoe.value:
-            # Non-Metal GPU patches currently cause kernel panics on macOS 26, Tahoe.
-            # Safety guard: skip this patchset entirely until a working fix is found.
-            # Unrelated patchsets (eg. Legacy Wireless) are unaffected, as they come
-            # from separate hardware/shared patch classes and are not gated here.
-            return {}
-
         if self._os_requires_patches() is False:
             return {}
 
@@ -40,9 +33,7 @@ class NonMetalCoreDisplay(BaseSharedPatchSet):
             "Non-Metal CoreDisplay Common": {
                 PatchType.MERGE_SYSTEM_VOLUME: {
                     "/System/Library/Frameworks": {
-                        # Note: PatcherSupportPkg only ships 10.13.6-<xnu_major> payloads up to xnu_major 24 (Sequoia),
-                        # cap the lookup there for Sequoia+ hosts (e.g. Tahoe) instead of requesting a non-existent folder.
-                        "CoreDisplay.framework": f"10.13.6-{self._xnu_major}" if self._xnu_major < os_data.sequoia.value else "10.13.6-24",
+                        "CoreDisplay.framework": f"10.13.6-{self._xnu_major}",
                     },
                 },
             },

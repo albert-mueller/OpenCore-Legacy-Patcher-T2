@@ -93,6 +93,13 @@ class T1SecurityChip(BaseHardware):
                         **({ "LocalAuthenticationCore.framework": "26.0-25G229" } if self._xnu_major >= os_data.tahoe.value else {}),
                         **({ "NearField.framework": "14.7.2-25" if self._xnu_major >= os_data.tahoe.value else "14.7.2" } if self._xnu_major >= os_data.sequoia else {}),
                     },
-                }
+                },
+                # Tahoe: turn off the KyberInTheSEPRegisteredKeys feature flag (MessageProtection) on T1 Macs.
+                # Ported from upstream dortania/OpenCore-Legacy-Patcher b8ae03e ("Fix the Skylake patches on Tahoe").
+                **({
+                    PatchType.EXECUTE: {
+                        "/usr/bin/defaults write /Library/Preferences/FeatureFlags/Domain/MessageProtection.plist KyberInTheSEPRegisteredKeys -dict Enabled -bool false": True,
+                    },
+                } if self._xnu_major >= os_data.tahoe.value else {}),
             },
         }

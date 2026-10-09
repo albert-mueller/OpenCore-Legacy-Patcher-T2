@@ -15,7 +15,7 @@ class Constants:
     def __init__(self) -> None:
         # Patcher Versioning
         # Wenn eine Version mit s endet, es heißt, dass sie noch nicht fertig ist.
-        self.patcher_version:                 str = "4.0.0.190009"
+        self.patcher_version:                 str = "4.0.0.190009.1"
         self.patcher_version_label=self.patcher_version
         self.patcher_support_pkg_version:     str = "2.0.7"  # PatcherSupportPkg
         self.copyright_date:                  str = "Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors · T2 fork © 2026 Albert Müller"
@@ -51,6 +51,10 @@ class Constants:
         }
         self.update_channel:           str = "official"  # Channel selected in the GUI
         self.installed_update_channel: str = "official"  # Channel the installed build was last updated from
+        # Per-session reachability of fork channels, filled by
+        # support/update_channel_availability.py: True = online, False = repository
+        # gone (hidden from the dropdown, never used), None = could not tell
+        self.update_channel_status:    dict = {}
 
         self.custom_installer_url:            str = "https://github.com/Medelcartelinc/OpenCore-Legacy-Patcher-T2"
         self.custom_installer_version=self.patcher_version
@@ -1053,8 +1057,7 @@ class Constants:
         GitHub repository of the currently selected update channel
         (unknown channel keys fall back to the official repository)
         """
-        channel = self.update_channels.get(self.update_channel) or self.update_channels["official"]
-        return channel["repo"]
+        return self._effective_update_channel["repo"]
 
     @property
     def update_releases_api_url(self) -> str:
@@ -1065,8 +1068,27 @@ class Constants:
 
     @property
     def update_channel_label(self) -> str:
-        channel = self.update_channels.get(self.update_channel) or self.update_channels["official"]
-        return channel["label"]
+        return self._effective_update_channel["label"]
+
+    @property
+    def _effective_update_channel(self) -> dict:
+        """
+        Selected channel, or the official one if the selection is unknown or
+        its repository is known to be gone (offline fork account)
+        """
+        if self.update_channel_status.get(self.update_channel) is False:
+            return self.update_channels["official"]
+        return self.update_channels.get(self.update_channel) or self.update_channels["official"]
+
+    @property
+    def available_update_channels(self) -> dict:
+        """
+        Channels shown in Settings: every channel whose repository is not known to be gone
+        """
+        return {
+            key: channel for key, channel in self.update_channels.items()
+            if key == "official" or self.update_channel_status.get(key) is not False
+        }
 
     @property
     def update_channel_switch_pending(self) -> bool:
@@ -1076,7 +1098,7 @@ class Constants:
         repositories are not comparable, so the updater then offers the
         channel's newest release even if its version number is lower.
         """
-        selected  = self.update_channel if self.update_channel in self.update_channels else "official"
+        selected  = self.update_channel if self.update_channel in self.available_update_channels else "official"
         installed = self.installed_update_channel if self.installed_update_channel in self.update_channels else "official"
         return selected != installed
 

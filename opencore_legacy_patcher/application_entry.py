@@ -25,7 +25,8 @@ from .support import (
     reroute_payloads,
     commit_info,
     logging_handler,
-    analytics_handler
+    analytics_handler,
+    update_channel_availability
 )
 
 
@@ -279,6 +280,11 @@ class OpenCoreLegacyPatcher:
                 logging.info("Automatic updates disabled via --disable_auto_update")
             else:
                 logging.error("Automatic updates are disabled for this launch, but the choice could not be stored")
+
+        # Hide fork update channels whose GitHub account/repository is gone, and
+        # move the patcher back to the official channel if one of them was selected
+        # (after GenerateDefaults(), which restores the stored channel).
+        update_channel_availability.refresh_in_background(self.constants)
 
         if self.constants.computer.build_model is None:
             logging.info(f"Initializing build_model to native host: {self.computer.real_model}")

@@ -1,4 +1,43 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.190009.2 - 4.0.0 alpha 19.9.2
+This release:
+- fixes a kernel panic on macOS 26 Tahoe on Macs with a USB top case (internal keyboard/trackpad driven by AppleUSBTopCase.kext): adds the `IOHIDFamily USB topcase panic` kernel patch (`IOHIDDevice::didTerminate`, MinKernel 25.0.0) and enables it wherever AppleUSBTopCase.kext is injected (ported from Dortania d147e58), thx @Jazzzny and Dortania
+- fixes the NVIDIA Web Driver patchset on Tahoe: CoreDisplay now uses the `10.13.6-25` payload instead of the Sequoia one (ported from Dortania dd681ac), thx @Jazzzny and Dortania
+- fixes the Skylake graphics patches on Tahoe: T1 Macs now get the `KyberInTheSEPRegisteredKeys` MessageProtection feature flag turned off during root patching (ported from Dortania b8ae03e), thx @Jazzzny and Dortania
+- removes the Tahoe safety guard that skipped the Skylake graphics patchset unless DortaniaInternal was active
+- fixes Skylake root patching on Ventura and Sonoma: AppleIntelSKLGraphicsMTLDriver.bundle was looked up in the `12.5-22` payload, which only contains the Broadwell driver; it now uses `12.5` like Dortania
+- re-enables root patching for non-Metal GPUs (NVIDIA Web Driver, NVIDIA Tesla, AMD TeraScale 1/2, Intel Iron Lake/Sandy Bridge) on Tahoe by removing the safety guards added in 6d6eea9
+- replaces the non-Metal shared patchsets (`non_metal.py`, `non_metal_ioaccel.py`, `non_metal_coredisplay.py`, `non_metal_enforcement.py`) with Dortania's current versions, so they use the Tahoe-era PatcherSupportPkg payloads. This affects every macOS version, not just Tahoe:
+  - SkyLight: only the `SkyLight`/`SkyLightOriginal` binaries are replaced with a build matching the macOS version (`26.7-25` on Tahoe) instead of merging the old 10.14.6 `SkyLight.framework`; the QuartzCore merge is gone
+  - adds `iconservicesagent` from 26.0 on Tahoe
+  - the IOSurface version is now chosen per GPU (10.14.6 for NVIDIA Web Driver and TeraScale 2, 10.15.7 for the rest)
+  - removes fork-only additions: `screencapture`, the Screen Sharing bundles, the DropboxHack SkyLight plugin and the GlobalPreferences/WebKit `defaults write` tweaks
+  - Macs with non-Metal GPUs that are already root patched should revert root patches and patch again, so the old SkyLight/QuartzCore files and plugins don't stay on the system
+- hides fork update channels whose GitHub account or repository no longer exists (e.g. "Medelcartelinc (Fork)") from Settings > App > "Update Channel"; if such a channel was selected, the patcher automatically switches back to the official channel. A missing internet connection never counts as offline, and the channel reappears if the repository comes back. This mitigates a vulnerability where if the account ever gets banned or deleted, the channel remains the same and an attacker could launch a supply chain attack by registering the same, old name.
+
+Impact: if Medelcartelinc's account ever gets banned or deleted, an attacker could set a fake GitHub repository to launch supply chain attacks by just sticking to the old channel. This vulnerability is fixed by ensuring that if the account ever gets banned or deleted, users are migrated safely to the main project instead.
+
+- fixes another vulnerability where in the Ask Gemini handling in gui_build.py, an attacker could cause an unintended fallback or launch DoS attack:
+
+                    except Exception as clipboard_error:
+                        logging.error(f"Failed to copy build log to clipboard: {clipboard_error}")
+
+                    if self.constants.detected_os >= os_data.os_data.big_sur:
+                        logging.info("- Launching Gemini AI Assistant (wx.html2 WebView)")
+                        gemini_window = gui_support.GeminiWebView(self, title="Gemini AI Assistant")
+                        gemini_window.Show()
+                    else: # <- an attacker could cause unintended fallback or DoS by setting constants.detected_os to a specially crafted value
+                        logging.info("- Launching Gemini AI Assistant (default web browser, host predates Big Sur)")
+                        logging.info("macOS Catalina, Mojave and High Sierra can't load Gemini in Safari and WebKit because they're too old.")
+                        webbrowser.open("https://gemini.google.com")
+
+Impact: an attacker could set constants.detected_os inside gui_build.py to a specially crafted value to cause unintended fallback or crash the application to launch DoS attacks. This vulnerability is fixed by ensuring Gemini ever opens only if the version in constants.detected_os can be parsed.
+
+## 4.0.0.190009.1 - 4.0.0 alpha 19.9.1
+This release:
+- fixes a bug where smbios_data listed the 16-inch 2019 MacBook Pro supports maximum Sequoia, although Apple natively supports Tahoe on these models
+- fixes a bug where on unsupported T2 Macs Spoof-VMM is enabled but none of the boot arguments are injected due to a bug where the logic checked if the Mac was running Tahoe instead of checking if it is unsupported by Tahoe
+
 ## 4.0.0.190009 - 4.0.0 alpha 19.9
 This release:
 - fixes several vulnerabilities in the Privileged Helper Tool and the self signing workflow that allowed **local privilege escalation to root without a password** (see "Security fixes" below)

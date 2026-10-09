@@ -15,6 +15,7 @@ from datetime import date
 from . import network_handler
 from . import subprocess_wrapper
 from . import global_settings
+from . import update_channel_availability
 
 
 from .. import constants
@@ -202,6 +203,12 @@ class CheckBinaryUpdates:
         # Use /releases instead of /releases/latest: /releases/latest never returns
         # pre-releases, which "Check for pre-releases" and channel switches need.
         # Stable-only checks filter them out below.
+        # If the selected fork's account is gone, this switches back to
+        # "official" first (cached per session - the launch check usually
+        # already did it). Covers the auto patcher / update daemons too, which
+        # never go through the GUI startup path.
+        update_channel_availability.is_channel_online(self.constants, self.constants.update_channel)
+
         repo_latest_release_url = self.constants.update_releases_api_url
         channel_switch = self.constants.update_channel_switch_pending
         logging.info(f"Update channel: {self.constants.update_channel} ({self.constants.update_repo_link})")

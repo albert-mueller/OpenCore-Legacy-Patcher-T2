@@ -1404,7 +1404,7 @@ smbios_dictionary = {
         "FirmwareFeatures": "0x8FDAFF066",
         "SecureBootModel": "j152f",
         "CPU Generation": cpu_data.CPUGen.coffee_lake.value,
-        "Max OS Supported": os_data.os_data.sequoia,
+        "Max OS Supported": os_data.os_data.max_os,  # MacBook Pro (16-inch, 2019) is natively supported by Tahoe
         "Wireless Model": device_probe.Broadcom.Chipsets.AppleBCMWLANBusInterfacePCIe,
         "Bluetooth Model": bluetooth_data.bluetooth_data.UART,
         "Screen Size": 16,

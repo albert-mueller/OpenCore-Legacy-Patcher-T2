@@ -11,8 +11,9 @@ from ....datasets.os_data import os_data
 
 class NonMetal(BaseSharedPatchSet):
 
-    def __init__(self, xnu_major: int, xnu_minor: int, marketing_version: str) -> None:
+    def __init__(self, xnu_major: int, xnu_minor: int, marketing_version: str, iosurface_version: str = "10.15.7") -> None:
         super().__init__(xnu_major, xnu_minor, marketing_version)
+        self._iosurface_version = iosurface_version
 
 
     def _os_requires_patches(self) -> bool:
@@ -26,32 +27,35 @@ class NonMetal(BaseSharedPatchSet):
         """
         General non-Metal GPU patches
         """
-        if self._xnu_major >= os_data.tahoe.value:
-            # Non-Metal GPU patches currently cause kernel panics on macOS 26, Tahoe.
-            # Safety guard: skip this patchset entirely until a working fix is found.
-            # Unrelated patchsets (eg. Legacy Wireless) are unaffected, as they come
-            # from separate hardware/shared patch classes and are not gated here.
-            return {}
-
         if self._os_requires_patches() is False:
             return {}
+
+        skylight_version = {
+            os_data.mojave.value:   "10.14.6",
+            os_data.catalina.value: "10.15.6",
+            os_data.big_sur.value:  "11.7",
+            os_data.monterey.value: "12.7",
+            os_data.ventura.value:  "13.7",
+            os_data.sonoma.value:   "14.8",
+            os_data.sequoia.value:  "15.8",
+            os_data.tahoe.value:    "26.7",
+        }.get(self._xnu_major, "26.7")
 
         return {
             "Non-Metal Common": {
                 PatchType.OVERWRITE_SYSTEM_VOLUME: {
                     "/System/Library/Extensions": {
-                        "IOSurface.kext": "10.15.7",
+                        "IOSurface.kext": self._iosurface_version,
                     },
                     "/System/Applications": {
                         **({ "Photo Booth.app": "11.7.9"} if self._xnu_major >= os_data.monterey else {}),
                     },
-                    "/usr/sbin": {
-                        **({ "screencapture": "14.7"} if self._xnu_major >= os_data.sequoia else {}),
+                    "/System/Library/CoreServices": {
+                        **({ "iconservicesagent": "26.0" } if self._xnu_major >= os_data.tahoe else {}),
                     },
-                    "/System/Library/CoreServices/RemoteManagement": {
-                        **({"ScreensharingAgent.bundle": "14.7.2"} if self._xnu_major >= os_data.sequoia else {}),
-                        **({"screensharingd.bundle":     "14.7.2"} if self._xnu_major >= os_data.sequoia else {}),
-                        **({"SSMenuAgent.app":           "14.7.2"} if self._xnu_major >= os_data.sequoia else {}),
+                    "/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A": {
+                        "SkyLight":         f"{skylight_version}-{self._xnu_major}",
+                        "SkyLightOriginal": f"{skylight_version}-{self._xnu_major}",
                     },
                 },
                 PatchType.REMOVE_SYSTEM_VOLUME: {
@@ -86,54 +90,16 @@ class NonMetal(BaseSharedPatchSet):
                         "WallpaperMacintoshExtension.appex"
                     ],
                 },
-                PatchType.OVERWRITE_DATA_VOLUME: {
-                    "/Library/Application Support/SkyLightPlugins": {
-                        **({ "DropboxHack.dylib": "SkyLightPlugins" } if self._xnu_major >= os_data.monterey else {}),
-                        **({ "DropboxHack.txt":   "SkyLightPlugins" } if self._xnu_major >= os_data.monterey else {}),
-                    },
-                },
                 PatchType.MERGE_SYSTEM_VOLUME: {
-                    # PatcherSupportPkg ships payloads for Darwin 20-26 (Big Sur through Tahoe / Golden Gate).
                     "/System/Library/Frameworks": {
                         "OpenGL.framework":       "10.14.3",
-                        "CoreDisplay.framework": (
-                            "10.14.4-26" if self._xnu_major >= os_data.golden_gate.value
-                            else ("10.14.4-25" if self._xnu_major >= os_data.tahoe.value
-                            else ("10.14.4-24" if self._xnu_major >= os_data.sequoia.value
-                            else f"10.14.4-{self._xnu_major}"))
-                        ),
-                        "IOSurface.framework": (
-                            "10.15.7-26" if self._xnu_major >= os_data.golden_gate.value
-                            else ("10.15.7-25" if self._xnu_major >= os_data.tahoe.value
-                            else ("10.15.7-24" if self._xnu_major >= os_data.sequoia.value
-                            else f"10.15.7-{self._xnu_major}"))
-                        ),
-                        "QuartzCore.framework": (
-                            "10.15.7-26" if self._xnu_major >= os_data.golden_gate.value
-                            else ("10.15.7-25" if self._xnu_major >= os_data.tahoe.value
-                            else ("10.15.7-24" if self._xnu_major >= os_data.sequoia.value
-                            else f"10.15.7-{self._xnu_major}"))
-                        ),
+                        "CoreDisplay.framework": f"10.14.4-{self._xnu_major}",
+                        "IOSurface.framework":   f"{self._iosurface_version}-{self._xnu_major}",
                     },
                     "/System/Library/PrivateFrameworks": {
                         "GPUSupport.framework": "10.14.3",
-                        "SkyLight.framework": (
-                            "10.14.6-26" if self._xnu_major >= os_data.golden_gate.value
-                            else ("10.14.6-25" if self._xnu_major >= os_data.tahoe.value
-                            else ("10.14.6-24" if self._xnu_major >= os_data.sequoia.value
-                            else f"10.14.6-{self._xnu_major}"))
-                        ),
                         **({"FaceCore.framework":  "13.5"} if self._xnu_major >= os_data.sonoma else {}),
                     },
-                },
-                PatchType.EXECUTE: {
-                    # 'When Space Allows' option introduced in 12.4 (XNU 21.5)
-                    **({"/usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist ShowDate -int 1": True } if self._xnu_float >= self.macOS_12_4 else {}),
-                    "/usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist InternalDebugUseGPUProcessForCanvasRenderingEnabled -bool false": True,
-                    "/usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist WebKitExperimentalUseGPUProcessForCanvasRenderingEnabled -bool false": True,
-                    **({"/usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist WebKitPreferences.acceleratedDrawingEnabled -bool false": True} if self._xnu_major >= os_data.sonoma else {}),
-                    **({"/usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist NSEnableAppKitMenus -bool false": True} if self._xnu_major >= os_data.sonoma else {}),
-                    **({"/usr/bin/defaults write /Library/Preferences/.GlobalPreferences.plist NSZoomButtonShowMenu -bool false": True} if self._xnu_major == os_data.sonoma else {}),
                 },
             },
         }
