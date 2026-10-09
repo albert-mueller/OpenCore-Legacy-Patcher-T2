@@ -39,18 +39,20 @@ class Constants:
         # The channel key is persisted in the settings plist, which is user-writable
         # - anything that is not a key of this dict falls back to "official", so the
         # plist can never point the updater at an arbitrary URL.
-        # The former "medelcartelinc" channel was removed because that GitHub
-        # account no longer exists; a stored "medelcartelinc" value is ignored
-        # by defaults.py and falls back to "official".
         self.update_channels: dict = {
             "official": {
                 "label": "Albert Müller - Official (T2 - recommended)",
                 "repo":  "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/",
             },
+            "medelcartelinc": {
+                "label": "Medelcartelinc (Fork)",
+                "repo":  "https://github.com/Medelcartelinc/OpenCore-Legacy-Patcher-T2/",
+            },
         }
         self.update_channel:           str = "official"  # Channel selected in the GUI
         self.installed_update_channel: str = "official"  # Channel the installed build was last updated from
 
+        self.custom_installer_url:            str = "https://github.com/Medelcartelinc/OpenCore-Legacy-Patcher-T2"
         self.custom_installer_version=self.patcher_version
         self.installer_pkg_url:               str = f"{self.repo_link.rstrip('/')}/releases/download/{self.patcher_version}/AutoPkg-Assets-T2.pkg"
 
