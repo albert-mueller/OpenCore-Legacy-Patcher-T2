@@ -27,7 +27,6 @@ const titles: Record<string, string> = {
     "UNIVERSALCONTROL": "Universal Control on unsupported Macs",
     "DONATE": "Supporting the patcher",
     "LICENSE": "OpenCore Legacy Patcher License",
-    "ISSUES-HOLD": "The current hold on new issues and pull requests",
     "TERMS": "OpenCore Patcher Terminology",
     "HOW": "Boot Process with OpenCore Legacy Patcher T2",
     "PATCHEXPLAIN": "Explaining the patches in OpenCore Legacy Patcher T2"
@@ -88,7 +87,7 @@ export default defineConfig({
             group('Troubleshooting', ['TROUBLESHOOT-APP', 'TROUBLESHOOT-MISC', 'TROUBLESHOOT-NONMETAL', 'TROUBLESHOOT-HARDWARE', 'DEBUG']),
             group('Misc', ['TIMEMACHINE', 'ICNS', 'WINDOWS', 'UNIVERSALCONTROL']),
             group('Credit', ['DONATE', 'LICENSE']),
-            group('Documentation', ['ISSUES-HOLD', 'TERMS', 'HOW', 'PATCHEXPLAIN']),
+            group('Documentation', ['TERMS', 'HOW', 'PATCHEXPLAIN']),
         ],
     },
 })
