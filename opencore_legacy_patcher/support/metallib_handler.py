@@ -27,10 +27,13 @@ METALLIB_INSTALL_PATH_HACKDOC:str  = "/Library/Application Support/Hackdoc/Metal
 METALLIB_API_LINK:            str  = "https://albert-mueller.github.io/MetallibSupportPkg/manifest.json"
 
 # Every catalog we know of, in priority order. No single one is complete (ours lacks
-# some older Sequoia builds Dortania still lists, the Medelcartelinc mirror lags behind
-# on new Tahoe builds), so all of them are read and merged by build instead of stopping
-# at the first one that answers. When two catalogs list the same build, the earlier
-# one wins - our own API first, so a third-party mirror can never override it.
+# some older Sequoia builds Dortania still lists), so all of them are read and merged
+# by build instead of stopping at the first one that answers. When two catalogs list
+# the same build, the earlier one wins - our own API first, so a third-party mirror
+# can never override it.
+# The former Medelcartelinc mirror was removed: that GitHub account no longer exists
+# under this name, and a freed account name can be re-registered by anyone, who could
+# then serve their own manifest (and with it, their own metallib packages).
 METALLIB_API_LINKS: tuple = (
     # Same catalog as METALLIB_API_LINK, read straight from the repository
     # (github.com/albert-mueller/albert-mueller.github.io): always the latest commit,
@@ -38,7 +41,6 @@ METALLIB_API_LINKS: tuple = (
     "https://raw.githubusercontent.com/albert-mueller/albert-mueller.github.io/main/MetallibSupportPkg/manifest.json",
     METALLIB_API_LINK,
     "https://dortania.github.io/MetallibSupportPkg/manifest.json",
-    "https://raw.githubusercontent.com/Medelcartelinc/MetallibSupportPkg/main/manifest.json",
 )
 
 METALLIB_ASSET_LIST:   list = None
