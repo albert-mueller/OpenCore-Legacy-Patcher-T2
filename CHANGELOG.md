@@ -1,6 +1,7 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
 ## 4.0.0.190009.2 - 4.0.0 alpha 19.9.2
 This release:
+- removes the Medelcartelinc (Fork) update channel, because that GitHub account no longer exists and the updater could no longer reach it. Anyone who had selected it is moved back to the official channel automatically. `Build-Project.command --update-channel` now only accepts `official`
 - fixes a kernel panic on macOS 26 Tahoe on Macs with a USB top case (internal keyboard/trackpad driven by AppleUSBTopCase.kext): adds the `IOHIDFamily USB topcase panic` kernel patch (`IOHIDDevice::didTerminate`, MinKernel 25.0.0) and enables it wherever AppleUSBTopCase.kext is injected (ported from Dortania d147e58), thx @Jazzzny and Dortania
 - fixes the NVIDIA Web Driver patchset on Tahoe: CoreDisplay now uses the `10.13.6-25` payload instead of the Sequoia one (ported from Dortania dd681ac), thx @Jazzzny and Dortania
 - fixes the Skylake graphics patches on Tahoe: T1 Macs now get the `KyberInTheSEPRegisteredKeys` MessageProtection feature flag turned off during root patching (ported from Dortania b8ae03e), thx @Jazzzny and Dortania
