@@ -56,7 +56,7 @@ Due to the display being routed through the NVIDIA Kepler card and macOS being r
 
 Currently in macOS 12.0 Beta 4, many Ivy Bridge Macs have experienced Bluetooth issues relating to their BCM20702 chipset. Currently the exact issue is unknown however is assumed to be a bug on Apple's end. Recommend downgrading to macOS 12.0 Beta 3 till resolved:
 
-* [12.0 Beta 3 (21A5284e) InstallAssistant (Direct)](http://swcdn.apple.com/content/downloads/02/08/071-63739-A_G5RYVW5JHT/dfz5gp3s0jm9vl7m30oewq141zkpv8edr8/InstallAssistant.pkg)
+* [12.0 Beta 3 (21A5284e) InstallAssistant (Direct)](https://swcdn.apple.com/content/downloads/02/08/071-63739-A_G5RYVW5JHT/dfz5gp3s0jm9vl7m30oewq141zkpv8edr8/InstallAssistant.pkg)
 * [12.0 Beta 3 (21A5284e) InstallAssistant (archive.org)](https://archive.org/details/12.0-21a5284e-beta-3)
 
 A temporary fix is to restart the BlueTool and bluetoothd process with each boot, note it may not work for all users:

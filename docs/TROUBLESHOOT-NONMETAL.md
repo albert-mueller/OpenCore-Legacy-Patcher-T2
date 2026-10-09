@@ -47,7 +47,7 @@ Note: This archive assumes that you own these copies of these apps through the M
 
 Currently Zoom relies partially on Metal and so needs a small binary patch. Dosdude1 has provided a nice script for this:
 
-* [Zoom Non-Metal Fix](http://dosdude1.com/catalina/zoomnonmetal-new.command.zip)
+* [Zoom Non-Metal Fix](https://dosdude1.com/catalina/zoomnonmetal-new.command.zip)
 
 ## Unable to grant special permissions to apps (ie. Camera Access to Zoom)
 Currently for Ventura 13.3 and newer, due to new patches required, permissions are yet again broken. Use TCCPlus in the Workaround dropdown to work around the issue.
