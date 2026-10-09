@@ -17,6 +17,22 @@ This release:
 
 Impact: if Medelcartelinc's account ever gets banned or deleted, an attacker could set a fake GitHub repository to launch supply chain attacks by just sticking to the old channel. This vulnerability is fixed by ensuring that if the account ever gets banned or deleted, users are migrated safely to the main project instead.
 
+- fixes another vulnerability where in the Ask Gemini handling in gui_build.py, an attacker could cause an unintended fallback or launch DoS attack:
+
+                    except Exception as clipboard_error:
+                        logging.error(f"Failed to copy build log to clipboard: {clipboard_error}")
+
+                    if self.constants.detected_os >= os_data.os_data.big_sur:
+                        logging.info("- Launching Gemini AI Assistant (wx.html2 WebView)")
+                        gemini_window = gui_support.GeminiWebView(self, title="Gemini AI Assistant")
+                        gemini_window.Show()
+                    else: # <- an attacker could cause unintended fallback or DoS by setting constants.detected_os to a specially crafted value
+                        logging.info("- Launching Gemini AI Assistant (default web browser, host predates Big Sur)")
+                        logging.info("macOS Catalina, Mojave and High Sierra can't load Gemini in Safari and WebKit because they're too old.")
+                        webbrowser.open("https://gemini.google.com")
+
+Impact: an attacker could set constants.detected_os inside gui_build.py to a specially crafted value to cause unintended fallback or crash the application to launch DoS attacks. This vulnerability is fixed by ensuring Gemini ever opens only if the version in constants.detected_os can be parsed.
+
 ## 4.0.0.190009.1 - 4.0.0 alpha 19.9.1
 This release:
 - fixes a bug where smbios_data listed the 16-inch 2019 MacBook Pro supports maximum Sequoia, although Apple natively supports Tahoe on these models
