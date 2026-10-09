@@ -13,6 +13,7 @@ This release:
   - the IOSurface version is now chosen per GPU (10.14.6 for NVIDIA Web Driver and TeraScale 2, 10.15.7 for the rest)
   - removes fork-only additions: `screencapture`, the Screen Sharing bundles, the DropboxHack SkyLight plugin and the GlobalPreferences/WebKit `defaults write` tweaks
   - Macs with non-Metal GPUs that are already root patched should revert root patches and patch again, so the old SkyLight/QuartzCore files and plugins don't stay on the system
+- hides fork update channels whose GitHub account or repository no longer exists (e.g. "Medelcartelinc (Fork)") from Settings > App > "Update Channel"; if such a channel was selected, the patcher automatically switches back to the official channel. A missing internet connection never counts as offline, and the channel reappears if the repository comes back
 
 ## 4.0.0.190009.1 - 4.0.0 alpha 19.9.1
 This release:

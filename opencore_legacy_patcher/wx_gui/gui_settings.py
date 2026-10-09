@@ -24,6 +24,7 @@ from ..support import (
     analytics_handler,
     subprocess_wrapper,
     kdk_handler,
+    update_channel_availability,
 )
 from ..datasets import (
     smbios_data,
@@ -374,7 +375,9 @@ class SettingsFrame(wx.Frame):
                 },
                 "Update Channel": {
                     "type": "choice",
-                    "choices": [channel["label"] for channel in self.constants.update_channels.values()],
+                    # Fork channels whose GitHub account is gone are left out
+                    # (see support/update_channel_availability.py)
+                    "choices": [channel["label"] for channel in self.constants.available_update_channels.values()],
                     "value": self.constants.update_channel_label,
                     "variable": "UpdateChannel",
                     "width": 200,
@@ -846,6 +849,26 @@ Hardware Information:
             logging.error(f"Unknown update channel selected: {label!r}")
             return
         if new_channel == self.constants.update_channel:
+            return
+
+        # The dropdown may have been built before the launch check finished -
+        # check the picked fork now (force: a cached "unknown" from an earlier
+        # offline moment must not let a dead repository through).
+        if not update_channel_availability.is_channel_online(self.constants, new_channel, force=True):
+            dead_index = choice_box.FindString(label)
+            if dead_index != wx.NOT_FOUND:
+                choice_box.Delete(dead_index)
+            selection = choice_box.FindString(self.constants.update_channel_label)
+            if selection != wx.NOT_FOUND:
+                choice_box.SetSelection(selection)
+            wx.MessageDialog(
+                self.frame_modal,
+                (
+                    f"The \"{label}\" channel is no longer available - its GitHub repository could not be found.\n\n"
+                    f"Updates stay on \"{self.constants.update_channel_label}\"."
+                ),
+                "Update Channel Unavailable", wx.OK | wx.ICON_WARNING
+            ).ShowModal()
             return
 
         previous_channel = self.constants.update_channel
