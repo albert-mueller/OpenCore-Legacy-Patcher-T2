@@ -1,6 +1,7 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
 ## 4.0.0.190009.2 - 4.0.0 alpha 19.9.2
 This release:
+- removes the remaining Medelcartelinc references outside the changelog history: the auto-fix workflows now request reviews only from @gandolf243 by default, the root patching check only mentions @gandolf243, the PatcherSupportPkg legacy version warning no longer skips PRs opened under that account name, and the README no longer links to the old profile and MetallibSupportPkg repository
 - removes the Medelcartelinc MetallibSupportPkg mirror from the metallib manifest sources for the same reason: that account no longer exists, and a re-registered account name could serve its own manifest and metallib packages. The patcher now merges our own API (GitHub Pages and raw repository) and Dortania's catalog
 - removes the Medelcartelinc (Fork) update channel, because that GitHub account no longer exists and the updater could no longer reach it. Anyone who had selected it is moved back to the official channel automatically. `Build-Project.command --update-channel` now only accepts `official`
 - fixes a kernel panic on macOS 26 Tahoe on Macs with a USB top case (internal keyboard/trackpad driven by AppleUSBTopCase.kext): adds the `IOHIDFamily USB topcase panic` kernel patch (`IOHIDDevice::didTerminate`, MinKernel 25.0.0) and enables it wherever AppleUSBTopCase.kext is injected (ported from Dortania d147e58), thx @Jazzzny and Dortania
