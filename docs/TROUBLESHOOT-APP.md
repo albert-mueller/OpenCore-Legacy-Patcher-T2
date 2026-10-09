@@ -13,15 +13,13 @@
 If the application won't launch (e.g. icon will bounce in the Dock), try launching OCLP via Terminal by typing the following command.
 
 ```sh
-/Library/Application Support/Dortania/OpenCore-Patcher.app/Contents/MacOS/OpenCore-Patcher
+/Library/Application\ Support/albert-mueller/OpenCore-Patcher-T2/OpenCore-Patcher-T2.app/Contents/MacOS/OpenCore-Patcher-T2
 ```
 
 ## Privileged Helper Tool not found
 
-OCLP needs a Privileged Helper Tool to run parts of the application as root. If you encounter this error, reinstall OCLP using the PKG installer to fix Privileged Helper Tool. If your system lacks WiFi connection due to lack of patches, use Ethernet. You can also use another computer to download the app and move it to a USB drive.
+OCLPT2 needs a Privileged Helper Tool to run parts of the application as root. If you encounter this error, reinstall OCLP using the PKG installer to fix Privileged Helper Tool. If your system lacks WiFi connection due to lack of patches, use Ethernet. You can also use another computer to download the app and move it to a USB drive.
 
-
-  * In OCLP 2.3.0 and newer, using PKG is the only way to install and app.zip method has been discontinued.
 
 ## "You don't have permission to save..." error when creating USB installer
 
@@ -39,15 +37,15 @@ To resolve this, you may try adding Full Disk Access permission for OpenCore Leg
 
 * Big Sur and Monterey: Go to System Preferences -> Security and Privacy -> Full Disk Access
 
-Enable OpenCore-Patcher in the list. If not found on the list, press the + sign to add a new entity and find OpenCore Legacy Patcher T2 from Applications.
+Enable OpenCore-Patcher-T2 in the list. If not found on the list, press the + sign to add a new entity and find OpenCore-Patcher-T2 from Applications.
 
 Restart OpenCore Legacy Patcher T2 and try creating your USB drive again.
 
-Optional: After you've created your USB drive, you can remove OpenCore Legacy Patcher T2 from Full Disk Access again.
+Optional: After you've created your USB drive, you can remove OpenCore-Patcher-T2 from Full Disk Access again.
 
 ## Internal disk missing when building OpenCore
 
-If you're using a brand new disk that has not been used before or was never formatted in any macOS type, you may face the following error in OCLP when trying to build on the internal disk.
+If you're using a brand new disk that has not been used before or was never formatted in any macOS type, you may face the following error in OCLPT2 when trying to build on the internal disk.
 
 <div align="left">
              <img src="./images/OCLP_Failed_to_find_applicable_disks.png" alt="Failed to find applicable disks" width="600" />
@@ -86,7 +84,7 @@ If there is no success, navigate to "/Library/Developer/KDKs" and delete everyth
 If still no success, type `sudo bless --mount "/Volumes/Macintosh HD/" --bootefi --last-sealed-snapshot` 
 * Make sure again to rename "Macintosh HD" to what your drive name is
 
-Run OCLP root patcher again.
+Run OCLPT2 root patcher again.
 
 ## System version mismatch error when root patching
 
