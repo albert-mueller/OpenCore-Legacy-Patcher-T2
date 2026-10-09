@@ -26,7 +26,7 @@ This repository is the dedicated development fork led by **albert-mueller (Alber
 3. **GPU Hardware Acceleration & GuC**: Injected Intel GuC firmware loading (`igfxfw=2`) and display port keepalive (`igfxonln=1`) for Kaby Lake, eliminating Tahoe UI micro-stutters.
 4. **AMD Polaris Power-Gating**: Developed the `radpg=15` and `agdpmod=pikera` patch combination for Radeon Pro 555/560 dGPUs, eliminating GPU switching lags.
 5. **AMD Legacy GCN Fix**: Resolved the missing `AMDOpenCL` import bug in root patch payloads.
-6. **Tahoe Metal Libraries**: Ported MetallibSupportPkg to macOS Tahoe (26.x) with multi-endpoint fallback.
+6. **Tahoe Metal Libraries**: Ported [MetallibSupportPkg](https://github.com/Medelcartelinc/MetallibSupportPkg) to macOS Tahoe (26.x) with multi-endpoint fallback.
 
 ---
 
@@ -141,7 +141,7 @@ To run the project from source, see here: [Build and run from source](./SOURCE.m
 * [nxvid](https://github.com/nxvid/OpenCore-Legacy-Patcher-T2/)
     * for documenting and fixing an issue where sbvmm might not have been injected on T2 Macs
 
-* Matteo
+* [Matteo](https://github.com/Medelcartelinc)
     * Adding support for T1 Macs on Tahoe
     * writing patches for T1 and non-T1 Macs for macOS 26 Tahoe
     * fixing some bugs, testing and documenting issues

@@ -3,6 +3,7 @@
 # Warns on pull requests whose patcher code still pins PatcherSupportPkg
 # 2.0.4 or older (patcher_support_pkg_version in constants.py), i.e. the old
 # codebase from before the switch to the proper Dortania fork.
+# Pull requests opened by Medelcartelinc are skipped.
 
 name: PatcherSupportPkg legacy version warning
 
@@ -19,6 +20,8 @@ permissions:
 
 jobs:
   check:
+    # Skip all pull requests from Medelcartelinc
+    if: github.event.pull_request.user.login != 'Medelcartelinc'
     runs-on: ubuntu-latest
     steps:
       - name: Check pinned PatcherSupportPkg version

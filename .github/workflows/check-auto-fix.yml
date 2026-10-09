@@ -26,7 +26,7 @@ name: Auto-fix check findings
 #     - Takes the patch, refuses it if it touches anything outside `allow`,
 #       applies it to a fresh checkout, opens/updates the PR on `branch` and
 #       requests a review from the repo variable AUTO_FIX_REVIEWERS
-#       (space-separated logins, default: gandolf243).
+#       (space-separated logins, default: Medelcartelinc gandolf243).
 #     - Closes that PR once the check is clean on main.
 #
 # Skips the model when the open auto-fix PR was made for exactly the same set
@@ -365,7 +365,7 @@ jobs:
           FINGERPRINT: ${{ needs.fix.outputs.fingerprint }}
           MODEL: ${{ vars.MODELS_MODEL || 'openai/gpt-4.1' }}
           BASE: ${{ github.event.repository.default_branch }}
-          REVIEWERS: ${{ vars.AUTO_FIX_REVIEWERS || 'gandolf243' }}
+          REVIEWERS: ${{ vars.AUTO_FIX_REVIEWERS || 'Medelcartelinc gandolf243' }}
         run: |
           git config core.hooksPath /dev/null
           p="$RUNNER_TEMP/fix/fix.patch"
