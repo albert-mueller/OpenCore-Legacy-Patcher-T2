@@ -2,7 +2,7 @@
 
 Now we finally get to boot OpenCore!
 
-Reboot the machine while holding `Option` to select the EFI Boot entry with the OpenCore icon (holding the `Control` key will make this the default boot entry):
+Reboot the machine while holding `⌥` to select the EFI Boot entry with the OpenCore icon (holding the `⌃` key will make this the default boot entry):
 
 * This will be the Mac Boot Picker
 
@@ -21,9 +21,9 @@ Firstly, open the Terminal and run the following command:
 ```sh
 sudo nvram "recovery-boot-mode=unused" && sudo reboot recovery
 ```
-This will make your machine reboot into the Recovery Environment. Alternatively, holding `Command` + `R` when your machine is starting up will also let you enter the Recovery.
+This will make your machine reboot into the Recovery Environment. Alternatively, holding `⌘` + `R` when your machine is starting up will also let you enter the Recovery.
 
-Secondly, open the Recovery Environment's Terminal (Menu bar > Utilities > Terminal).
+Secondly, open the Recovery Environment's Terminal (Menu bar > Utilities > Terminal or `⌘` + `⇧` + `T`).
 
 Now you'll want to get a list of drive identifiers. To do so, run the following command:
 ```sh
@@ -107,7 +107,7 @@ If your Mac is looping back into the beginning of the setup after the first rebo
 
 ::: warning
 
-**MacBookPro11,3 Note**: When booting macOS Monterey, you'll need to boot into safe mode if acceleration patches are not installed yet. [Otherwise, you'll hit a black screen due to missing NVIDIA drivers.](https://github.com/dortania/OpenCore-Legacy-Patcher/issues/522) Safe Mode can be entered by holding `Shift + Enter` when selecting macOS Monterey in OCLP's Boot Menu.
+**MacBookPro11,3 Note**: When booting macOS Monterey, you'll need to boot into safe mode if acceleration patches are not installed yet. [Otherwise, you'll hit a black screen due to missing NVIDIA drivers.](https://github.com/dortania/OpenCore-Legacy-Patcher/issues/522) Safe Mode can be entered by holding `⇧` + `Enter` when selecting macOS Monterey in OCLP's Boot Menu.
 
 :::
 
