@@ -43,7 +43,7 @@ From there, you'll have a log on your desktop.
 
 ## Filing an issue with us
 
-Now that you have proper logs, you can now [file issues with us](https://github.com/dortania/OpenCore-Legacy-Patcher/issues). This is a reminder to include the following info:
+Now that you have proper logs, you can now [file issues with us](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues). This is a reminder to include the following info:
 
 * Model that you're patching for (ie. MacBookPro10,1)
 * Target OS (ie. macOS 11.2.3)
