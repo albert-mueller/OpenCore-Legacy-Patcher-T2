@@ -77,7 +77,7 @@ export default defineConfig({
             provider: 'local',
         },
         footer: {
-            copyright: 'Copyright © Dortania 2020-2025',
+            copyright: 'Copyright © Albert Müller 2026',
         },
         sidebar: [
             group('Introduction', ['START', 'MODELS', 'FAQ']),
