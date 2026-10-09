@@ -50,9 +50,9 @@ This part is for major upgrades, such as `Sonoma (14)` -> `Sequoia (15)`
 1. Make sure the OCLP app is up to date. 
 2. After app has updated, rebuild OpenCore to the internal disk to update the bootloader. 
    * You can also update root patches but this part is optional in this stage, as they will be wiped by the update.
-2. Download the macOS version you want and create an installer USB drive using OCLP as detailed in the original [Creating macOS Installers](https://dortania.github.io/OpenCore-Legacy-Patcher/INSTALLER.html) guide, then follow the [Booting OpenCore and macOS](https://dortania.github.io/OpenCore-Legacy-Patcher/BOOT.html) guide boot to into the installer on your USB drive.
+2. Download the macOS version you want and create an installer USB drive using OCLP as detailed in the original [Creating macOS Installers](INSTALLER.md) guide, then follow the [Booting OpenCore and macOS](BOOT.md) guide boot to into the installer on your USB drive.
 3. Start macOS installation and follow the process, do not use Disk Utility if you don't want to wipe your disk.
-4. After installation, reinstall [root patches](https://dortania.github.io/OpenCore-Legacy-Patcher/POST-INSTALL.html#applying-post-install-volume-patches).
+4. After installation, reinstall [root patches](POST-INSTALL.md#applying-post-install-volume-patches).
 
 **Note:** Major upgrades may work using System Settings but this is not recommended.
 
@@ -64,12 +64,12 @@ This part is for minor updates, which are also called the "dot updates". Such as
 2. Rebuild OpenCore to the internal disk to update the bootloader. 
    * You can also update root patches but this part is optional in this stage, as they will be wiped by the update.
 3. Start update from System Settings.
-    * If your system requires [KDKSupportPkg](https://dortania.github.io/OpenCore-Legacy-Patcher/POST-INSTALL.html#kdk-kernel-debug-kit), OCLP will start downloading it automatically as long as you are connected to the internet and have the [background process](https://dortania.github.io/OpenCore-Legacy-Patcher/PROCESS.html) enabled.
-4. Once installed, go into OCLP app and reinstall [root patches](https://dortania.github.io/OpenCore-Legacy-Patcher/POST-INSTALL.html#applying-post-install-volume-patches).
+    * If your system requires [KDKSupportPkg](POST-INSTALL.md#kdk-kernel-debug-kit), OCLP will start downloading it automatically as long as you are connected to the internet and have the [background process](PROCESS.md) enabled.
+4. Once installed, go into OCLP app and reinstall [root patches](POST-INSTALL.md#applying-post-install-volume-patches).
 
 ::: warning Important
 
-Some systems on Sequoia require [MetallibSupportPkg](https://dortania.github.io/OpenCore-Legacy-Patcher/POST-INSTALL.html#metallibsupportpkg) during root patching after an update, which requires internet connection to download. If OCLP doesn't see internet connection, it will first offer a patch for WiFi only. You will have to reboot, connect to the internet and rerun root patching for the rest of the patches.
+Some systems on Sequoia require [MetallibSupportPkg](POST-INSTALL.md#metallibsupportpkg) during root patching after an update, which requires internet connection to download. If OCLP doesn't see internet connection, it will first offer a patch for WiFi only. You will have to reboot, connect to the internet and rerun root patching for the rest of the patches.
 
 :::
 

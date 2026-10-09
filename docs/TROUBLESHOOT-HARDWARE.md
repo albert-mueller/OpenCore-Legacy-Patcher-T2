@@ -21,7 +21,7 @@
 * [Black Boxes on HD3000 iGPUs](#black-boxes-on-hd3000-igpus)
 * [Cannot Pair Bluetooth Devices](#cannot-pair-bluetooth-devices)
 
-For those unfamiliar with what is considered a non-Metal GPU, see the chart in [FAQ](https://dortania.github.io/OpenCore-Legacy-Patcher/FAQ.html#what-is-metal-and-non-metal)
+For those unfamiliar with what is considered a non-Metal GPU, see the chart in [FAQ](FAQ.md#what-is-metal-and-non-metal)
 
 ## No Brightness Control
 
@@ -41,7 +41,7 @@ To work-around this, we recommend that users manually connect using the "Other" 
 
 In macOS, GPU drivers are often dropped from the OS with each major release of it. If you're using OCLP v0.4.4 or newer, you should have been prompted to install Root Volume patches after the first boot from installation of macOS. If you need to do this manually, you can do so within the patcher app. Once rebooted, acceleration will be re-enabled as well as brightness control for laptops. 
 
-See [Applying Post Install Volume Patches](https://dortania.github.io/OpenCore-Legacy-Patcher/POST-INSTALL.html#applying-post-install-volume-patches) for more information. 
+See [Applying Post Install Volume Patches](POST-INSTALL.md#applying-post-install-volume-patches) for more information. 
 
 If you swapped a GPU from stock to a Metal GPU in a Mac Pro after installing OS, see [No acceleration after a Metal GPU swap on Mac Pro](#no-acceleration-after-a-metal-gpu-swap-on-mac-pro) for instructions.
 

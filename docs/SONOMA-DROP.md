@@ -54,7 +54,7 @@ Sonoma has removed support for T1 chips found in most 2016 and 2017 Macs. Theref
 :::
 
 ::: warning
-Note that erasing the entire drive will remove the T1 firmware and it won't be reinstalled. Refer to [troubleshooting](https://dortania.github.io/OpenCore-Legacy-Patcher/TROUBLESHOOT-HARDWARE.html#no-t1-functionality-after-installing-sonoma-or-newer) for more information.
+Note that erasing the entire drive will remove the T1 firmware and it won't be reinstalled. Refer to [troubleshooting](TROUBLESHOOT-HARDWARE.md#no-t1-functionality-after-installing-sonoma-or-newer) for more information.
 :::
 
 ### USB 1.1 (OHCI/UHCI) Support
@@ -66,7 +66,7 @@ While USB 1.1 may seem unimportant, it handles many important devices on your sy
 * IR Receivers
 * Bluetooth
 
-Refer to [the troubleshooting page](https://dortania.github.io/OpenCore-Legacy-Patcher/TROUBLESHOOT-HARDWARE.html#keyboard-mouse-and-trackpad-not-working-in-installer-or-after-update) on how to workaround this issue.
+Refer to [the troubleshooting page](TROUBLESHOOT-HARDWARE.md#keyboard-mouse-and-trackpad-not-working-in-installer-or-after-update) on how to workaround this issue.
 
 ### Graphics support and issues
 This build includes both Legacy Metal and non-Metal patches for macOS Sonoma. Refer to the following links for more information about Legacy Metal and non-Metal support and their respective issues.

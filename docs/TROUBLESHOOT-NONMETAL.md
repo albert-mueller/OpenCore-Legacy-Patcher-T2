@@ -1,6 +1,6 @@
 # Non-Metal issues
 
-The below page is for users experiencing issues with their overall usage of macOS Big Sur and newer and the Legacy Graphics Acceleration patches. For those unfamiliar with what is considered a non-Metal GPU, see the chart in [FAQ](https://dortania.github.io/OpenCore-Legacy-Patcher/FAQ.html#what-is-metal-and-non-metal)
+The below page is for users experiencing issues with their overall usage of macOS Big Sur and newer and the Legacy Graphics Acceleration patches. For those unfamiliar with what is considered a non-Metal GPU, see the chart in [FAQ](FAQ.md#what-is-metal-and-non-metal)
 
 * [Broken Firefox and Thunderbird (HD 3000)](#broken-firefox-and-thunderbird-hd-3000)
 * [Broken Background Blurs](#broken-background-blurs)

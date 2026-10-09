@@ -4,7 +4,7 @@ This document is centered around downloading and writing the macOS installer to 
 
 * Note: A 32GB drive is recommended, later versions of Sonoma and Sequoia cannot fit installer and patches to a 16GB disk. 16GB drive may work for older versions.
 
-Before proceeding, please read the application and macOS installer creation requirements [from the FAQ.](https://dortania.github.io/OpenCore-Legacy-Patcher/FAQ.html#application-requirements) Newer macOS versions require you to be on a newer base OS before you can create an installer, due to requirements of Apple's `createinstallmedia` tool OCLP uses as its backbone.
+Before proceeding, please read the application and macOS installer creation requirements [from the FAQ.](FAQ.md#application-requirements) Newer macOS versions require you to be on a newer base OS before you can create an installer, due to requirements of Apple's `createinstallmedia` tool OCLP uses as its backbone.
 
 
 ## Downloading the installer
