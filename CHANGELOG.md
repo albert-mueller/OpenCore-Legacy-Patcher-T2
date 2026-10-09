@@ -13,7 +13,9 @@ This release:
   - the IOSurface version is now chosen per GPU (10.14.6 for NVIDIA Web Driver and TeraScale 2, 10.15.7 for the rest)
   - removes fork-only additions: `screencapture`, the Screen Sharing bundles, the DropboxHack SkyLight plugin and the GlobalPreferences/WebKit `defaults write` tweaks
   - Macs with non-Metal GPUs that are already root patched should revert root patches and patch again, so the old SkyLight/QuartzCore files and plugins don't stay on the system
-- hides fork update channels whose GitHub account or repository no longer exists (e.g. "Medelcartelinc (Fork)") from Settings > App > "Update Channel"; if such a channel was selected, the patcher automatically switches back to the official channel. A missing internet connection never counts as offline, and the channel reappears if the repository comes back
+- hides fork update channels whose GitHub account or repository no longer exists (e.g. "Medelcartelinc (Fork)") from Settings > App > "Update Channel"; if such a channel was selected, the patcher automatically switches back to the official channel. A missing internet connection never counts as offline, and the channel reappears if the repository comes back. This mitigates a vulnerability where if the account ever gets banned or deleted, the channel remains the same and an attacker could launch a supply chain attack by registering the same, old name.
+
+Impact: if Medelcartelinc's account ever gets banned or deleted, an attacker could set a fake GitHub repository to launch supply chain attacks by just sticking to the old channel. This vulnerability is fixed by ensuring that if the account ever gets banned or deleted, users are migrated safely to the main project instead.
 
 ## 4.0.0.190009.1 - 4.0.0 alpha 19.9.1
 This release:
