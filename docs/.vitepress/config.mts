@@ -64,6 +64,10 @@ export default defineConfig({
     },
     themeConfig: {
         logo: '/homepage.png',
+        // The full title is too wide for the sidebar column and overflows past
+        // its divider, so use a short name in the nav bar. `title` above is
+        // still used for browser tabs and page metadata.
+        siteTitle: 'OCLP T2',
         outline: [2, 2],
         socialLinks: [
             { icon: 'github', link: 'https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/' },
