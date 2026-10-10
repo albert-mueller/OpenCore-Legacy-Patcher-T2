@@ -268,14 +268,16 @@ class MainFrame(wx.Frame):
         elif status == project_status.ProjectStatus.REPLACED:
             reason = (
                 "The original OpenCore Legacy Patcher T2 repository was deleted and its name now belongs "
-                "to a different repository. Do not download anything from it."
+                "to a different repository. Do not download anything from it before you can verify it isn't "
+                "malicious. It could contain malware. "
             )
         else:
             reason = "The OpenCore Legacy Patcher T2 repository no longer exists."
         return (
             f"{reason}\n\n"
-            "This project has reached its end of life: it will not receive any further fixes, "
-            "updates or support for new macOS versions."
+            "This project has reached its end of life: it will not receive any further "
+            "bug fixes, new features, updates or support for new macOS versions. "
+            "Also, any newly discovered vulnerabilities will remain permanently unpatched. "
         )
 
     def _add_end_of_life_banner(self) -> None:
@@ -289,7 +291,7 @@ class MainFrame(wx.Frame):
 
         banner_y = self.model_button.GetPosition()[1] + self.model_button.GetSize()[1] + 8
 
-        warning_label = wx.StaticText(self, label="⚠️ End of life: this project is no longer maintained", pos=(-1, banner_y))
+        warning_label = wx.StaticText(self, label="⚠️ End of life: this project is no longer maintained and may contain unpatched vulnerabilities and known bugs", pos=(-1, banner_y))
         warning_label.SetFont(gui_support.font_factory(13, wx.FONTWEIGHT_BOLD))
         warning_label.SetForegroundColour(wx.Colour(220, 60, 60))
         warning_label.SetToolTip(self._end_of_life_message())
