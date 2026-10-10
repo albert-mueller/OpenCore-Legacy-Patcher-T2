@@ -1,5 +1,6 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
-## Unreleased
+## 4.0.0.190009.3 - 4.0.0 alpha 19.9.3
+This release:
 - adds an end-of-life warning: if the main project repository (albert-mueller/OpenCore-Legacy-Patcher-T2) is archived or deleted, the main menu shows a warning on launch and a "Download OpenCore Legacy Patcher from Dortania" button that opens Dortania's latest release. The check runs once per launch in the background; a missing internet connection or a GitHub rate limit never triggers it, and a renamed repository still counts as active
 - if the repository was deleted, or its name now belongs to a different repository (detected via GitHub's repository ID), the in-app updater stops using the official channel, so a re-registered account can't ship fake updates (same supply chain issue as the fork channels). An archived repository keeps the updater as is
 
