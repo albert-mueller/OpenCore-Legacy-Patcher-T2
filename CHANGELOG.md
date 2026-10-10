@@ -17,6 +17,9 @@ Other Macs:
   - root patching and reverting now remove the old non-Metal preferences (`Moraea_*`, `Amy.MenuBar2Beta` and related keys)
   - the "Non-Metal Configuration" settings section and the automatic `Moraea_BlurBeta` default are removed
 
+WiFi:
+- fixes root patching aborting on every Mac that needs WiFi patches (Legacy and Modern Wireless, Monterey and newer): the patcher looked for YBronst's WiFi payloads in `-YB` folders, but PatcherSupportPkg ships them in the regular folders (no release ever contained `-YB` folders), so the preflight check failed with "Failed to find ...-YB..." and no patches at all were installed. The `-YB` suffix is gone; `use_ybronst_wifi` still keeps YBronst's approach of reusing the Sequoia (`-24`) builds on Tahoe, thx @YBronst and @Medelcartelinc
+
 Not yet verified on real hardware.
 
 ## 4.0.0.190009.3 - 4.0.0 alpha 19.9.3

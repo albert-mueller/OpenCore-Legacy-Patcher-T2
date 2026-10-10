@@ -91,7 +91,7 @@ class LegacyWireless(BaseHardware):
             "Legacy Wireless": {
                 PatchType.OVERWRITE_SYSTEM_VOLUME: {
                     "/usr/libexec": {
-                        "airportd": "11.7.10" if self._affected_by_cve_2024_23227() is False else ("11.7.10-Sandbox-YB" if self._constants.use_ybronst_wifi is True else "11.7.10-Sandbox"),
+                        "airportd": "11.7.10" if self._affected_by_cve_2024_23227() is False else "11.7.10-Sandbox",
                     },
                     "/System/Library/CoreServices": {
                         "WiFiAgent.app": "11.7.10",
@@ -108,12 +108,14 @@ class LegacyWireless(BaseHardware):
         if self._xnu_major < os_data.ventura:
             return {}
 
+        # Note: PatcherSupportPkg (albert-mueller, since c2a5900) ships YBronst's WiFi builds in the
+        # regular folders (12.7.2, 12.7.2-24, ...); separate -YB folders no longer exist in any release.
+        # Only 12.7.2-25 is Dortania's (YBronst has no Tahoe build).
         if self._constants.use_ybronst_wifi is True:
-            # YBronst's WiFi set (-YB folders in PatcherSupportPkg), proven working on
-            # Sequoia and Tahoe. Tahoe reuses the 12.7.2-24 build, as before.
-            binary_version = framework_version = ("12.7.2" if self._xnu_major < os_data.sequoia else "12.7.2-24") + "-YB"
+            # YBronst's approach, proven working on Sequoia and Tahoe: Tahoe reuses the 12.7.2-24 build.
+            binary_version = framework_version = "12.7.2" if self._xnu_major < os_data.sequoia else "12.7.2-24"
         else:
-            # Dortania's set: Tahoe uses the dedicated 12.7.2-25 frameworks,
+            # Dortania's layout: Tahoe uses Dortania's 12.7.2-25 frameworks,
             # while wps/wifip2pd fall back to the plain 12.7.2 binaries (no -25 binaries exist).
             binary_version    = "12.7.2" if self._xnu_major < os_data.sequoia or self._xnu_major >= os_data.tahoe else f"12.7.2-{self._xnu_major}"
             framework_version = "12.7.2" if self._xnu_major < os_data.sequoia else f"12.7.2-{self._xnu_major}"
