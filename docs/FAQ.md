@@ -20,10 +20,9 @@
 
 
 ## Application requirements
-The patcher application requires **OS X High Sierra 10.13.6** or later to run.
+The patcher application requires **macOS High Sierra 10.13.6** or later to run.
 
 Due to limitations with Apple's `createinstallmedia` tool used for installer creation, the following are required:
-* **El Capitan 10.11** to make installers for macOS Ventura.
 * **High Sierra 10.13** to make installers for macOS Sonoma and Sequoia.
 * **Catalina 10.14** to make installers for macOS Tahoe.
 
@@ -32,12 +31,12 @@ The patcher is designed to target **macOS Big Sur 11.x to macOS Sequoia 26.x**.
 
 ## Application versioning
 
-Since 1.0.0, OCLP adheres to a proper versioning scheme with major, minor and bug fix system ([Semantic Versioning](https://semver.org/)).
+This patcher's versioning number looks like this:
 
-- First digit: Major changes, including new OS support, API changes, and significant patch set changes, etc
-- Second digit: Minor changes, including incoming OS update fixes, minor patch set changes, etc
-- Third digit: Bug fixes, primarily hot fixes either due to a regression in prior release or resolving issues in already released OS updates
-
+4.0.0 - the latest big version
+everything after the last zero, is the build version of the patcher
+4.0.0.190001 means 4.0.0 alpha 19.1
+If you see something like 19.1.1, it's a small bug fix or a security update mostly.
 
 ## How do I make sure I'm all up to date?
 
