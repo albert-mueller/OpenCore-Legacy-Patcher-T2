@@ -17,7 +17,8 @@ from .. import constants
 
 from ..support import (
     updates,
-    utilities
+    utilities,
+    project_status
 )
 from ..datasets import (
     css_data
@@ -46,6 +47,7 @@ class MainFrame(wx.Frame):
 
         self.model_button: wx.Button = None
         self.build_button: wx.Button = None
+        self.eol_banner_added: bool = False
 
         # FIX: Absicherung gegen Thread-Races & Verwaiste Fenster-Referenzen
         self.exiting_app: bool = False
@@ -254,7 +256,113 @@ class MainFrame(wx.Frame):
         # Final Window Size adjustment
         self.SetSize((-1, copy_label.GetPosition()[1] + 60))
 
+        # MainFrame is recreated while navigating; once the end of life is known,
+        # every new instance shows the banner right away
+        if project_status.is_end_of_life(self.constants):
+            self._add_end_of_life_banner()
+
+    def _end_of_life_message(self) -> str:
+        status = self.constants.project_status
+        if status == project_status.ProjectStatus.ARCHIVED:
+            reason = "The OpenCore Legacy Patcher T2 repository has been archived and is no longer maintained."
+        elif status == project_status.ProjectStatus.REPLACED:
+            reason = (
+                "The original OpenCore Legacy Patcher T2 repository was deleted and its name now belongs "
+                "to a different repository. Do not download anything from it."
+            )
+        else:
+            reason = "The OpenCore Legacy Patcher T2 repository no longer exists."
+        return (
+            f"{reason}\n\n"
+            "This project has reached its end of life: it will not receive any further fixes, "
+            "updates or support for new macOS versions."
+        )
+
+    def _add_end_of_life_banner(self) -> None:
+        """
+        Warning + download button below the model button. Every control below it moves
+        down, since the main menu is laid out with absolute positions.
+        """
+        if self.eol_banner_added or self.model_button is None:
+            return
+        self.eol_banner_added = True
+
+        banner_y = self.model_button.GetPosition()[1] + self.model_button.GetSize()[1] + 8
+
+        warning_label = wx.StaticText(self, label="⚠️ End of life: this project is no longer maintained", pos=(-1, banner_y))
+        warning_label.SetFont(gui_support.font_factory(13, wx.FONTWEIGHT_BOLD))
+        warning_label.SetForegroundColour(wx.Colour(220, 60, 60))
+        warning_label.SetToolTip(self._end_of_life_message())
+        warning_label.Centre(wx.HORIZONTAL)
+
+        download_button = wx.Button(self, label="Download OpenCore Legacy Patcher from Dortania", pos=(-1, banner_y + 24), size=(360, 30))
+        download_button.SetFont(gui_support.font_factory(13, wx.FONTWEIGHT_NORMAL))
+        download_button.SetToolTip(project_status.DORTANIA_RELEASES_URL)
+        download_button.Bind(wx.EVT_BUTTON, self.on_download_dortania_oclp)
+        download_button.Centre(wx.HORIZONTAL)
+
+        offset = download_button.GetPosition()[1] + download_button.GetSize()[1] + 8 - banner_y
+        for child in self.GetChildren():
+            if child in (warning_label, download_button):
+                continue
+            x, y = child.GetPosition()
+            if y >= banner_y:
+                child.SetPosition((x, y + offset))
+
+        width, height = self.GetSize()
+        self.SetSize((width, height + offset))
+
+    def _check_project_status(self) -> None:
+        """
+        Background thread: find out whether the main project was archived or deleted
+        """
+        try:
+            project_status.check(self.constants)
+        except Exception:
+            logging.exception("Main project status check failed")
+            return
+
+        if not project_status.is_end_of_life(self.constants):
+            return
+        if getattr(self, 'exiting_app', False) or gui_support.is_app_exiting():
+            return
+        wx.CallAfter(self._on_project_end_of_life)
+
+    def _on_project_end_of_life(self) -> None:
+        # The frame may have been destroyed (navigation, Cmd+Q) while the check ran
+        if not self or getattr(self, 'exiting_app', False) or gui_support.is_app_exiting():
+            return
+
+        self._add_end_of_life_banner()
+
+        if self.constants.project_eol_notice_shown:
+            return
+        self.constants.project_eol_notice_shown = True
+
+        dialog = wx.MessageDialog(
+            self,
+            f"{self._end_of_life_message()}\n\n"
+            "Please switch to OpenCore Legacy Patcher from Dortania, the project this fork is based on.",
+            "End of Life",
+            style=wx.YES_NO | wx.YES_DEFAULT | wx.ICON_WARNING
+        )
+        dialog.SetYesNoLabels("Download from Dortania", "Continue anyway")
+        response = dialog.ShowModal()
+        dialog.Destroy()
+
+        if response == wx.ID_YES:
+            self.on_download_dortania_oclp()
+
+    def on_download_dortania_oclp(self, event: wx.Event = None) -> None:
+        logging.info(f"Opening Dortania's OpenCore Legacy Patcher releases: {project_status.DORTANIA_RELEASES_URL}")
+        webbrowser.open(project_status.DORTANIA_RELEASES_URL)
+
     def _preflight_checks(self, event: wx.Event = None) -> None:
+        # Before anything below can return early: the end-of-life warning must show up
+        # no matter which path the startup takes. Cached per session in constants.
+        if self.constants.project_status_checked is False:
+            threading.Thread(target=self._check_project_status, daemon=True, name="project-status").start()
+
         try:
             if self.constants.computer.build_model is None:
                 logging.info("No build model detected. Defaulting to current host hardware.")

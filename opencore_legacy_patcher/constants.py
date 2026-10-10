@@ -56,6 +56,14 @@ class Constants:
         # gone (hidden from the dropdown, never used), None = could not tell
         self.update_channel_status:    dict = {}
 
+        # End-of-life status of the main project (repo_link), filled once per session by
+        # support/project_status.py: None = unknown/not checked yet, otherwise a
+        # project_status.ProjectStatus. Archived/deleted/replaced shows the end-of-life
+        # warning in the main menu with a download button for Dortania's OCLP.
+        self.project_status                     = None
+        self.project_status_checked:   bool = False
+        self.project_eol_notice_shown: bool = False
+
         self.custom_installer_url:            str = "https://github.com/Medelcartelinc/OpenCore-Legacy-Patcher-T2"
         self.custom_installer_version=self.patcher_version
         self.installer_pkg_url:               str = f"{self.repo_link.rstrip('/')}/releases/download/{self.patcher_version}/AutoPkg-Assets-T2.pkg"
