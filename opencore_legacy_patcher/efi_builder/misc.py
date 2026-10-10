@@ -234,6 +234,13 @@ class BuildMiscellaneous:
         on macOS 26 Tahoe (IOHIDDevice::didTerminate). Ported from upstream
         dortania/OpenCore-Legacy-Patcher d147e58. MinKernel 25.0.0 is set in config.plist.
         """
+        if self._is_t2_mac():
+            # The patch makes IOHIDDevice::didTerminate() return immediately for *every* HID device.
+            # On T2 Macs the internal keyboard, trackpad, Touch Bar and Touch ID are IOHIDDevices
+            # behind the T2/iBridge, which get terminated on sleep/wake and T2 resets - skipping their
+            # teardown there risks leaks/panics. T2 Macs never use AppleUSBTopCase, so never enable it.
+            logging.info("- Skipping IOHIDFamily USB topcase panic patch on T2 Mac")
+            return
         patch = support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(
             self.config["Kernel"]["Patch"], "Comment", "IOHIDFamily USB topcase panic"
         )
