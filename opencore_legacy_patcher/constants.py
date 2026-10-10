@@ -15,7 +15,7 @@ class Constants:
     def __init__(self) -> None:
         # Patcher Versioning
         # Wenn eine Version mit s endet, es heißt, dass sie noch nicht fertig ist.
-        self.patcher_version:                 str = "4.0.0.190009.3"
+        self.patcher_version:                 str = "4.0.0.190009.4"
         self.patcher_version_label=self.patcher_version
         self.patcher_support_pkg_version:     str = "2.0.7"  # PatcherSupportPkg
         self.copyright_date:                  str = "Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors · T2 fork © 2026 Albert Müller"
@@ -202,7 +202,7 @@ class Constants:
         self.host_is_hackintosh:        bool = False  # Determine if host is Hackintosh
         self.host_is_vmware_vm:         bool = False  # Dev/test only: host is running under VMware (VM board-id), never true on real Mac hardware; bypasses the SIP validation gate so root-patching syntax can be exercised in a VM
         self.allow_vmware_root_patching: bool = False  # Dev/test only, NEVER exposed as a GUI Settings checkbox - must be hand-edited to True in this file and run from source. Narrower than allow_oc_everywhere (which IS a GUI checkbox any user could flip): only takes effect when host_is_vmware_vm is also True, so it can only ever unlock the Root Patching button for a detected VMware VM, never for hackintoshes/real unsupported Macs in general. See gui_support.CheckProperties.host_can_build().
-        self.vmware_simulated_model:    str = ""  # Dev/test only, hand-edit + no GUI control, read once at startup and only when host_is_vmware_vm and allow_vmware_root_patching are both True. Mac model that root patch detection should see (eg. "iMac11,2"), overriding computer.real_model. Drives every patchset whose present() checks a hardcoded model list (legacy_audio, gmux, keyboard_backlight, pcie_webcam, t1_security, usb11). Note model_array.py is NOT consulted by detection at all - see _apply_vmware_simulated_hardware() in application_entry.py
+        self.vmware_simulated_model:    str = ""  # Dev/test only, hand-edit + no GUI control, read once at startup and only when host_is_vmware_vm and allow_vmware_root_patching are both True. Mac model that root patch detection should see (eg. "iMac11,2"), overriding computer.real_model. Drives every patchset whose present() checks a hardcoded model list (legacy_audio, gmux, pcie_webcam, t1_security, usb11). Note model_array.py is NOT consulted by detection at all - see _apply_vmware_simulated_hardware() in application_entry.py
         self.vmware_simulated_gpu:      str = ""  # Dev/test only, same gating as vmware_simulated_model. PCI "vendor:device" hex pair (eg. "1002:6821" = AMD Legacy GCN v1) injected into computer.gpus, since every graphics patchset matches on device_probe archs rather than on a model. IDs run through the real device_probe classes, so the arch comes from pci_data exactly as it does for physical hardware
         self.should_nuke_kdks:          bool = True  #  Determine if KDKs should be nuked if unused in /L*/D*/KDKs
         self.launcher_binary:            str = None  #  Determine launch binary path (ie. Python vs PyInstaller)

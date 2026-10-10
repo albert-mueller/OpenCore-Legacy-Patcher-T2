@@ -41,11 +41,12 @@ class LegacyMetal31001(BaseSharedPatchSet):
         and the Tahoe metallib format. Re-using the 3802 downgraded metallibs
         from MetallibSupportPkg resolves this.
         """
-        if self._xnu_major < os_data.tahoe.value:
-            return {}
-
-        from .metal_3802 import LegacyMetal3802
-        return LegacyMetal3802(self._xnu_major, self._xnu_minor, self._marketing_version)._patches_metal_3802_metallibs()
+        # Intentionally a no-op now. This used to install the Sequoia-era MetallibSupportPkg
+        # 3802 set on Tahoe for every Metal 31001 GPU (Broadwell, Skylake, GCN, Polaris, Vega,
+        # Navi), which upstream never does. Upstream covers these GPUs on Tahoe with
+        # TahoeGraphics (RenderBox 26.0-3802) plus the -25 driver bundles, and
+        # LegacyMetal3802._patches_metal_3802_metallibs() returns {} on Tahoe anyway.
+        return {}
 
     def patches(self) -> dict:
         """

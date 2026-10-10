@@ -1,4 +1,24 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.190009.4 - 4.0.0 alpha 19.9.4
+This release fixes root patching problems introduced or left over while porting Dortania's macOS 26 Tahoe patching scheme:
+
+T2 Macs:
+- fixes the AMD Vega patchset being offered on natively supported macOS versions: iMac Pro (2017) and MacBookPro15,1/15,3 with Vega graphics got the Monterey `AMDRadeonX5000.kext` installed over the native driver on Ventura, Sonoma and Sequoia. On CPUs with AVX2 the patchset is now only used on macOS 26 Tahoe and newer, and never on a Mac that Apple still supports on the running macOS (e.g. MacPro7,1 with Radeon Pro Vega II on Tahoe). CPUs without AVX2 behave as before (like Dortania)
+- never enables the `IOHIDFamily USB topcase panic` kernel patch on T2 Macs (their keyboard, trackpad, Touch Bar and Touch ID are HID devices behind the T2; the patch skips `IOHIDDevice::didTerminate()` for every HID device). This was not reachable with current hardware detection and is a safeguard only
+
+Other Macs:
+- fixes Haswell, Ivy Bridge and NVIDIA Kepler Macs being only half patched on Tahoe: the GPU kexts were installed, but the Metal 3802 stack (Metal 13.2.1-25, MTLCompiler 13.6-25, GPUCompiler 13.2.1-25) was skipped unless Developer Mode was active. The Developer Mode gate is removed (ported from Dortania d622cd5), thx @Jazzzny and Dortania
+- on Tahoe, Metal 3802 GPUs now get only the five prebuilt `26.0-3802` metallibs (Tungsten, RenderBox, VFX, VectorKit, AlloyCommonLibrary) instead of the Sequoia-era MetallibSupportPkg set, and MetallibSupportPkg is no longer required on Tahoe (ported from Dortania 9809024 and c70f40a), thx @Jazzzny and Dortania
+- stops installing the Sequoia-era 3802 metallib set on Metal 31001 GPUs (Broadwell, Skylake, AMD GCN, Polaris, Vega, Navi) on Tahoe; they keep the RenderBox `26.0-3802` metallib via the Tahoe graphics patches, like Dortania
+- re-enables AMD Legacy GCN graphics acceleration on Tahoe (iMac15,1 - iMac17,1, MacPro6,1 etc.) by removing the Developer Mode gate, like Dortania. The Legacy GCN color fix (`AppleColorSyncLinearGamma`) is now only applied on Tahoe, as on Polaris; it was also applied on Ventura - Sequoia before
+- removes the old Moraea non-Metal leftovers, which the current non-Metal stack no longer uses (ported from Dortania bfe8f7c and a898811), thx @Jazzzny and Dortania:
+  - the "Legacy Keyboard Backlight" patchset (`Moraea_BacklightHack`)
+  - the SkyLightPlugins folder is no longer recreated during root patching, and the Monterey CoreWLAN SkyLight plugin is no longer installed
+  - root patching and reverting now remove the old non-Metal preferences (`Moraea_*`, `Amy.MenuBar2Beta` and related keys)
+  - the "Non-Metal Configuration" settings section and the automatic `Moraea_BlurBeta` default are removed
+
+Not yet verified on real hardware.
+
 ## 4.0.0.190009.3 - 4.0.0 alpha 19.9.3
 This release:
 - adds an end-of-life warning: if the main project repository (albert-mueller/OpenCore-Legacy-Patcher-T2) is archived or deleted, the main menu shows a warning on launch and a "Download OpenCore Legacy Patcher from Dortania" button that opens Dortania's latest release. The check runs once per launch in the background; a missing internet connection or a GitHub rate limit never triggers it, and a renamed repository still counts as active

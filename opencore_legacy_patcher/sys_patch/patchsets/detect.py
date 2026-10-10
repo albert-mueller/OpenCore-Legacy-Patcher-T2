@@ -50,7 +50,6 @@ from .hardware.networking import (
 from .hardware.misc import (
     display_backlight,
     gmux,
-    keyboard_backlight,
     legacy_audio,
     modern_audio,
     pcie_webcam,
@@ -283,7 +282,6 @@ class HardwarePatchsetDetection:
         self._hardware_variants += [
             display_backlight.DisplayBacklight,
             gmux.GraphicsMultiplexer,
-            keyboard_backlight.KeyboardBacklight,
             pcie_webcam.PCIeFaceTimeCamera,
             t1_security.T1SecurityChip,
             usb11.USB11Controller,
