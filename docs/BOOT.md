@@ -2,7 +2,7 @@
 
 Now we finally get to boot OpenCore!
 
-Reboot the machine while holding `Option` to select the EFI Boot entry with the OpenCore icon (holding the `Control` key will make this the default boot entry):
+Reboot the machine while holding `⌥` to select the EFI Boot entry with the OpenCore icon (holding the `⌃` key will make this the default boot entry):
 
 * This will be the Mac Boot Picker
 
@@ -21,9 +21,9 @@ Firstly, open the Terminal and run the following command:
 ```sh
 sudo nvram "recovery-boot-mode=unused" && sudo reboot recovery
 ```
-This will make your machine reboot into the Recovery Environment. Alternatively, holding `Command` + `R` when your machine is starting up will also let you enter the Recovery.
+This will make your machine reboot into the Recovery Environment. Alternatively, holding `⌘` + `R` when your machine is starting up will also let you enter the Recovery.
 
-Secondly, open the Recovery Environment's Terminal (Menu bar > Utilities > Terminal).
+Secondly, open the Recovery Environment's Terminal (Menu bar > Utilities > Terminal or `⌘` + `⇧` + `T`).
 
 Now you'll want to get a list of drive identifiers. To do so, run the following command:
 ```sh
@@ -76,7 +76,7 @@ Now that you've loaded OpenCore, "select Install macOS":
 
 You will soon reach the installer screen! If you enabled verbose mode when building OCLP, a lot of text will run across the screen. From there, it's just like any normal macOS install. For an example of how the boot process looks, see the following video:
 
-* [OpenCore Legacy Patcher Boot Process](https://www.youtube.com/watch?v=AN3zsbQV_n4)
+<iframe width="560" height="315" src="https://www.youtube.com/embed/AN3zsbQV_n4?si=VAB9ge7Snpj_GrAE" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 **Important:** If you're using a brand new disk that has not been used before, choose "View -> Show all devices" in Disk Utility and format the entire disk by choosing the topmost option in the sidebar to avoid a missing internal EFI later when trying to boot OpenCore to internal disk.
 
@@ -93,7 +93,7 @@ When installing macOS Sonoma or newer on a T1 system (2016-2017), full disk wipe
              <img src="./images/wipe-volume.png" alt="WipeVolume" width="800" />
 </div>
 
-[More info here](https://dortania.github.io/OpenCore-Legacy-Patcher/TROUBLESHOOT-HARDWARE.html#no-t1-functionality-after-installing-sonoma-or-newer)
+[More info here](TROUBLESHOOT-HARDWARE.md#no-t1-functionality-after-installing-sonoma-or-newer)
 
 :::
 
@@ -107,7 +107,7 @@ If your Mac is looping back into the beginning of the setup after the first rebo
 
 ::: warning
 
-**MacBookPro11,3 Note**: When booting macOS Monterey, you'll need to boot into safe mode if acceleration patches are not installed yet. [Otherwise, you'll hit a black screen due to missing NVIDIA drivers.](https://github.com/dortania/OpenCore-Legacy-Patcher/issues/522) Safe Mode can be entered by holding `Shift + Enter` when selecting macOS Monterey in OCLP's Boot Menu.
+**MacBookPro11,3 Note**: When booting macOS Monterey, you'll need to boot into safe mode if acceleration patches are not installed yet. [Otherwise, you'll hit a black screen due to missing NVIDIA drivers.](https://github.com/dortania/OpenCore-Legacy-Patcher/issues/522) Safe Mode can be entered by holding `⇧` + `Enter` when selecting macOS Monterey in OCLP's Boot Menu.
 
 :::
 

@@ -9,7 +9,7 @@
 
 Once you've installed macOS through OpenCore, you can boot up and go through the regular install process. To boot without the USB drive plugged in is quite simple:
 
-* Download OpenCore Legacy Patcher
+* Download OpenCore Legacy Patcher T2
 * Change Patcher settings as you'd like
 * Build OpenCore again
 * Install OpenCore to internal drive
@@ -17,7 +17,7 @@ Once you've installed macOS through OpenCore, you can boot up and go through the
 
 And voila! No more USB drive required.
 
-If you're having issues with undetected internal disk, refer to [Internal disk missing when building OpenCore](https://dortania.github.io/OpenCore-Legacy-Patcher/TROUBLESHOOT-APP.html#internal-disk-missing-when-building-opencore) for troubleshooting.
+If you're having issues with undetected internal disk, refer to [Internal disk missing when building OpenCore](TROUBLESHOOT-APP.md#internal-disk-missing-when-building-opencore) for troubleshooting.
 
 ## Booting seamlessly without Boot Picker
 
@@ -108,7 +108,7 @@ Root patching has to be ran again manually to install the rest of the required p
 
 :::warning
 
-If you need to use Migration Assistant to bring over data to your new macOS install, [refer to the guide to do so here.](https://dortania.github.io/OpenCore-Legacy-Patcher/TIMEMACHINE.html)
+If you need to use Migration Assistant to bring over data to your new macOS install, [refer to the guide to do so here.](TIMEMACHINE.md)
 
 :::
 
@@ -166,7 +166,7 @@ Upgraded Macs:
 
 ### Other information
 
-Below entries represent GPUs no longer natively supported, ie. requiring root volume patching with OpenCore Legacy Patcher:
+Below entries represent GPUs no longer natively supported, ie. requiring root volume patching with OpenCore Legacy Patcher T2:
 
 :::details GPUs requiring patching in different macOS versions
 

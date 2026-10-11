@@ -53,6 +53,6 @@
       "markdownlint-cli/smol-toml": "^1.9.0",
       "**/micromark-extension-math/katex": "^0.18.2"
    },
-   "homepage": "https://albert-mueller.github.io/docs/OpenCore-Patcher-T2/",
+   "homepage": "https://albert-mueller.github.io/OpenCore-Patcher-T2/",
    "packageManager": "yarn@1.22.19+sha1.4ba7fc5c6e704fce2066ecbfb0b0d8976fe62447"
 }

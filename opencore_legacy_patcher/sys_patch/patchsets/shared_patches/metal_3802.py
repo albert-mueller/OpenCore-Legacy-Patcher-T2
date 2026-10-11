@@ -97,8 +97,11 @@ class LegacyMetal3802(BaseSharedPatchSet):
 
         Reference:
         https://github.com/dortania/MetallibSupportPkg
+
+        Not used on macOS 26 Tahoe: see _patches_metal_3802_metallibs_tahoe()
+        (port of dortania/OpenCore-Legacy-Patcher@c70f40a).
         """
-        if self._xnu_major < os_data.sequoia.value:
+        if self._xnu_major < os_data.sequoia.value or self._xnu_major >= os_data.tahoe.value:
             return {}
 
         return {
@@ -478,23 +481,51 @@ class LegacyMetal3802(BaseSharedPatchSet):
         }
 
 
+
+    def _patches_metal_3802_metallibs_tahoe(self) -> dict:
+        """
+        macOS 26 Tahoe: only these .metallib files need 3802 versions, prebuilt in
+        PatcherSupportPkg (26.0-3802) instead of MetallibSupportPkg.
+        Port of dortania/OpenCore-Legacy-Patcher@9809024 / c70f40a.
+        """
+        if self._xnu_major < os_data.tahoe.value:
+            return {}
+
+        return {
+            "Metal 3802 .metallibs Tahoe": {
+                PatchType.OVERWRITE_SYSTEM_VOLUME: {
+                    "/System/Library/PrivateFrameworks/Tungsten.framework/Versions/A/Resources": {
+                        "default.metallib": "26.0-3802",
+                    },
+                    "/System/Library/PrivateFrameworks/RenderBox.framework/Versions/A/Resources": {
+                        "default.metallib": "26.0-3802",
+                    },
+                    "/System/Library/PrivateFrameworks/VFX.framework/Versions/A/Resources": {
+                        "default.metallib": "26.0-3802",
+                    },
+                    "/System/Library/PrivateFrameworks/VectorKit.framework/Versions/A/Resources": {
+                        "default.metallib": "26.0-3802",
+                    },
+                    "/System/Library/PrivateFrameworks/VectorKit.framework/Versions/A/Resources/metal_libraries": {
+                        "AlloyCommonLibrary.metallib": "26.0-3802",
+                    },
+                },
+            },
+        }
+
+
     def patches(self) -> dict:
         """
         Dictionary of patches
         """
-        if self._xnu_major >= os_data.tahoe.value:
-            # Metal 3802 patches on macOS 26 Tahoe are experimental.
-            # Safety guard: only allow if Developer Mode is enabled (~/.dortania_developer or OCLP_DEV_MODE=1)
-            # to protect ordinary users while enabling testing for Haswell/Kepler/Ivy Bridge.
-            from pathlib import Path
-            import os
-            is_dev = Path("~/.dortania_developer").expanduser().exists() or os.environ.get("OCLP_DEV_MODE") == "1"
-            if not is_dev:
-                return {}
-
-
+        # No Developer Mode gate on Tahoe anymore (port of dortania/OpenCore-Legacy-Patcher@d622cd5):
+        # the gate only skipped the Metal stack, while the per-GPU patch sets (Haswell, Ivy Bridge,
+        # Kepler) still installed their Monterey kexts and driver bundles - leaving a half-patched
+        # system with a Tahoe Metal.framework that has no 3802 compiler. The -25 / 26.0-3802 payloads
+        # this needs ship in PatcherSupportPkg (13.2.1-25, 13.6-25, 26.0-3802).
         return {
             **self._patches_metal_3802_common(),
             **self._patches_metal_3802_common_extended(),
             **self._patches_metal_3802_metallibs(),
+            **self._patches_metal_3802_metallibs_tahoe(),
         }

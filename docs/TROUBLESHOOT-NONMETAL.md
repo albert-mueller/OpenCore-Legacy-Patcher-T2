@@ -1,6 +1,6 @@
 # Non-Metal issues
 
-The below page is for users experiencing issues with their overall usage of macOS Big Sur and newer and the Legacy Graphics Acceleration patches. For those unfamiliar with what is considered a non-Metal GPU, see the chart in [FAQ](https://dortania.github.io/OpenCore-Legacy-Patcher/FAQ.html#what-is-metal-and-non-metal)
+The below page is for users experiencing issues with their overall usage of macOS Big Sur and newer and the Legacy Graphics Acceleration patches. For those unfamiliar with what is considered a non-Metal GPU, see the chart in [FAQ](FAQ.md#what-is-metal-and-non-metal)
 
 * [Broken Firefox and Thunderbird (HD 3000)](#broken-firefox-and-thunderbird-hd-3000)
 * [Broken Background Blurs](#broken-background-blurs)
@@ -47,7 +47,7 @@ Note: This archive assumes that you own these copies of these apps through the M
 
 Currently Zoom relies partially on Metal and so needs a small binary patch. Dosdude1 has provided a nice script for this:
 
-* [Zoom Non-Metal Fix](http://dosdude1.com/catalina/zoomnonmetal-new.command.zip)
+* [Zoom Non-Metal Fix](https://dosdude1.com/catalina/zoomnonmetal-new.command.zip)
 
 ## Unable to grant special permissions to apps (ie. Camera Access to Zoom)
 Currently for Ventura 13.3 and newer, due to new patches required, permissions are yet again broken. Use TCCPlus in the Workaround dropdown to work around the issue.

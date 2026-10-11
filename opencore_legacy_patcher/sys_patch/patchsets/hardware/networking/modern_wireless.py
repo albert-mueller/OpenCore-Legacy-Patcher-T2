@@ -55,12 +55,13 @@ class ModernWireless(BaseHardware):
         """
         Base patches for Modern Wireless
         """
+        # Note: PatcherSupportPkg (albert-mueller, since c2a5900) ships YBronst's WiFi builds in the
+        # regular 13.7.2-<xnu_major> folders; separate -YB folders no longer exist in any release.
         if self._constants.use_ybronst_wifi is True:
-            # YBronst's WiFi set (-YB folders in PatcherSupportPkg), proven working on
-            # Sonoma, Sequoia and Tahoe. Tahoe reuses the 13.7.2-24 build, as before.
-            source = (f"13.7.2-{self._xnu_major}" if self._xnu_major < os_data.tahoe.value else "13.7.2-24") + "-YB"
+            # YBronst's approach, proven working on Sonoma, Sequoia and Tahoe: Tahoe reuses the 13.7.2-24 build.
+            source = f"13.7.2-{self._xnu_major}" if self._xnu_major < os_data.tahoe.value else "13.7.2-24"
         else:
-            # Dortania's set: dedicated 13.7.2-25 payloads on Tahoe (matches upstream).
+            # Upstream layout: the 13.7.2-25 folder on Tahoe (matches Dortania's code).
             source = f"13.7.2-{self._xnu_major}"
         return {
             "Modern Wireless": {
@@ -85,7 +86,7 @@ class ModernWireless(BaseHardware):
         if self._xnu_major > os_data.sonoma:
             return {}
 
-        source = f"13.7.2-{self._xnu_major}" + ("-YB" if self._constants.use_ybronst_wifi is True else "")
+        source = f"13.7.2-{self._xnu_major}"
 
         return {
             "Modern Wireless Extended": {

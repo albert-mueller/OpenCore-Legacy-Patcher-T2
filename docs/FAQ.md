@@ -20,29 +20,29 @@
 
 
 ## Application requirements
-The patcher application requires **OS X Yosemite 10.10** or later to run.
+The patcher application requires **macOS High Sierra 10.13.6** or later to run.
 
 Due to limitations with Apple's `createinstallmedia` tool used for installer creation, the following are required:
-* **El Capitan 10.11** to make installers for macOS Ventura.
-* **High Sierra 10.13** to make installers for macOS Sonoma and newer.
+* **High Sierra 10.13** to make installers for macOS Sonoma and Sequoia.
+* **Catalina 10.14** to make installers for macOS Tahoe.
 
-The patcher is designed to target **macOS Big Sur 11.x to macOS Sequoia 15.x**.
+The patcher is designed to target **macOS Big Sur 11.x to macOS Sequoia 26.x**.
 * Other versions may work, albeit in a broken state. No support is provided for any version outside of the above.
 
 ## Application versioning
 
-Since 1.0.0, OCLP adheres to a proper versioning scheme with major, minor and bug fix system ([Semantic Versioning](https://semver.org/)).
+This patcher's versioning number looks like this:
 
-- First digit: Major changes, including new OS support, API changes, and significant patch set changes, etc
-- Second digit: Minor changes, including incoming OS update fixes, minor patch set changes, etc
-- Third digit: Bug fixes, primarily hot fixes either due to a regression in prior release or resolving issues in already released OS updates
-
+4.0.0 - the latest big version
+everything after the last zero, is the build version of the patcher
+4.0.0.190001 means 4.0.0 alpha 19.1
+If you see something like 19.1.1, it's a small bug fix or a security update mostly.
 
 ## How do I make sure I'm all up to date?
 
 Updating the OCLP installation is a three step process, first the application, second the bootloader and finally root patches.
 
-Refer to [Updating OpenCore and patches](https://dortania.github.io/OpenCore-Legacy-Patcher/UPDATE.html) for how to update the application and patches.
+Refer to [Updating OpenCore and patches](UPDATE.md) for how to update the application and patches.
 
 ## Where are the GUI settings saved?
 
@@ -50,7 +50,7 @@ In OpenCore Legacy Patcher 2.1.0 and newer, the status of settings are saved und
 
 In case of issues, delete the file and restart the application to revert the GUI to default settings, then rebuild OpenCore with newly configured settings.
 
-**Ticking the options in Settings alone will not apply the settings until the "Build and Install OpenCore" process has been redone**, which rebuilds a new OpenCore with the selected settings. Applied settings are saved to a config.plist file inside your EFI partition by the building process.
+**Ticking the options in Settings alone will not apply the settings until the "Install OpenCore" process has been redone**, which rebuilds a new OpenCore with the selected settings. Applied settings are saved to a config.plist file inside your EFI partition by the building process.
 
 ::: warning
 
@@ -70,13 +70,13 @@ When building OpenCore on a different system, OCLP cannot be aware of all the ha
 
 You can. However it is extremely recommended to use USB drive for major OS upgrades (such as 13 -> 14) to avoid larger issues from potentially occurring. General updates are usually fine, though it is always a good idea to wait few days to see whether patches break and have to be fixed.
 
-See more information about updating in [Preparing OCLP for macOS update.](https://dortania.github.io/OpenCore-Legacy-Patcher/UPDATE.html#preparing-oclp-for-macos-update)
+See more information about updating in [Preparing OCLP for macOS update.](UPDATE.md#preparing-oclp-for-macos-update)
 
 ## Can I use automatic updates?
 
 It is extremely recommended to disable automatic updates (even downloading) when using OCLP, as Apple has recently changed the way automatic updates work. Updates are now getting staged during the download process and are already modifying the system volume, which can lead to broken system out of nowhere since the operating system gets into a liminal state between two versions. You can still manually initiate an update when you're ready to do so. 
 
-For a related "System version mismatch" error while root patching and more information, refer to [System version mismatch error when root patching](https://dortania.github.io/OpenCore-Legacy-Patcher/TROUBLESHOOT-APP.html#system-version-mismatch-error-when-root-patching) for troubleshooting.
+For a related "System version mismatch" error while root patching and more information, refer to [System version mismatch error when root patching](TROUBLESHOOT-APP.md#system-version-mismatch-error-when-root-patching) for troubleshooting.
 
 * Note: macOS Sequoia has begun prompting to enable automatic updates from 15.4 onward after an update install has finished and isn't giving a choice to fully decline, this means you may have to keep doing it again after updating to newer versions.
 
@@ -110,11 +110,11 @@ macOS doesn't allow direct downgrades, as such you will have to wipe the disk in
 
 #### Lacking or broken root patches
 
-If your system is being **really** slow and macOS is lacking wallpaper and transparency in Dock and menubar, make sure to install root patches to get proper drivers and functionality. Refer to [Applying post install volume patches](https://dortania.github.io/OpenCore-Legacy-Patcher/POST-INSTALL.html#applying-post-install-volume-patches) section for more information. 
+If your system is being **really** slow and macOS is lacking wallpaper and transparency in Dock and menubar, make sure to install root patches to get proper drivers and functionality. Refer to [Applying post install volume patches](POST-INSTALL.md#applying-post-install-volume-patches) section for more information. 
 
 **Root patches will be wiped by macOS updates and have to be reinstalled after an update finishes.** 
 
-Patches can also break if automatic updates are enabled and an update prematurely modifies the system volume, refer to [System version mismatch error when root patching](https://dortania.github.io/OpenCore-Legacy-Patcher/TROUBLESHOOT-APP.html#system-version-mismatch-error-when-root-patching) for more information.
+Patches can also break if automatic updates are enabled and an update prematurely modifies the system volume, refer to [System version mismatch error when root patching](TROUBLESHOOT-APP.md#system-version-mismatch-error-when-root-patching) for more information.
 
 #### Spotlight
 
@@ -170,7 +170,7 @@ A great rule of thumb is that Macs older than 2012 are non-Metal, with the excep
 
 ::: details macOS GPU Chart
 
-Intel GMA series is completely unsupported, even when using OpenCore Legacy Patcher. 
+Intel GMA series is completely unsupported, even when using OpenCore Legacy Patcher T2. 
 
 AMD Navi (RX 5000 - 6000 series) GPUs are non-functional in Mac Pro 2008 to 2012 using Ventura and newer due to lack of AVX2 support.
 
@@ -192,10 +192,10 @@ AMD Navi (RX 5000 - 6000 series) GPUs are non-functional in Mac Pro 2008 to 2012
 :::
 
 Refer to the following pages for more information
-- [Supported models](https://dortania.github.io/OpenCore-Legacy-Patcher/MODELS.html) 
+- [Supported models](MODELS.md) 
 - [Non-Metal GitHub issue](https://github.com/dortania/OpenCore-Legacy-Patcher/issues/108)
-- [Non-Metal Issues](https://dortania.github.io/OpenCore-Legacy-Patcher/TROUBLESHOOT-NONMETAL.html)
-- [Hardware troubleshooting](https://dortania.github.io/OpenCore-Legacy-Patcher/TROUBLESHOOT-HARDWARE)
+- [Non-Metal Issues](TROUBLESHOOT-NONMETAL.md)
+- [Hardware troubleshooting](TROUBLESHOOT-HARDWARE.md)
 
 
 ## What are FeatureUnlock and mediaanalysisd?

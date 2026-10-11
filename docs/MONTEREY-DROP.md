@@ -6,7 +6,7 @@ With OpenCore Legacy Patcher v0.1.7 and newer, we've implemented beta macOS Mont
 
 ## Newly dropped hardware
 
-With Monterey, Apple continues their their somewhat ruthless march of dropping Intel hardware. This release saw the removal, and thus addition into OpenCore Legacy Patcher, of the following models:
+With Monterey, Apple continues their their somewhat ruthless march of dropping Intel hardware. This release saw the removal, and thus addition into OpenCore Legacy Patcher T2, of the following models:
 
 * iMac14,4
 * iMac15,1
@@ -33,7 +33,7 @@ With Monterey, Apple continues their their somewhat ruthless march of dropping I
 
 :::
 
-All of these models now have support in OpenCore Legacy Patcher.
+All of these models now have support in OpenCore Legacy Patcher T2.
 
 ## Current Monterey Issues
 
@@ -56,7 +56,7 @@ Due to the display being routed through the NVIDIA Kepler card and macOS being r
 
 Currently in macOS 12.0 Beta 4, many Ivy Bridge Macs have experienced Bluetooth issues relating to their BCM20702 chipset. Currently the exact issue is unknown however is assumed to be a bug on Apple's end. Recommend downgrading to macOS 12.0 Beta 3 till resolved:
 
-* [12.0 Beta 3 (21A5284e) InstallAssistant (Direct)](http://swcdn.apple.com/content/downloads/02/08/071-63739-A_G5RYVW5JHT/dfz5gp3s0jm9vl7m30oewq141zkpv8edr8/InstallAssistant.pkg)
+* [12.0 Beta 3 (21A5284e) InstallAssistant (Direct)](https://swcdn.apple.com/content/downloads/02/08/071-63739-A_G5RYVW5JHT/dfz5gp3s0jm9vl7m30oewq141zkpv8edr8/InstallAssistant.pkg)
 * [12.0 Beta 3 (21A5284e) InstallAssistant (archive.org)](https://archive.org/details/12.0-21a5284e-beta-3)
 
 A temporary fix is to restart the BlueTool and bluetoothd process with each boot, note it may not work for all users:
@@ -81,7 +81,7 @@ The following models lost Wifi support in macOS Monterey due to their legacy Wir
   * MacBookPro6,x is exempt
 * MacPro5,1 and older
 
-Note: BCM943224, BCM94331, BCM94360 and BCM943602 are still fully supported by OpenCore Legacy Patcher
+Note: BCM943224, BCM94331, BCM94360 and BCM943602 are still fully supported by OpenCore Legacy Patcher T2
 
 :::
 
@@ -98,7 +98,7 @@ The following models lost Bluetooth support in macOS Monterey due to their legac
 * MacBookPro8,1 and older
 * MacPro5,1 and older
 
-Note: Native BRCM20702 and BRCM20703 are still fully supported by OpenCore Legacy Patcher
+Note: Native BRCM20702 and BRCM20703 are still fully supported by OpenCore Legacy Patcher T2
 
 ::: details Dropped Firmwares
 
@@ -127,7 +127,7 @@ Here are the firmwares macOS Monterey Dropped (previously located within IOBluet
 
 * Intel HD4000 iGPUs lost support
 
-By default these machines require root volume patches to gain graphics acceleration in Monterey. OpenCore Legacy Patcher supports readding support however SIP can no longer be enabled due to root patching:
+By default these machines require root volume patches to gain graphics acceleration in Monterey. OpenCore Legacy Patcher T2 supports readding support however SIP can no longer be enabled due to root patching:
 
 * Macmini6,x
 * MacBookAir5,x
@@ -140,7 +140,7 @@ By default these machines require root volume patches to gain graphics accelerat
 
 * NVIDIA Kepler dGPUs lost support
 
-By default these machines require root volume patches to gain graphics acceleration in Monterey. OpenCore Legacy Patcher supports readding support however SIP can no longer be enabled due to root patching:
+By default these machines require root volume patches to gain graphics acceleration in Monterey. OpenCore Legacy Patcher T2 supports readding support however SIP can no longer be enabled due to root patching:
 
 * MacBookPro9,1
 * MacBookPro10,1

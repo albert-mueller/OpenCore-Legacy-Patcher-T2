@@ -25,12 +25,10 @@ const titles: Record<string, string> = {
     "ICNS": "Creating custom icons for OpenCore and Mac Boot Picker",
     "WINDOWS": "Installing Windows in UEFI Mode",
     "UNIVERSALCONTROL": "Universal Control on unsupported Macs",
-    "DONATE": "Supporting the patcher",
     "LICENSE": "OpenCore Legacy Patcher License",
-    "ISSUES-HOLD": "The current hold on new issues and pull requests",
     "TERMS": "OpenCore Patcher Terminology",
-    "HOW": "Boot Process with OpenCore Legacy Patcher",
-    "PATCHEXPLAIN": "Explaining the patches in OpenCore Legacy Patcher"
+    "HOW": "Boot Process with OpenCore Legacy Patcher T2",
+    "PATCHEXPLAIN": "Explaining the patches in OpenCore Legacy Patcher T2"
 }
 
 const group = (text: string, pages: string[]) => ({
@@ -40,9 +38,9 @@ const group = (text: string, pages: string[]) => ({
 })
 
 export default defineConfig({
-    title: 'OpenCore Legacy Patcher',
+    title: 'OpenCore Legacy Patcher T2',
     description: 'Guide to put macOS on unsupported devices',
-    base: '/OpenCore-Legacy-Patcher/',
+    base: '/OpenCore-Legacy-Patcher-T2/',
     rewrites: {
         'README.md': 'index.md',
     },
@@ -50,7 +48,7 @@ export default defineConfig({
     lastUpdated: true,
     ignoreDeadLinks: true,
     head: [
-        ['link', { rel: 'icon', href: '/OpenCore-Legacy-Patcher/favicon.ico' }],
+        ['link', { rel: 'icon', href: '/OpenCore-Legacy-Patcher-T2/favicon.ico' }],
         ['meta', { name: 'theme-color', content: '#3eaf7c' }],
         ['meta', { name: 'apple-mobile-web-app-capable', content: 'yes' }],
         ['meta', { name: 'apple-mobile-web-app-status-bar-style', content: 'black' }],
@@ -66,19 +64,23 @@ export default defineConfig({
     },
     themeConfig: {
         logo: '/homepage.png',
+        // The full title is too wide for the sidebar column and overflows past
+        // its divider, so use a short name in the nav bar. `title` above is
+        // still used for browser tabs and page metadata.
+        siteTitle: 'OCLP T2',
         outline: [2, 2],
         socialLinks: [
-            { icon: 'github', link: 'https://github.com/dortania/OpenCore-Legacy-Patcher/' },
+            { icon: 'github', link: 'https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/' },
         ],
         editLink: {
-            pattern: 'https://github.com/dortania/OpenCore-Legacy-Patcher/edit/main/docs/:path',
+            pattern: 'https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/edit/main/docs/:path',
             text: 'Help us improve this page!',
         },
         search: {
             provider: 'local',
         },
         footer: {
-            copyright: 'Copyright © Dortania 2020-2025',
+            copyright: 'Copyright © Dortania 2020-2025 · T2 fork © 2026 Albert Müller and OCLP-T2 contributors',
         },
         sidebar: [
             group('Introduction', ['START', 'MODELS', 'FAQ']),
@@ -87,8 +89,8 @@ export default defineConfig({
             group('Application', ['UPDATE', 'UNINSTALL', 'PROCESS']),
             group('Troubleshooting', ['TROUBLESHOOT-APP', 'TROUBLESHOOT-MISC', 'TROUBLESHOOT-NONMETAL', 'TROUBLESHOOT-HARDWARE', 'DEBUG']),
             group('Misc', ['TIMEMACHINE', 'ICNS', 'WINDOWS', 'UNIVERSALCONTROL']),
-            group('Credit', ['DONATE', 'LICENSE']),
-            group('Documentation', ['ISSUES-HOLD', 'TERMS', 'HOW', 'PATCHEXPLAIN']),
+            group('Credit', ['LICENSE']),
+            group('Documentation', ['TERMS', 'HOW', 'PATCHEXPLAIN']),
         ],
     },
 })

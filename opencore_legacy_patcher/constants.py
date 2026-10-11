@@ -15,7 +15,7 @@ class Constants:
     def __init__(self) -> None:
         # Patcher Versioning
         # Wenn eine Version mit s endet, es heißt, dass sie noch nicht fertig ist.
-        self.patcher_version:                 str = "4.0.0.190009.2"
+        self.patcher_version:                 str = "4.0.0.190009.4"
         self.patcher_version_label=self.patcher_version
         self.patcher_support_pkg_version:     str = "2.0.7"  # PatcherSupportPkg
         self.copyright_date:                  str = "Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors · T2 fork © 2026 Albert Müller"
@@ -29,7 +29,7 @@ class Constants:
 
         # URLs
         self.url_patcher_support_pkg:         str = "https://github.com/albert-mueller/PatcherSupportPkg/releases/download/"
-        self.guide_link:                      str = "https://dortania.github.io/OpenCore-Legacy-Patcher/"
+        self.guide_link:                      str = "https://albert-mueller.github.io/OpenCore-Legacy-Patcher-T2/"
         self.repo_link:                       str = "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/"
 
         # Update channels (Settings > App > "Update Channel")
@@ -55,6 +55,14 @@ class Constants:
         # support/update_channel_availability.py: True = online, False = repository
         # gone (hidden from the dropdown, never used), None = could not tell
         self.update_channel_status:    dict = {}
+
+        # End-of-life status of the main project (repo_link), filled once per session by
+        # support/project_status.py: None = unknown/not checked yet, otherwise a
+        # project_status.ProjectStatus. Archived/deleted/replaced shows the end-of-life
+        # warning in the main menu with a download button for Dortania's OCLP.
+        self.project_status                     = None
+        self.project_status_checked:   bool = False
+        self.project_eol_notice_shown: bool = False
 
         self.custom_installer_url:            str = "https://github.com/Medelcartelinc/OpenCore-Legacy-Patcher-T2"
         self.custom_installer_version=self.patcher_version
@@ -194,7 +202,7 @@ class Constants:
         self.host_is_hackintosh:        bool = False  # Determine if host is Hackintosh
         self.host_is_vmware_vm:         bool = False  # Dev/test only: host is running under VMware (VM board-id), never true on real Mac hardware; bypasses the SIP validation gate so root-patching syntax can be exercised in a VM
         self.allow_vmware_root_patching: bool = False  # Dev/test only, NEVER exposed as a GUI Settings checkbox - must be hand-edited to True in this file and run from source. Narrower than allow_oc_everywhere (which IS a GUI checkbox any user could flip): only takes effect when host_is_vmware_vm is also True, so it can only ever unlock the Root Patching button for a detected VMware VM, never for hackintoshes/real unsupported Macs in general. See gui_support.CheckProperties.host_can_build().
-        self.vmware_simulated_model:    str = ""  # Dev/test only, hand-edit + no GUI control, read once at startup and only when host_is_vmware_vm and allow_vmware_root_patching are both True. Mac model that root patch detection should see (eg. "iMac11,2"), overriding computer.real_model. Drives every patchset whose present() checks a hardcoded model list (legacy_audio, gmux, keyboard_backlight, pcie_webcam, t1_security, usb11). Note model_array.py is NOT consulted by detection at all - see _apply_vmware_simulated_hardware() in application_entry.py
+        self.vmware_simulated_model:    str = ""  # Dev/test only, hand-edit + no GUI control, read once at startup and only when host_is_vmware_vm and allow_vmware_root_patching are both True. Mac model that root patch detection should see (eg. "iMac11,2"), overriding computer.real_model. Drives every patchset whose present() checks a hardcoded model list (legacy_audio, gmux, pcie_webcam, t1_security, usb11). Note model_array.py is NOT consulted by detection at all - see _apply_vmware_simulated_hardware() in application_entry.py
         self.vmware_simulated_gpu:      str = ""  # Dev/test only, same gating as vmware_simulated_model. PCI "vendor:device" hex pair (eg. "1002:6821" = AMD Legacy GCN v1) injected into computer.gpus, since every graphics patchset matches on device_probe archs rather than on a model. IDs run through the real device_probe classes, so the arch comes from pci_data exactly as it does for physical hardware
         self.should_nuke_kdks:          bool = True  #  Determine if KDKs should be nuked if unused in /L*/D*/KDKs
         self.launcher_binary:            str = None  #  Determine launch binary path (ie. Python vs PyInstaller)
@@ -283,7 +291,7 @@ class Constants:
         self.dGPU_switch:            bool = False  # Set Display GPU Switching for Windows
         self.force_surplus:          bool = False  # Force SurPlus patch in newer OSes
         self.force_latest_psp:       bool = False  # Force latest PatcherSupportPkg
-        self.use_ybronst_wifi:       bool = True   # WiFi root patches: use YBronst's -YB payloads instead of Dortania's
+        self.use_ybronst_wifi:       bool = True   # WiFi root patches: YBronst's approach (reuse the Sequoia -24 builds on Tahoe) instead of Dortania's -25 layout. PatcherSupportPkg ships YBronst's builds in the regular folders, no -YB suffix
         self.disable_fw_throttle:    bool = False  # Disable MSR Power Control and XCPM
         self.software_demux:         bool = False  # Enable Software Demux patch set
         self.force_vmm:              bool = False  # Force VMM patch

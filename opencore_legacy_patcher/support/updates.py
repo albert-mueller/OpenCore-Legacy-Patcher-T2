@@ -16,6 +16,7 @@ from . import network_handler
 from . import subprocess_wrapper
 from . import global_settings
 from . import update_channel_availability
+from . import project_status
 
 
 from .. import constants
@@ -208,6 +209,19 @@ class CheckBinaryUpdates:
         # already did it). Covers the auto patcher / update daemons too, which
         # never go through the GUI startup path.
         update_channel_availability.is_channel_online(self.constants, self.constants.update_channel)
+
+        # If the main project was deleted or its name was registered again by somebody
+        # else, the official channel must not be used anymore: whatever is published
+        # there now does not come from this project (see support/project_status.py).
+        # An archived repository stays usable - nothing new can be published there.
+        project_status.check(self.constants)
+        if project_status.is_untrusted(self.constants) and self.constants.update_repo_link == self.constants.update_channels["official"]["repo"]:
+            logging.warning("Main project repository is gone or was replaced, refusing to look for updates there")
+            self.last_error = (
+                "OpenCore Legacy Patcher T2 has reached its end of life - its repository no longer exists. "
+                "Updates are disabled. Please switch to OpenCore Legacy Patcher from Dortania."
+            )
+            return None
 
         repo_latest_release_url = self.constants.update_releases_api_url
         channel_switch = self.constants.update_channel_switch_pending

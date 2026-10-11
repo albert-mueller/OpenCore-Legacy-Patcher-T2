@@ -38,7 +38,7 @@ iPhone Mirroring requires T2 for attestation and Apple Intelligence requires an 
 
 ### Dual socket CPUs with Mac Pro 2008 and Xserve 2008
 
-Booting Sequoia on Mac Pro 2008 (MacPro3,1) or Xserve 2008 (Xserve2,1) with more than 4 cores will cause Sequoia to panic. OpenCore Legacy Patcher will automatically disable additional cores.
+Booting Sequoia on Mac Pro 2008 (MacPro3,1) or Xserve 2008 (Xserve2,1) with more than 4 cores will cause Sequoia to panic. OpenCore Legacy Patcher T2 will automatically disable additional cores.
 
 This is due to the dual socket nature of the machine, and likely some firmware/ACPI table incompatibility. 
 
@@ -80,7 +80,7 @@ While USB 1.1 may seem unimportant, it handles many important devices on your sy
 * IR Receivers
 * Bluetooth
 
-Refer to [the troubleshooting page](https://dortania.github.io/OpenCore-Legacy-Patcher/TROUBLESHOOT-HARDWARE.html#keyboard-mouse-and-trackpad-not-working-in-installer-or-after-update) on how to workaround this issue.
+Refer to [the troubleshooting page](TROUBLESHOOT-HARDWARE.md#keyboard-mouse-and-trackpad-not-working-in-installer-or-after-update) on how to workaround this issue.
 
 
 ### Graphics support and issues

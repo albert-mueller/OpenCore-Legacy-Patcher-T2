@@ -343,6 +343,7 @@ class PatchSysVolume:
 
         self._clean_skylight_plugins()
         self._delete_nonmetal_enforcement()
+        self._delete_nonmetal_defaults()
 
         # Clean up any lingering OCLP manifests across root mount and Data volume
         for manifest_path in [
@@ -490,18 +491,8 @@ class PatchSysVolume:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT
                 )
-                subprocess_wrapper.run_as_root_and_verify(
-                    ["/bin/mkdir", str(skylight_path)],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT
-                )
-            else:
-                logging.info("- Creating SkylightPlugins folder")
-                subprocess_wrapper.run_as_root_and_verify(
-                    ["/bin/mkdir", "-p", str(skylight_path)],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT
-                )
+            # The current non-Metal stack has no SkyLight plugin loader, so the folder is no
+            # longer recreated (port of dortania/OpenCore-Legacy-Patcher@bfe8f7c)
         except Exception as e:
             logging.error(f"- Failed to manage SkylightPlugins folder: {e}")
             logging.exception("Stack Trace:")
@@ -529,6 +520,53 @@ class PatchSysVolume:
                 logging.warning(f"- Timeout reading preference {arg}")
             except Exception as e:
                 logging.debug(f"- Could not read preference {arg}: {e}")
+
+
+    def _delete_nonmetal_defaults(self) -> None:
+        """
+        Remove preferences of the old Moraea non-Metal stack (SkyLight plugins, beta menu bar,
+        blur, keyboard backlight hack, etc.). The current non-Metal stack doesn't use them, and
+        leftovers from earlier patches shouldn't influence it.
+
+        Port of dortania/OpenCore-Legacy-Patcher@a898811 (_delete_nonmetal_defaults).
+        """
+        skylight_defaults = [
+            "Moraea_DarkMenuBar",
+            "Moraea_BlurBeta",
+            "Moraea.EnableSpinHack",
+            "Amy.MenuBar2Beta",
+            "Moraea_RimBetaDisabled",
+            "Moraea_ColorWidgetDisabled",
+            "Moraea_BacklightHack",
+        ]
+        system_domain = "/Library/Preferences/.GlobalPreferences.plist"
+        domains = {
+            system_domain: skylight_defaults + [
+                "ShowDate",
+                "InternalDebugUseGPUProcessForCanvasRenderingEnabled",
+                "WebKitExperimentalUseGPUProcessForCanvasRenderingEnabled",
+                "WebKitPreferences.acceleratedDrawingEnabled",
+                "NSEnableAppKitMenus",
+                "NSZoomButtonShowMenu",
+            ],
+            "-globalDomain": skylight_defaults,
+        }
+        for domain, keys in domains.items():
+            for key in keys:
+                try:
+                    result = subprocess.run(["/usr/bin/defaults", "read", domain, key], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10)
+                    if result.returncode != 0:
+                        continue
+                    logging.info(f"- Removing non-Metal Preference: {key}")
+                    command = ["/usr/bin/defaults", "delete", domain, key]
+                    if domain == system_domain:
+                        subprocess_wrapper.run_as_root(command)
+                    else:
+                        subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10)
+                except subprocess.TimeoutExpired:
+                    logging.warning(f"- Timeout handling preference {key}")
+                except Exception as e:
+                    logging.debug(f"- Could not remove preference {key}: {e}")
 
 
     def _write_patchset(self, patchset: dict) -> None:
@@ -1009,6 +1047,7 @@ class PatchSysVolume:
 
         # Make sure non-Metal Enforcement preferences are not present
         self._delete_nonmetal_enforcement()
+        self._delete_nonmetal_defaults()
 
         # Make sure we clean old kexts in /L*/E* that are not in the patchset
         try:

@@ -342,7 +342,7 @@ class InstallOCFrame(wx.Frame):
             elif not self.constants.custom_model:
                 if self.constants.computer.real_model in model_array.T2Macs:
                     logging.info(f"Now building OpenCore EFI is done for {self.constants.computer.real_model}. A new browser tab will open automatically in your default browser of your choice that explains how to disable Secure Boot and SIP exactly. Make sure to follow the guide.")
-                    url = "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2-Instructions-for-T2-Macs/tree/main"
+                    url = "https://albert-mueller.github.io/"
                     webbrowser.open(url)
                 gui_support.RestartHost(self).restart(message="OpenCore has finished installing to disk.\n\nYou will need to restart and hold the Option key and select OpenCore/Boot EFI's option.\n\nWould you like to restart?")
             else:

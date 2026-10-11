@@ -1,16 +1,34 @@
 # Supported Models
 
-Any Intel-based Mac listed below can install and make use of OpenCore Legacy Patcher. To check your hardware model, open System Information and look for the `Model Identifier` key.
+Any Intel-based Mac listed below can install and make use of OpenCore Legacy Patcher T2. To check your hardware model, open System Information and look for the `Model Identifier` key.
 * This applies even if Apple supports the model natively.
-* OpenCore Legacy Patcher does not support PowerPC- or Apple Silicon-based Macs.
+* OpenCore Legacy Patcher T2 does not support PowerPC- or Apple Silicon-based Macs.
 * If your model is not listed below, it is not supported by this patcher.
 
 ::: warning Note
-It is **extremely recommended** to update your Mac to its latest native version before using OpenCore Legacy Patcher, to ensure you're on the highest firmware.
+It is **extremely recommended** to update your Mac to its latest native version before using OpenCore Legacy Patcher T2, to ensure you're on the highest firmware.
 :::
 
 ::: warning 3GB+ RAM required for installing macOS Sonoma and newer
-Models with 2GB RAM will not be able to install macOS Sonoma or macOS Sequoia, additionally macOS Sequoia may be unable to boot. These versions may be installed using a disk swap method where installation is done on another system but your mileage may vary and this is not recommended.
+Models with 2GB RAM will not be able to install macOS Sonoma or newer, additionally macOS Sequoia may be unable to boot. These versions may be installed using a disk swap method where installation is done on another system but your mileage may vary and this is not recommended.
+
+For these models, it is recommended to use macOS Mojave via [dosdude1's Mojave Patcher](https://dosdude1.com/mojave/) instead.
+:::
+
+## T2 Macs and macOS Tahoe
+
+macOS 26 Tahoe natively supports only these Intel Macs: MacBook Pro (16-inch, 2019), MacBook Pro (13-inch, 2020, 4 Thunderbolt 3 ports), iMac (Retina 5K, 27-inch, 2020) and Mac Pro (2019). All other T2 Macs are not supported by Apple on Tahoe:
+
+* MacBook Air (Retina, 13-inch, 2018, 2019 and 2020)
+* MacBook Pro (2018 and 2019, 13- and 15-inch)
+* MacBook Pro (13-inch, 2020, 2 Thunderbolt 3 ports)
+* Mac mini (Late 2018)
+* iMac Pro (2017)
+
+::: danger Alpha: research is still ongoing
+Bringing macOS Tahoe to these T2 Macs is the main goal of OpenCore Legacy Patcher T2, and research is still ongoing. At the moment, the Tahoe installer stops with "Failed to install a software update" when sealing the root volume, so these models cannot run Tahoe yet.
+
+We hope to have these Macs booting to the desktop soon. Until then, OpenCore Legacy Patcher T2 is considered alpha software.
 :::
 
 The below tables can be used to reference issues with a particular model, and see which OS would work best on your machine.
@@ -50,9 +68,9 @@ The below tables can be used to reference issues with a particular model, and se
 | MacBook Air (13-inch, Mid 2013)<br>MacBook Air (13-inch, Early 2014) | `MacBookAir6,2` | ^^ |
 | MacBook Air (11-inch, Early 2015) | `MacBookAir7,1` | ^^ |
 | MacBook Air (13-inch, Early 2015)<br>MacBook Air (13-inch, 2017) | `MacBookAir7,2` | ^^ |
-| MacBook Air (Retina, 13-inch, 2018) | `MacBookAir8,1` | - Supported natively up to Sonoma<br>- [Currently not supported with OpenCore due to T2 issues](https://github.com/dortania/OpenCore-Legacy-Patcher/issues/1136)<br> |
+| MacBook Air (Retina, 13-inch, 2018) | `MacBookAir8,1` | - Supported natively up to Sonoma<br>- [T2 Mac: macOS Tahoe not working yet](#t2-macs-and-macos-tahoe) |
 | MacBook Air (Retina, 13-inch, 2019) | `MacBookAir8,2` | ^^ |
-| MacBook Air (Retina, 13-inch, 2020) | `MacBookAir9,1` | Supported by Apple |
+| MacBook Air (Retina, 13-inch, 2020) | `MacBookAir9,1` | - Supported natively up to Sequoia<br>- [T2 Mac: macOS Tahoe not working yet](#t2-macs-and-macos-tahoe) |
 
 ### MacBook Pro
 
@@ -83,12 +101,12 @@ The below tables can be used to reference issues with a particular model, and se
 | MacBook Pro (13-inch, 2017, 2 Thunderbolt 3 ports) | `MacBookPro14,1` | - Native graphics support |
 | MacBook Pro (13-inch, 2017, 4 Thunderbolt 3 ports) | `MacBookPro14,2` | ^^ |
 | MacBook Pro (15-inch, 2017) | `MacBookPro14,3` | - [Legacy Metal (macOS 14+)](https://github.com/dortania/OpenCore-Legacy-Patcher/issues/1008) |
-| MacBook Pro (13-inch, 2018, 4 Thunderbolt 3 ports)<br>MacBook Pro (13-inch, 2019, 4 Thunderbolt 3 ports) | `MacBookPro15,2` | - Supported by Apple |
+| MacBook Pro (13-inch, 2018, 4 Thunderbolt 3 ports)<br>MacBook Pro (13-inch, 2019, 4 Thunderbolt 3 ports) | `MacBookPro15,2` | - Supported natively up to Sequoia<br>- [T2 Mac: macOS Tahoe not working yet](#t2-macs-and-macos-tahoe) |
 | MacBook Pro (15-inch, 2018)<br>MacBook Pro (15-inch, 2019) | `MacBookPro15,1`<br>`MacBookPro15,3` | ^^ |
 | MacBook Pro (13-inch, 2019, 2 Thunderbolt 3 ports) | `MacBookPro15,4` | ^^ |
-| MacBook Pro (16-inch, 2019) | `MacBookPro16,1`<br>`MacBookPro16,4` | ^^ |
+| MacBook Pro (16-inch, 2019) | `MacBookPro16,1`<br>`MacBookPro16,4` | - Supported by Apple |
 | MacBook Pro (13-inch, 2020, 4 Thunderbolt 3 ports) | `MacBookPro16,2` | ^^ |
-| MacBook Pro (13-inch, 2020, 2 Thunderbolt 3 ports) | `MacBookPro16,3` | ^^ |
+| MacBook Pro (13-inch, 2020, 2 Thunderbolt 3 ports) | `MacBookPro16,3` | - Supported natively up to Sequoia<br>- [T2 Mac: macOS Tahoe not working yet](#t2-macs-and-macos-tahoe) |
 
 ### Mac mini
 
@@ -99,7 +117,7 @@ The below tables can be used to reference issues with a particular model, and se
 | Mac mini (Mid 2011) | `Macmini5,1`<br>`Macmini5,2`<br>`Macmini5,3` | - [non-Metal GPU (macOS 11+)](https://github.com/dortania/OpenCore-Legacy-Patcher/issues/108) |
 | Mac mini (Late 2012) | `Macmini6,1`<br>`Macmini6,2` | - [Legacy Metal (macOS 13+)](https://github.com/dortania/OpenCore-Legacy-Patcher/issues/1008) |
 | Mac mini (Late 2014) | `Macmini7,1` | ^^ |
-| Mac mini (Late 2018) | `Macmini8,1` | - Supported by Apple |
+| Mac mini (Late 2018) | `Macmini8,1` | - Supported natively up to Sequoia<br>- [T2 Mac: macOS Tahoe not working yet](#t2-macs-and-macos-tahoe) |
 
 ### iMac
 | Model Name | Identifier | Additional info |
@@ -126,10 +144,10 @@ The below tables can be used to reference issues with a particular model, and se
 | iMac (21.5-inch, 2017) | `iMac18,1` | - Native graphics support |
 | iMac (Retina 4K, 21.5-inch, 2017) | `iMac18,2` | ^^ |
 | iMac (Retina 5K, 27-inch, 2017) | `iMac18,3` | ^^ |
-| iMac (Retina 5K, 27-inch, 2019) | `iMac19,1` | - Supported by Apple |
+| iMac (Retina 5K, 27-inch, 2019) | `iMac19,1` | - Supported natively up to Sequoia<br>- Native graphics support |
 | iMac (Retina 4K, 21.5-inch, 2019) | `iMac19,2` | ^^ |
-| iMac (Retina 5K, 27-inch, 2020) | `iMac20,1`<br>`iMac20,2` | ^^ |
-| iMac Pro (2017) | `iMacPro1,1` | ^^ |
+| iMac (Retina 5K, 27-inch, 2020) | `iMac20,1`<br>`iMac20,2` | - Supported by Apple |
+| iMac Pro (2017) | `iMacPro1,1` | - Supported natively up to Sequoia<br>- [T2 Mac: macOS Tahoe not working yet](#t2-macs-and-macos-tahoe) |
 
 ### Mac Pro
 
