@@ -102,41 +102,82 @@ class InstallAutomaticPatchingServices:
         return str(Path(self._PATCHER_INSTALL_DIRECTORY) / "OpenCore-Patcher-T2.app" / "Contents" / "MacOS" / "OpenCore-Patcher-T2")
 
 
-    def _stage_service(self, service: str) -> str:
+    def _render_service(self, service: str) -> bytes:
         """
-        Point a launch service at the patcher binary actually present on this host
+        Return the exact bytes to install for a launch service payload
 
-        Returns the path to use as the copy source: the original payload when no
-        change is needed, otherwise a rewritten copy in a temporary directory.
+        The payload is read exactly once and every change (binary path rewrite)
+        is applied in memory. The result is what install_auto_patcher_launch_agent()
+        verifies against after the privileged copy, so nothing that happens to the
+        source file after this point can end up in /Library/Launch*.
         """
+        raw = Path(service).read_bytes()
+
         try:
-            service_plist = plistlib.load(open(service, "rb"))
+            service_plist = plistlib.loads(raw)
         except Exception as e:
             logging.info(f"  - Failed to parse {Path(service).name}, using as-is: {e}")
-            return service
+            return raw
 
         arguments = service_plist.get("ProgramArguments", [])
         # Services that don't invoke the patcher (ex. the RSRMonitor's /bin/rm) are left alone
         if not arguments or not str(arguments[0]).startswith((self._PATCHER_INSTALL_DIRECTORY, self._LEGACY_PATCHER_INSTALL_DIRECTORY)):
-            return service
+            return raw
 
         resolved_binary = self._resolve_patcher_binary()
         if arguments[0] == resolved_binary:
-            return service
+            return raw
 
         logging.info(f"  - Updating binary path: {resolved_binary}")
         service_plist["ProgramArguments"][0] = resolved_binary
+        return plistlib.dumps(service_plist)
 
-        try:
-            if self._staging_directory is None:
-                self._staging_directory = Path(tempfile.mkdtemp(prefix="oclp-launch-services-"))
-            staged_service = self._staging_directory / Path(service).name
-            plistlib.dump(service_plist, staged_service.open("wb"))
-        except Exception as e:
-            logging.info(f"  - Failed to stage {Path(service).name}, using as-is: {e}")
-            return service
 
+    def _stage_bytes(self, name: str, content: bytes) -> str:
+        """
+        Write rendered service bytes to a private (0700) temporary directory
+
+        The staged file is only the copy source for the privileged cp. It is NOT
+        trusted: another process running as the same user can still replace it
+        between this write and the copy (TOCTOU), which is why the installed file
+        is verified against 'content' afterwards.
+        """
+        if self._staging_directory is None:
+            self._staging_directory = Path(tempfile.mkdtemp(prefix="oclp-launch-services-"))
+        staged_service = self._staging_directory / name
+        if staged_service.exists() or staged_service.is_symlink():
+            staged_service.unlink()
+        # O_EXCL + O_NOFOLLOW: never write through a planted file or symlink
+        fd = os.open(staged_service, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, "wb") as f:
+            f.write(content)
         return str(staged_service)
+
+
+    def _verify_installed_service(self, destination: str, expected: bytes) -> None:
+        """
+        Make sure the file that landed in /Library/Launch* is exactly what we rendered
+
+        Launch daemons run as root at the next boot. If the staged copy source was
+        swapped (TOCTOU) or replaced with a symlink to another file between staging
+        and the root copy, the installed file differs from 'expected': it is removed
+        again and the install fails instead of leaving an attacker-chosen root job.
+        """
+        destination_path = Path(destination)
+        try:
+            if destination_path.is_symlink():
+                raise ValueError("destination is a symlink")
+            installed = destination_path.read_bytes()
+        except Exception as e:
+            installed = None
+            logging.error(f"  - Could not read back {destination_path.name}: {e}")
+
+        if installed is not None and hashlib.sha256(installed).digest() == hashlib.sha256(expected).digest():
+            return
+
+        logging.error(f"  - {destination_path.name} does not match the expected content, removing it")
+        subprocess_wrapper.run_as_root(["/bin/rm", "-f", destination], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        raise RuntimeError(f"Launch service {destination_path.name} was modified during installation")
 
 
     # Launch services used to be installed under Dortania's identifier, which meant
@@ -268,35 +309,44 @@ class InstallAutomaticPatchingServices:
         self._remove_legacy_launch_services()
         self._remove_legacy_app_bundle()
 
+        # destination -> exact bytes to install. Everything is rendered in memory
+        # first; payload files are never modified in place (that would also
+        # break the app bundle's code signature).
         services = {
-            self.constants.auto_patch_launch_agent_path:        "/Library/LaunchAgents/com.albert-mueller.opencore-legacy-patcher.auto-patch.plist",
-            self.constants.update_launch_daemon_path:           "/Library/LaunchDaemons/com.albert-mueller.opencore-legacy-patcher.macos-update.plist",
-            **({ self.constants.rsr_monitor_launch_daemon_path: "/Library/LaunchDaemons/com.albert-mueller.opencore-legacy-patcher.rsr-monitor.plist" } if self._create_rsr_monitor_daemon() else {}),
-            **({ self.constants.kdk_launch_daemon_path:         "/Library/LaunchDaemons/com.albert-mueller.opencore-legacy-patcher.os-caching.plist" } if kdk_caching_needed is True else {} ),
+            "/Library/LaunchAgents/com.albert-mueller.opencore-legacy-patcher.auto-patch.plist":   self._render_service(self.constants.auto_patch_launch_agent_path),
+            "/Library/LaunchDaemons/com.albert-mueller.opencore-legacy-patcher.macos-update.plist": self._render_service(self.constants.update_launch_daemon_path),
         }
+        rsr_monitor = self._create_rsr_monitor_daemon()
+        if rsr_monitor is not None:
+            services["/Library/LaunchDaemons/com.albert-mueller.opencore-legacy-patcher.rsr-monitor.plist"] = rsr_monitor
+        if kdk_caching_needed is True:
+            services["/Library/LaunchDaemons/com.albert-mueller.opencore-legacy-patcher.os-caching.plist"] = self._render_service(self.constants.kdk_launch_daemon_path)
 
-        for service in services:
-            name = Path(service).name
+        for destination, content in services.items():
+            name = Path(destination).name
             logging.info(f"- Installing {name}")
-            source = self._stage_service(service)
-            if Path(services[service]).exists():
-                if hashlib.sha256(open(source, "rb").read()).hexdigest() == hashlib.sha256(open(services[service], "rb").read()).hexdigest():
+            if Path(destination).exists() and not Path(destination).is_symlink():
+                if hashlib.sha256(Path(destination).read_bytes()).digest() == hashlib.sha256(content).digest():
                     logging.info(f"  - {name} checksums match, skipping")
                     continue
+            if Path(destination).exists() or Path(destination).is_symlink():
                 logging.info("  - Existing service found, removing")
-                subprocess_wrapper.run_as_root_and_verify(["/bin/rm", services[service]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                subprocess_wrapper.run_as_root_and_verify(["/bin/rm", "-f", destination], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             # Create parent directories
-            if not Path(services[service]).parent.exists():
-                logging.info(f"  - Creating {Path(services[service]).parent} directory")
-                subprocess_wrapper.run_as_root_and_verify(["/bin/mkdir", "-p", Path(services[service]).parent], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            subprocess_wrapper.run_as_root_and_verify(generate_copy_arguments(source, services[service]), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            if not Path(destination).parent.exists():
+                logging.info(f"  - Creating {Path(destination).parent} directory")
+                subprocess_wrapper.run_as_root_and_verify(["/bin/mkdir", "-p", Path(destination).parent], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
-            # Set the permissions on the service
-            subprocess_wrapper.run_as_root_and_verify(["/bin/chmod", "644", services[service]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            subprocess_wrapper.run_as_root_and_verify(["/usr/sbin/chown", "root:wheel", services[service]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            source = self._stage_bytes(name, content)
+            subprocess_wrapper.run_as_root_and_verify(generate_copy_arguments(source, destination), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+            # Lock the file down first, then check it is really what we rendered
+            subprocess_wrapper.run_as_root_and_verify(["/usr/sbin/chown", "root:wheel", destination], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            subprocess_wrapper.run_as_root_and_verify(["/bin/chmod", "644", destination], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            self._verify_installed_service(destination, content)
 
 
-    def _create_rsr_monitor_daemon(self) -> bool:
+    def _create_rsr_monitor_daemon(self):
         # Get kext list in /Library/Extensions that have the 'GPUCompanionBundles' property
         # This is used to determine if we need to run the RSRMonitor
         logging.info("- Checking if RSRMonitor is needed")
@@ -304,10 +354,14 @@ class InstallAutomaticPatchingServices:
         cryptex_path = f"/System/Volumes/Preboot/{utilities.get_preboot_uuid()}/cryptex1/current/OS.dmg"
         if not Path(cryptex_path).exists():
             logging.info("- No OS.dmg, skipping RSRMonitor")
-            return False
+            return None
 
         kexts = []
         for kext in Path("/Library/Extensions").glob("*.kext"):
+            # These names end up in a root 'rm -Rfv': only accept real kext
+            # directories, never symlinks pointing elsewhere.
+            if kext.is_symlink() or not kext.is_dir():
+                continue
             try:
                 if not Path(f"{kext}/Contents/Info.plist").exists():
                     continue
@@ -327,10 +381,12 @@ class InstallAutomaticPatchingServices:
         # If we have no kexts, we don't need to run the RSRMonitor
         if not kexts:
             logging.info("- No kexts found with GPUCompanionBundles, skipping RSRMonitor")
-            return False
+            return None
 
-        # Load the RSRMonitor plist
-        rsr_monitor_plist = plistlib.load(open(self.constants.rsr_monitor_launch_daemon_path, "rb"))
+        # Load the RSRMonitor template. It is rendered in memory and returned:
+        # writing it back into the payload modified the (signed) app bundle and
+        # failed outright when the bundle is root-owned.
+        rsr_monitor_plist = plistlib.loads(Path(self.constants.rsr_monitor_launch_daemon_path).read_bytes())
 
         arguments = ["/bin/rm", "-Rfv"]
         arguments += [f"/Library/Extensions/{kext}" for kext in kexts]
@@ -344,7 +400,4 @@ class InstallAutomaticPatchingServices:
             cryptex_path,
         ]
 
-        # Write the RSRMonitor plist
-        plistlib.dump(rsr_monitor_plist, Path(self.constants.rsr_monitor_launch_daemon_path).open("wb"))
-
-        return True
+        return plistlib.dumps(rsr_monitor_plist)

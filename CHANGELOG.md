@@ -20,7 +20,20 @@ Other Macs:
 WiFi:
 - fixes root patching aborting on every Mac that needs WiFi patches (Legacy and Modern Wireless, Monterey and newer): the patcher looked for YBronst's WiFi payloads in `-YB` folders, but PatcherSupportPkg ships them in the regular folders (no release ever contained `-YB` folders), so the preflight check failed with "Failed to find ...-YB..." and no patches at all were installed. The `-YB` suffix is gone; `use_ybronst_wifi` still keeps YBronst's approach of reusing the Sequoia (`-24`) builds on Tahoe, thx @YBronst and @Medelcartelinc
 
-Not yet verified on real hardware.
+macOS installer creation:
+- when creating a macOS installer, you can now erase only a single partition instead of the whole disk: after picking a disk, choose "Erase Entire Disk" (previous behavior) or "Choose Partition". Only the selected partition is reformatted, all other partitions on the disk stay untouched. APFS partitions are erased as a whole container (every volume inside it is lost, the dialog warns about this). Only partitions that can actually be used are listed: EFI, Recovery, reserved and too small partitions are not shown, and you get a warning if the disk doesn't use a GUID partition map
+- macOS 26 Tahoe installers now need a disk or partition of at least 20 GB (previously 14 GB for all versions, which is too small for Tahoe); older macOS installers still need 14 GB
+- the disk macOS is currently booted from is no longer offered for erasing, even if it is an external drive (e.g. when booting Tahoe from an external SSD)
+- disk and partition identifiers are now validated before they are written into the installer script, which runs as root. Impact: none known, this is a safeguard only. The identifiers come from `diskutil`, but anything that ends up in a script run as root should never be trusted blindly
+
+Security and OpenCore installation:
+- hardens installing the launch services for the auto patcher: the files were prepared in a temporary folder the user can write to and then copied by root into /Library/LaunchDaemons without checking what was copied, so another process of the same user could swap them for its own root LaunchDaemon. They are now created in memory, written safely, and checked after installation (a mismatch removes the file and stops the install).
+  Impact: local privilege escalation. Any program running as the logged-in user, without knowing the admin password, could get its own code installed as a LaunchDaemon and run as root at every boot (persistent root access). By replacing the staged file with a symlink, it could also make root copy a root-only file (e.g. password hashes) to a readable location. Exploiting this needs malicious code already running on the Mac and has to hit the short window while the launch services are being installed; it can't be triggered remotely
+- the RSRMonitor launch daemon is no longer written into the app itself (this broke the app's code signature and failed on root-owned app bundles), and symlinks in /Library/Extensions are no longer included in its root cleanup.
+  Impact: the broken code signature could make macOS refuse to open the app or report it as damaged. The symlink change is a safeguard only: creating entries in /Library/Extensions already needs root, and the cleanup removed the symlink itself, not what it points to
+- before deleting the old EFI/OC and System folders as root when installing OpenCore, the target is now checked to be the selected FAT/EFI partition actually mounted there (custom mount points outside /Volumes still work).
+  Impact: data loss, not an attack. If a wrong partition was passed in, root deleted `EFI/OC`, `System` and `boot.efi` on that drive. If the EFI reported no mount point, the paths were taken relative to the app's working directory, which is `/` when the app is opened from Finder, so root ran `rm -rf` on `/System`. With SIP's filesystem protection disabled (common after root patching), this could reach user data through `/System/Volumes/Data`
+- fixes OpenCore installation crashing at the end in Recovery mode (UnboundLocalError) even though the install had succeeded; a failed unmount is now only logged as a warning. Impact: not a security issue; the crash made a successful install look like it had failed
 
 ## 4.0.0.190009.3 - 4.0.0 alpha 19.9.3
 This release:

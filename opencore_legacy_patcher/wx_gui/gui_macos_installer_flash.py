@@ -165,7 +165,7 @@ class macOSInstallerFlashFrame(wx.Frame):
 
         # Fetch local disks
         def _fetch_disks():
-            self.available_disks = macos_installer_handler.InstallerCreation().list_disk_to_format()
+            self.available_disks = macos_installer_handler.InstallerCreation().list_disk_to_format(installer['OS'])
 
             # Need to clean up output on pre-Sierra
             # Disk images are mixed in with regular disks (ex. payloads.dmg)
@@ -229,12 +229,96 @@ class macOSInstallerFlashFrame(wx.Frame):
 
 
     def on_select_disk(self, disk: dict, installer: dict) -> None:
+        # Offer to only wipe a single partition when the disk has usable ones
+        if disk.get("partitions"):
+            dialog = wx.MessageDialog(
+                self.frame_modal,
+                f"Do you want to erase the entire disk '{disk['name']}', or only a single partition on it?\n\nChoosing a partition leaves all other partitions on this disk untouched.",
+                "Erase Entire Disk or Partition?",
+                wx.YES_NO | wx.CANCEL | wx.ICON_QUESTION
+            )
+            dialog.SetYesNoCancelLabels("Erase Entire Disk", "Choose Partition", "Cancel")
+            answer = dialog.ShowModal()
+            dialog.Destroy()
+            if answer == wx.ID_NO:
+                self._select_partition(disk, installer)
+                return
+            if answer != wx.ID_YES:
+                return
+
         answer = wx.MessageBox(f"Are you sure you want to erase '{disk['name']}'?\nAll data will be lost, this cannot be undone.", "Confirmation", wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
         if answer != wx.YES:
             return
 
         logging.info(f"Selected disk: {disk['name']}")
+        self._start_flash(disk, installer)
 
+
+    def _select_partition(self, disk: dict, installer: dict) -> None:
+        """
+        Replace the disk picker with a partition picker for the given disk
+        """
+        self.frame_modal.Destroy()
+        self.frame_modal = wx.Dialog(self, title=self.title, size=(350, 200))
+
+        # Build labels first so buttons and dialog can be sized to the longest one,
+        # partition labels (name + type + size) don't fit into the fixed 300px used for disks.
+        # Sort by slice number so the list matches the on-disk order (disk3s2, disk3s3, ...)
+        partitions = sorted(disk["partitions"].items(), key=lambda item: int(item[0].rsplit("s", 1)[1]))
+        labels = {identifier: f"{identifier}: {partition['name']} ({partition['content']}) - {utilities.human_fmt(partition['size'])}" for identifier, partition in partitions}
+        button_width = max([300] + [self.frame_modal.GetTextExtent(label)[0] + 40 for label in labels.values()])
+        self.frame_modal.SetSize((button_width + 50, 200))
+
+        # Title: Select partition
+        title_label = wx.StaticText(self.frame_modal, label="Select partition", pos=(-1,5))
+        title_label.SetFont(gui_support.font_factory(19, wx.FONTWEIGHT_BOLD))
+        title_label.Centre(wx.HORIZONTAL)
+
+        # Label: Only the selected partition will be erased
+        warning_label = wx.StaticText(self.frame_modal, label=f"Only the selected partition on '{disk['name']}' will be erased", pos=(-1, title_label.GetPosition()[1] + title_label.GetSize()[1] + 5))
+        warning_label.SetFont(gui_support.font_factory(11, wx.FONTWEIGHT_NORMAL))
+        warning_label.Centre(wx.HORIZONTAL)
+
+        spacer = 5
+        logging.info(f"Available partitions on {disk['identifier']}:")
+        for identifier, partition in partitions:
+            label = labels[identifier]
+            logging.info(f" - {label}")
+            partition_button = wx.Button(self.frame_modal, label=label, pos=(-1, warning_label.GetPosition()[1] + warning_label.GetSize()[1] + spacer), size=(button_width, 30))
+            partition_button.Bind(wx.EVT_BUTTON, lambda event, temp=identifier: self.on_select_partition(disk, disk["partitions"][temp], installer))
+            partition_button.Centre(wx.HORIZONTAL)
+            spacer += 25
+
+        # Button: Back to disk selection
+        back_button = wx.Button(self.frame_modal, label="Back to Disk Selection", pos=(-1, partition_button.GetPosition()[1] + partition_button.GetSize()[1]), size=(150, 30))
+        back_button.Bind(wx.EVT_BUTTON, lambda event, temp=installer: self.on_select(temp))
+        back_button.Centre(wx.HORIZONTAL)
+
+        # Button: Return to Main Menu
+        cancel_button = wx.Button(self.frame_modal, label="Return to Main Menu", pos=(-1, back_button.GetPosition()[1] + back_button.GetSize()[1] - 10), size=(150, 30))
+        cancel_button.Bind(wx.EVT_BUTTON, self.on_return_to_main_menu)
+        cancel_button.Centre(wx.HORIZONTAL)
+
+        self.frame_modal.SetSize((-1, cancel_button.GetPosition()[1] + cancel_button.GetSize()[1] + 40))
+        self.frame_modal.ShowWindowModal()
+
+
+    def on_select_partition(self, disk: dict, partition: dict, installer: dict) -> None:
+        message = f"Are you sure you want to erase the partition '{partition['name']}' ({partition['identifier']}) on '{disk['name']}'?\nAll data on this partition will be lost, this cannot be undone.\nOther partitions on this disk will not be touched."
+        if partition["content"] == "Apple_APFS":
+            message += "\n\nThis partition is an APFS container: every volume inside it will be erased."
+        if disk.get("scheme") != "GUID_partition_scheme":
+            message += "\n\nWarning: this disk does not use a GUID partition map. Macs may not boot the installer from it, and installing OpenCore to this disk afterwards may fail."
+
+        answer = wx.MessageBox(message, "Confirmation", wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
+        if answer != wx.YES:
+            return
+
+        logging.info(f"Selected partition: {partition['identifier']} ({partition['name']}) on {disk['name']}")
+        self._start_flash(disk, installer, partition)
+
+
+    def _start_flash(self, disk: dict, installer: dict, partition: dict = None) -> None:
         self.frame_modal.Destroy()
 
         for child in self.GetChildren():
@@ -274,7 +358,7 @@ class macOSInstallerFlashFrame(wx.Frame):
         self.Show()
 
         # Prepare resources
-        if self._prepare_resources(installer['Path'], disk['identifier']) is False:
+        if self._prepare_resources(installer['Path'], disk['identifier'], partition) is False:
             logging.error("Failed to prepare resources, cannot continue.")
             wx.MessageBox("Failed to prepare resources, cannot continue.", "Error", wx.OK | wx.ICON_ERROR)
             self.on_return_to_main_menu()
@@ -292,11 +376,15 @@ class macOSInstallerFlashFrame(wx.Frame):
 
         # /dev/diskX -> diskX
         root_disk = disk['identifier'][5:]
+        # Volume createinstallmedia writes to:
+        # - Whole disk: eraseDisk creates the ESP at s1 and the main partition at s2
+        # - Partition:  the selected partition keeps its identifier
+        target_partition = partition['identifier'] if partition else root_disk + "s2"
         initial_bytes_written = float(utilities.monitor_disk_output(root_disk))
         self.result = False
         def _flash():
-            logging.info(f"Flashing {installer['Path']} to {root_disk}")
-            self.result = self._flash_installer(root_disk)
+            logging.info(f"Flashing {installer['Path']} to {target_partition}")
+            self.result = self._flash_installer(target_partition)
 
         thread = threading.Thread(target=_flash)
         thread.start()
@@ -328,7 +416,7 @@ class macOSInstallerFlashFrame(wx.Frame):
         progress_bar_animation.start_pulse()
 
         bytes_written_label.SetLabel("Validating Installer Integrity...")
-        error_message = self._validate_installer_pkg(disk['identifier'])
+        error_message = self._validate_installer_pkg(target_partition)
 
         progress_bar_animation.stop_pulse()
 
@@ -362,12 +450,12 @@ class macOSInstallerFlashFrame(wx.Frame):
         self.Destroy()
 
 
-    def _prepare_resources(self, installer_path: str, disk: str) -> None:
+    def _prepare_resources(self, installer_path: str, disk: str, partition: dict = None) -> None:
 
-        def prepare_script(self, installer_path: str, disk: str, constants: constants.Constants):
-            self.prepare_result = macos_installer_handler.InstallerCreation().generate_installer_creation_script(constants.payload_path, installer_path, disk)
+        def prepare_script(self, installer_path: str, disk: str, partition: dict, constants: constants.Constants):
+            self.prepare_result = macos_installer_handler.InstallerCreation().generate_installer_creation_script(constants.payload_path, installer_path, disk, partition)
 
-        thread = threading.Thread(target=prepare_script, args=(self, installer_path, disk, self.constants))
+        thread = threading.Thread(target=prepare_script, args=(self, installer_path, disk, partition, self.constants))
         thread.start()
 
         gui_support.wait_for_thread(thread)
@@ -472,7 +560,7 @@ class macOSInstallerFlashFrame(wx.Frame):
 
 
     def _install_installer_pkg(self, disk):
-        disk = disk + "s2" # ESP sits at 1, and we know macOS will have created the main partition at 2
+        # 'disk' is the partition createinstallmedia wrote to (ex. disk4s2)
 
         if not Path(self.constants.installer_pkg_path).exists():
             return
@@ -622,7 +710,7 @@ class macOSInstallerFlashFrame(wx.Frame):
         error_message = ""
         def _integrity_check():
             nonlocal error_message
-            for folder in Path(utilities.grab_mount_point_from_disk(disk + "s2")).glob("*.app"):
+            for folder in Path(utilities.grab_mount_point_from_disk(disk)).glob("*.app"):
                 if folder.is_dir():
                     dmg_path = folder / "Contents" / "SharedSupport" / "SharedSupport.dmg"
                     break

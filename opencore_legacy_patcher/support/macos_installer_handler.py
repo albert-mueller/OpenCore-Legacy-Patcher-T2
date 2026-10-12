@@ -26,6 +26,23 @@ from ..volume import (
 
 APPLICATION_SEARCH_PATH:  str = "/Applications"
 
+# Minimum size of the target disk/partition for createinstallmedia
+# createinstallmedia isn't great at detecting if a disk has enough space
+MIN_INSTALLER_SIZE:       int = 15032385536   # 14 GB (14 GiB)
+MIN_INSTALLER_SIZE_TAHOE: int = 20000000000   # 20 GB (as shown in Finder/Disk Utility), macOS 26 Tahoe and newer
+
+
+def min_installer_size(installer_os: int) -> tuple:
+    """
+    Minimum target size for an installer of the given macOS (kernel major)
+
+    Returns:
+        tuple: (size in bytes, label for the UI)
+    """
+    if installer_os >= os_data.os_data.tahoe:
+        return MIN_INSTALLER_SIZE_TAHOE, "20 GB"
+    return MIN_INSTALLER_SIZE, "14 GB"
+
 tmp_dir = tempfile.TemporaryDirectory()
 
 
@@ -147,13 +164,13 @@ class InstallerCreation():
 
 
 
-    def generate_installer_creation_script(self, tmp_location: str, installer_path: str, disk: str) -> bool:
+    def generate_installer_creation_script(self, tmp_location: str, installer_path: str, disk: str, partition: dict = None) -> bool:
         """
         Creates installer.sh to be piped to OCLP-Helper and run as admin
 
         Script includes:
-        - Format provided disk as HFS+ GPT
-        - Run createinstallmedia on provided disk
+        - Format provided disk as HFS+ GPT (or only the selected partition)
+        - Run createinstallmedia on the resulting volume
 
         Implementing this into a single installer.sh script allows us to only call
         OCLP-Helper once to avoid nagging the user about permissions
@@ -161,11 +178,18 @@ class InstallerCreation():
         Parameters:
             tmp_location (str): Path to temporary directory
             installer_path (str): Path to InstallAssistant.pkg
-            disk (str): Disk to install to
+            disk (str): Disk to install to (ex. /dev/disk4)
+            partition (dict): Optional partition entry from list_disk_to_format().
+                              When set, only this partition is erased and the
+                              rest of the disk is left untouched.
 
         Returns:
             bool: True if successful, False otherwise
         """
+
+        erase_command = self._generate_erase_command(disk, partition)
+        if erase_command is None:
+            return False
 
         additional_args = ""
         script_location = Path(tmp_location) / Path("Installer.sh")
@@ -225,7 +249,7 @@ class InstallerCreation():
 
         with script_location.open("w") as script:
             script.write(f'''#!/bin/bash
-erase_disk='/usr/sbin/diskutil eraseDisk HFS+ OCLP-Installer {disk}'
+erase_disk='{erase_command}'
 if $erase_disk; then
     "{createinstallmedia_path}" --volume /Volumes/OCLP-Installer --nointeraction{additional_args}
 fi
@@ -235,11 +259,56 @@ fi
         return False
 
 
-    def list_disk_to_format(self) -> dict:
+    def _generate_erase_command(self, disk: str, partition: dict = None):
+        """
+        Build the diskutil command used to prepare the target for createinstallmedia
+
+        - Whole disk: eraseDisk (new GPT + ESP + HFS+ volume)
+        - Partition:  eraseVolume, or deleteContainer for APFS physical stores
+                      (eraseVolume refuses to reformat an APFS container's backing partition)
+
+        Identifiers are validated strictly as the script is executed as root.
+        """
+        if partition is None:
+            if not re.fullmatch(r"/dev/disk[0-9]+", disk):
+                logging.error(f"Refusing to erase unexpected disk identifier: {disk}")
+                return None
+            return f"/usr/sbin/diskutil eraseDisk HFS+ OCLP-Installer {disk}"
+
+        identifier = partition.get("identifier", "")
+        if not re.fullmatch(r"disk[0-9]+s[0-9]+", identifier) or not identifier.startswith(disk[5:] + "s"):
+            logging.error(f"Refusing to erase unexpected partition identifier: {identifier}")
+            return None
+
+        if partition.get("content") == "Apple_APFS":
+            return f"/usr/sbin/diskutil apfs deleteContainer /dev/{identifier} OCLP-Installer"
+        return f"/usr/sbin/diskutil eraseVolume HFS+ OCLP-Installer /dev/{identifier}"
+
+
+    def _booted_physical_partitions(self) -> set:
+        """
+        Partitions backing the currently booted root volume (ex. {"disk4s2"})
+        Used to avoid offering the boot drive when booting from an external disk
+        """
+        partitions = set()
+        try:
+            root_info = plistlib.loads(subprocess.run(["/usr/sbin/diskutil", "info", "-plist", "/"], stdout=subprocess.PIPE).stdout)
+        except Exception:
+            return partitions
+
+        for store in root_info.get("APFSPhysicalStores", []):
+            if "APFSPhysicalStore" in store:
+                partitions.add(store["APFSPhysicalStore"])
+        if not partitions and "DeviceIdentifier" in root_info:
+            partitions.add(root_info["DeviceIdentifier"])
+        return partitions
+
+
+    def list_disk_to_format(self, installer_os: int = 0) -> dict:
         """
         List applicable disks for macOS installer creation
         Only lists disks that are:
-        - 14GB or larger
+        - 14GB or larger (20GB or larger for macOS 26 Tahoe and newer)
         - External
 
         Current limitations:
@@ -251,6 +320,13 @@ fi
 
         all_disks:  dict = {}
         list_disks: dict = {}
+
+        min_size, _ = min_installer_size(installer_os)
+
+        # Partitions that can never be used as installer target, they are not listed at all
+        # (EFI is where OpenCore goes, never the macOS installer)
+        skip_content = ["EFI", "Apple_Boot", "Microsoft Reserved", "Apple_KernelCoreDump"]
+        booted_partitions = self._booted_physical_partitions()
 
         # TODO: AllDisksAndPartitions is not supported in Snow Leopard and older
         try:
@@ -274,14 +350,37 @@ fi
                 # Avoid crashing with CDs installed
                 continue
 
+            all_disks[disk["DeviceIdentifier"]]["scheme"] = disk.get("Content", "")
+            all_disks[disk["DeviceIdentifier"]]["booted"] = any(p.startswith(disk["DeviceIdentifier"] + "s") for p in booted_partitions)
+
+            for partition in disk.get("Partitions", []):
+                identifier = partition.get("DeviceIdentifier", "")
+                if not identifier or identifier in booted_partitions:
+                    continue
+                entry = {
+                    "identifier": identifier,
+                    "name":       partition.get("VolumeName", "") or ("APFS Container" if partition.get("Content", "") == "Apple_APFS" else "Untitled"),
+                    "content":    partition.get("Content", ""),
+                    "size":       partition.get("Size", 0),
+                }
+                if partition.get("Content", "") in skip_content:
+                    continue
+                # Same minimum as for whole disks
+                if partition.get("Size", 0) < min_size:
+                    continue
+                all_disks[disk["DeviceIdentifier"]]["partitions"][identifier] = entry
+
         for disk in all_disks:
-            # Strip disks that are under 14GB (15,032,385,536 bytes)
+            # Strip disks that are under the minimum size (14GB, 20GB for Tahoe and newer)
             # createinstallmedia isn't great at detecting if a disk has enough space
-            if not any(all_disks[disk]['size'] > 15032385536 for partition in all_disks[disk]):
+            if not any(all_disks[disk]['size'] >= min_size for partition in all_disks[disk]):
                 continue
             # Strip internal disks as well (avoid user formatting their SSD/HDD)
             # Ensure user doesn't format their boot drive
             if not any(all_disks[disk]['removable'] is False for partition in all_disks[disk]):
+                continue
+            # Never offer the disk macOS is currently booted from (ex. external boot SSD)
+            if all_disks[disk]["booted"] is True:
                 continue
 
             list_disks.update({
@@ -289,6 +388,8 @@ fi
                     "identifier": all_disks[disk]["identifier"],
                     "name": all_disks[disk]["name"],
                     "size": all_disks[disk]["size"],
+                    "scheme": all_disks[disk]["scheme"],
+                    "partitions": all_disks[disk]["partitions"],
                 }
             })
 

@@ -3,6 +3,7 @@ install.py: Installation of OpenCore files to ESP
 """
 
 import logging
+import os
 import plistlib
 import subprocess
 import re
@@ -11,9 +12,6 @@ from pathlib import Path
 
 from . import utilities, subprocess_wrapper
 from .. import constants
-
-# Dieses Variable ist da, um zu überprüfen, ob die OpenCore-Konfiguration fertig ist oder nicht.
-OpenCore_EFI_Konfiguration_abgeschlossen=False
 
 
 class tui_disk_installation:
@@ -127,12 +125,40 @@ class tui_disk_installation:
         except KeyError:
             ssd_type = False
 
-        mount_path = Path(partition_info["MountPoint"])
-        disk_type = partition_info["BusProtocol"]
+        # FIX: Ziel validieren, BEVOR als Root "rm -rf" darauf losgelassen wird.
+        # install_opencore() wird mit einer Partitionskennung aufgerufen; wird eine falsche
+        # (z. B. APFS-Datenvolume) übergeben, löschte der Code dort als Root EFI/OC und System.
+        # Ein leerer/fehlender MountPoint wurde zu Path("") == aktuelles Verzeichnis.
+        mount_point = partition_info.get("MountPoint", "")
+        partition_fs = partition_info.get("FilesystemType", partition_info.get("Content", ""))
+        if partition_fs not in ("msdos", "EFI"):
+            logging.error(f"Refusing to install OpenCore to {full_disk_identifier}: not a FAT/EFI partition ({partition_fs}).")
+            return False
+        if not mount_point:
+            logging.error(f"Refusing to install OpenCore to {full_disk_identifier}: no mount point reported.")
+            return False
+
+        mount_path = Path(mount_point)
+        disk_type = partition_info.get("BusProtocol", "")
 
         # FIX 2: Absicherung, falls diskutil Erfolg meldet, der Pfad aber trotzdem nicht existiert
         if not mount_path.exists():
             logging.error("The EFI couldn't be mounted because the directory doesn't exist.")
+            return False
+
+        # Der Mountpunkt darf beliebig liegen (die ESP muss nicht unter /Volumes/EFI gemountet
+        # sein, z. B. bei eigenem Mountpunkt oder bereits anderweitig gemounteter ESP). Statt eines
+        # festen Pfads wird geprüft, dass der Pfad wirklich ein Mountpunkt ist und genau DIESE
+        # Partition dort gemountet ist - sonst würde "rm -rf" auf einem fremden Dateisystem landen.
+        if not mount_path.is_absolute() or mount_path.resolve() == Path("/") or not os.path.ismount(mount_path):
+            logging.error(f"Refusing to install OpenCore to unexpected mount point: {mount_path}")
+            return False
+        try:
+            mounted_info = plistlib.loads(subprocess.run(["/usr/sbin/diskutil", "info", "-plist", str(mount_path)], stdout=subprocess.PIPE).stdout)
+        except Exception:
+            mounted_info = {}
+        if mounted_info.get("DeviceIdentifier") != partition_info.get("DeviceIdentifier"):
+            logging.error(f"Refusing to install OpenCore: {mount_path} does not belong to {full_disk_identifier}.")
             return False
 
         # Start der Dateioperationen
@@ -209,18 +235,20 @@ class tui_disk_installation:
             logging.warning(f"Copying the icons failed (not critical): {icon_error}")
 
         # Bereinigung & Unmount
+        # FIX: Hier stand vorher ein Flag "OpenCore_EFI_Konfiguration_abgeschlossen", das nur beim
+        # Unmount gesetzt wurde. Durch die Zuweisung in der Funktion war es eine lokale Variable:
+        # im Recovery-Modus (kein Unmount) führte das Lesen zu UnboundLocalError, also zu einem
+        # Absturz NACH erfolgreicher Installation. Erfolg/Misserfolg der Kopie wird bereits oben
+        # über run_as_root_and_verify() + Existenzprüfung abgesichert; hier wird nur noch der
+        # Unmount sauber behandelt.
         logging.info("Cleaning up installation site")
         if not self.constants.recovery_status:
             logging.info("Unmounting the EFI partition")
             # FIX 4: Auch unmount als Root ausführen, da wir es als Root gemountet haben
-            subprocess_wrapper.run_as_root(["/usr/sbin/diskutil", "umount", mount_path])
-            OpenCore_EFI_Konfiguration_abgeschlossen=True
-        # behebt einen Fehler, indem bedingungslos OpenCore Transfer complete anzeigt. Dies ist auch eine Sicherheitslücke, die erlaubt Angreifern ungefertigtes EFI-Configuration auf den EFI oder andere OpenCore Partition zu platzieren, um DoS-Angriffe zu starten. Es ist eine extrem seriöse Sicherheitslücke, die zu Datenverlust und manchmal sogar Geldverlust bringen kann.
-        if OpenCore_EFI_Konfiguration_abgeschlossen==True:
-            logging.info("OpenCore Transfer complete")
-            return True
-        else:
-            logging.error("Configuring OpenCore failed due to the following error:")
-            logging.exception("Stack Trace:")
-            logging.info("Please report this issue.")
-            sys.exit(3)
+            umount_result = subprocess_wrapper.run_as_root(["/usr/sbin/diskutil", "umount", mount_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if umount_result.returncode != 0:
+                logging.warning("Unmounting the EFI partition failed (not critical, OpenCore was installed):")
+                subprocess_wrapper.log(umount_result)
+
+        logging.info("OpenCore Transfer complete")
+        return True
