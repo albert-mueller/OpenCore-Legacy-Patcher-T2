@@ -15,9 +15,9 @@ class Constants:
     def __init__(self) -> None:
         # Patcher Versioning
         # Wenn eine Version mit s endet, es heißt, dass sie noch nicht fertig ist.
-        self.patcher_version:                 str = "4.0.0.190009.4"
+        self.patcher_version:                 str = "4.0.0.190009.7"
         self.patcher_version_label=self.patcher_version
-        self.patcher_support_pkg_version:     str = "2.0.7"  # PatcherSupportPkg
+        self.patcher_support_pkg_version:     str = "2.0.8"  # PatcherSupportPkg
         self.copyright_date:                  str = "Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors · T2 fork © 2026 Albert Müller"
 
         # Application identity
@@ -69,8 +69,16 @@ class Constants:
         self.installer_pkg_url:               str = f"{self.repo_link.rstrip('/')}/releases/download/{self.patcher_version}/AutoPkg-Assets-T2.pkg"
 
         # OpenCore Versioning
+        # T2 Macs use our own OpenCorePkg fork with T2 support:
         # https://github.com/albert-mueller/OpenCorePkg-add-T2-support
-        self.opencore_version: str = "2.0.4" #T2
+        #   payloads/OpenCore/OpenCore-{DEBUG,RELEASE}.zip
+        # Non-T2 Macs use OpenCore 1.0.8:
+        #   payloads/OpenCore/OpenCore-NON-T2-{DEBUG,RELEASE}.zip
+        # Which one is used is decided per build by the EFI builder (opencore_build_for_t2),
+        # opencore_version / opencore_zip_source / opencore_zip_copied follow it.
+        self.opencore_version_t2:     str  = "2.0.4" #T2
+        self.opencore_version_non_t2: str  = "1.0.8" #Non-T2
+        self.opencore_build_for_t2:   bool = True    # Set by efi_builder/build.py for the target model
 
 
         # Kext Versioning
@@ -80,11 +88,10 @@ class Constants:
         self.whatevergreen_version:      str = "1.7.1"  #      WhateverGreen
         self.whatevergreen_navi_version: str = "1.7.0-Navi"  # WhateverGreen (Navi Patch)
         self.airportbcrmfixup_version:   str = "2.2.1"  #      AirPortBrcmFixup
-        self.broadcomvtd_tahoe_version:  str = "0.2.17" #      BroadcomVTD-Tahoe
         self.nvmefix_version:            str = "1.1.3"  #      NVMeFix
         self.applealc_version:           str = "1.9.8"  #      AppleALC
         self.restrictevents_version:     str = "1.1.6"  #      RestrictEvents
-        self.spoofvmm_version:           str = "4.9.1"  #      SpoofVMM
+        self.spoofvmm_version:           str = "4.9.7-alpha4"  #      SpoofVMM
         self.featureunlock_version:      str = "1.1.8"  #      FeatureUnlock
         self.debugenhancer_version:      str = "1.1.0"  #      DebugEnhancer
         self.cpufriend_version:          str = "1.3.0"  #      CPUFriend
@@ -131,6 +138,7 @@ class Constants:
         self.io80211legacy_version:    str = "1.0.0"  # IO80211FamilyLegacy (Ventura)
         self.ioskywalk_version:        str = "1.2.0"  # IOSkywalkFamily (Ventura)
         self.airport_atheros_tahoe_version: str = "1.0.0"  # AirPortAtheros40-Tahoe
+        self.airport_brcmnic_tahoe_version: str = "1.0.0"  # AirPortBrcmNIC-Tahoe
         self.bigsursdxc_version:       str = "1.0.0"  # BigSurSDXC
         self.monterey_ahci_version:    str = "1.0.0"  # CatalinaAHCI
 
@@ -202,6 +210,7 @@ class Constants:
         self.host_is_hackintosh:        bool = False  # Determine if host is Hackintosh
         self.host_is_vmware_vm:         bool = False  # Dev/test only: host is running under VMware (VM board-id), never true on real Mac hardware; bypasses the SIP validation gate so root-patching syntax can be exercised in a VM
         self.allow_vmware_root_patching: bool = False  # Dev/test only, NEVER exposed as a GUI Settings checkbox - must be hand-edited to True in this file and run from source. Narrower than allow_oc_everywhere (which IS a GUI checkbox any user could flip): only takes effect when host_is_vmware_vm is also True, so it can only ever unlock the Root Patching button for a detected VMware VM, never for hackintoshes/real unsupported Macs in general. See gui_support.CheckProperties.host_can_build().
+        self.allow_oc_on_shared_t2_esp: bool = False  # Dev/test only, NEVER exposed as a GUI Settings checkbox - hand-edit to True and run from source. When False (default), OpenCore is never installed to an EFI partition on a T2 Mac target if Windows or Linux is detected on that disk/ESP; a separate FAT32 OpenCore partition is required instead. See support/install.py
         self.vmware_simulated_model:    str = ""  # Dev/test only, hand-edit + no GUI control, read once at startup and only when host_is_vmware_vm and allow_vmware_root_patching are both True. Mac model that root patch detection should see (eg. "iMac11,2"), overriding computer.real_model. Drives every patchset whose present() checks a hardcoded model list (legacy_audio, gmux, pcie_webcam, t1_security, usb11). Note model_array.py is NOT consulted by detection at all - see _apply_vmware_simulated_hardware() in application_entry.py
         self.vmware_simulated_gpu:      str = ""  # Dev/test only, same gating as vmware_simulated_model. PCI "vendor:device" hex pair (eg. "1002:6821" = AMD Legacy GCN v1) injected into computer.gpus, since every graphics patchset matches on device_probe archs rather than on a model. IDs run through the real device_probe classes, so the arch comes from pci_data exactly as it does for physical hardware
         self.should_nuke_kdks:          bool = True  #  Determine if KDKs should be nuked if unused in /L*/D*/KDKs
@@ -352,8 +361,29 @@ class Constants:
 
     # OpenCore
     @property
+    def opencore_version(self) -> str:
+        """
+        OpenCore version of the payload used for the current build:
+        our T2 fork for T2 Macs, OpenCore 1.0.8 for every other Mac
+        """
+        return self.opencore_version_t2 if self.opencore_build_for_t2 is True else self.opencore_version_non_t2
+
+    @property
+    def opencore_zip_name(self) -> str:
+        """
+        OpenCore-{DEBUG,RELEASE}.zip for T2 Macs, OpenCore-NON-T2-{DEBUG,RELEASE}.zip otherwise
+        """
+        variant = "DEBUG" if self.opencore_debug is True else "RELEASE"
+        if self.opencore_build_for_t2 is True:
+            return f"OpenCore-{variant}.zip"
+        if self.opencore_build_for_t2 is False:
+            return f"OpenCore-NON-T2-{variant}.zip"
+        # Only an explicit True/False selects a package; anything else is a bug upstream
+        raise ValueError(f"opencore_build_for_t2 must be True or False, got {self.opencore_build_for_t2!r}")
+
+    @property
     def opencore_zip_source(self):
-        return self.payload_path / Path(f"OpenCore/OpenCore-{'DEBUG' if self.opencore_debug is True else 'RELEASE'}.zip")
+        return self.payload_path / Path("OpenCore") / Path(self.opencore_zip_name)
 
     @property
     def plist_template(self):
@@ -456,16 +486,19 @@ class Constants:
         return self.payload_kexts_path / Path(f"Acidanthera/AirportBrcmFixup-v{self.airportbcrmfixup_version}-{self.kext_variant}.zip")
 
     @property
-    def broadcomvtd_tahoe_path(self):
-        return self.payload_kexts_path / Path(f"Wifi/BroadcomVTD-Tahoe-v{self.broadcomvtd_tahoe_version}.zip")
-
-    @property
     def restrictevents_path(self):
         return self.payload_kexts_path / Path(f"Acidanthera/RestrictEvents-{self.restrictevents_version}-{self.kext_variant}.zip")
 
     @property
     def spoofvmm_path(self):
-        return self.payload_kexts_path / Path(f"T2/SpoofVMM-{self.spoofvmm_version}-{self.kext_variant.capitalize()}.zip")
+        path = self.payload_kexts_path / Path(f"T2/SpoofVMM-{self.spoofvmm_version}-{self.kext_variant.capitalize()}.zip")
+        # SpoofVMM 4.9.7-alpha4 was only released as a Release build. Fall back to it
+        # when no Debug build is bundled, instead of failing the build or validation.
+        if not path.exists():
+            release_path = self.payload_kexts_path / Path(f"T2/SpoofVMM-{self.spoofvmm_version}-Release.zip")
+            if release_path.exists():
+                return release_path
+        return path
 
 
 
@@ -604,6 +637,10 @@ class Constants:
     @property
     def airport_atheros_tahoe_path(self):
         return self.payload_kexts_path / Path(f"Wifi/AirPortAtheros40-Tahoe-v{self.airport_atheros_tahoe_version}.zip")
+
+    @property
+    def airport_brcmnic_tahoe_path(self):
+        return self.payload_kexts_path / Path(f"Wifi/AirPortBrcmNIC-Tahoe-v{self.airport_brcmnic_tahoe_version}.zip")
 
     @property
     def applealc_path(self):
@@ -764,7 +801,7 @@ class Constants:
 
     @property
     def opencore_zip_copied(self):
-        return self.build_path / Path(f"OpenCore-{'DEBUG' if self.opencore_debug is True else 'RELEASE'}.zip")
+        return self.build_path / Path(self.opencore_zip_name)
 
     @property
     def oc_folder(self):

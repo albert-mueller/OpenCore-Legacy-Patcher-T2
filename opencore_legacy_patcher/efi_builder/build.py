@@ -115,6 +115,11 @@ class BuildOpenCore:
         utilities.cls()
         logging.info(f"Building Configuration {'for external' if self.constants.custom_model else 'on model'}: {self.model}")
 
+        # Determine T2 status upfront: it also selects the OpenCore payload
+        # (T2 fork for T2 Macs, OpenCore 1.0.8 for all other Macs) in _generate_base()
+        is_t2 = self.model in model_array.T2Macs or "T2_CHIP" in self.constants.device_properties.get(self.model, {}).get("Features", [])
+        self.constants.opencore_build_for_t2 = is_t2
+
         self._generate_base()
         self._set_revision()
 
@@ -127,9 +132,6 @@ class BuildOpenCore:
         if self.model in _T2_UHD630_MODELS:
             logging.info(f"- Disabling VMM CPUID for {self.model} to prevent UHD 630 driver stall")
             self.constants.set_vmm_cpuid = False
-
-        # Determine T2 status upfront
-        is_t2 = self.model in model_array.T2Macs or "T2_CHIP" in self.constants.device_properties.get(self.model, {}).get("Features", [])
 
         if is_t2:
             try:
@@ -218,10 +220,17 @@ class BuildOpenCore:
                 raw_args = self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"].get("boot-args", "")
                 # Also drop dart=0: it is only meant for pre-T2 targets and must not
                 # survive into a T2 config via the template or a previous build.
-                scrubbed_args = " ".join([arg for arg in raw_args.split() if not arg.startswith("-lilu") and arg != "dart=0"])
+                # RestrictEvents args (-revbeta, revpatch=, revblock=) are dropped too:
+                # RestrictEvents is not injected on T2 Macs, SpoofVMM does the VMM spoof.
+                scrubbed_args = " ".join([
+                    arg for arg in raw_args.split()
+                    if not arg.startswith("-lilu")
+                    and arg not in ["dart=0", "-revbeta"]
+                    and not arg.startswith(("revpatch=", "revblock="))
+                ])
 
                 # Append required T2 args safely without compounding spaces
-                t2_args = "-ibtcompatbeta -revbeta revpatch=sbvmm"
+                t2_args = "-ibtcompatbeta"
                 self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = f"{scrubbed_args} {t2_args}".strip()
 
                 # RestrictEvents.kext is intentionally NOT injected on T2 Macs; they will use a
@@ -337,6 +346,9 @@ class BuildOpenCore:
             except TypeError:
                 shutil.rmtree(staging_folder, ignore_errors=True)
 
+        if not Path(self.constants.opencore_zip_source).exists():
+            raise FileNotFoundError(f"OpenCore payload missing: {self.constants.opencore_zip_source}")
+        logging.info(f"- Using OpenCore payload {self.constants.opencore_zip_name} ({'T2' if self.constants.opencore_build_for_t2 else 'non-T2'} target)")
         shutil.copy(self.constants.opencore_zip_source, self.constants.build_path)
         zipfile.ZipFile(self.constants.opencore_zip_copied).extractall(self.constants.build_path)
 

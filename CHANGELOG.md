@@ -1,4 +1,35 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.190009.7 - 4.0.0 alpha 19.9.7
+This release:
+- on T2 Macs, now no longer allows flashing to the ESP if Windows or Linux is installed. On Linux is untested whether flashing OpenCore to the ESP causes issues, but on Windows 11 it results in This device needs to be repaired. Now if Windows is installed, it'll show this warning instead:
+<img width="512" height="379" alt="image" src="https://github.com/user-attachments/assets/39d4946e-47ee-437d-bf66-01d05098bc6b" />
+
+- fixes a bug in the Spoof-VMM.kext where on unsupported T2 Macs when trying to boot the installer causes a kernel panic
+- updates the Intel Skylake and AMD Legacy GCN patches to fix a kernel panic on MacBookPro13,3 by updating PatcherSupportPkg to 2.0.8, thx @Jazzzny and @Dortania
+## 4.0.0.190009.6 - 4.0.0 alpha 19.9.6
+- fixes a vulnerability where an attacker could check if opencore_build_for_t2 is True to execute arbitary code:
+
+      if self.opencore_build_for_t2 is not True:
+                  variant = f"NON-T2-{variant}"
+              return f"OpenCore-{variant}.zip" # <- an attacker could execute arbitary code or launch a DoS attack
+Impact: an attacker could check if the Mac is a T2 Mac or not and if yes, to execute arbitary code instead of injecting OpenCore to disk. Or worse, an attacker could inject OpenCore 2.0.7 that is known to cause issues on non-T2 Macs to intentionally corrupt the system. This vulnerability is fixed by ensuring OpenCore ever gets injected if the opencore_build_for_t2 condition exists and is set to either True or False.
+T2 Macs:
+- updates SpoofVMM from 4.9.1 to 4.9.6-alpha2 (`payloads/Kexts/T2/SpoofVMM-4.9.6-alpha2-Release.zip`), thx @Medelcartelinc:
+  - in-kernel Stage 2 installer bypass: patches `-[... runReturningError:]` of `OSIUpdateFirmwareElement`, `OSIVerifyROMElement`, `OSIInstallPersonalizedManifestsElement`, `OSIMSUInstallElement` and `OSIMSUCleanupElement` to return success, so the installer no longer stops at the BridgeOS firmware step on T2 Macs Apple dropped from macOS 26 Tahoe. It is on by default; `-spoofvmmnobypass`, `-spoofvmmnostage2` and `-spoofvmmnocs` turn it off for testing
+  - the default bridge-model is now `J214kAP` (and `hw.target` reports the same), matching the default board-id `Mac-5F9802EFE386AA28` (both MacBookPro16,2)
+  - no new boot-args are needed: OCLP keeps adding `-spoofvmmbid` on unsupported T2 Macs only
+- this is an alpha build of SpoofVMM and only a Release build exists, so the Release build is also used when kext debugging is enabled
+- removes the RestrictEvents boot-args `-revbeta` and `revpatch=sbvmm` from T2 configs (also when left over from a template or older build). RestrictEvents is not injected on T2 Macs, so they had no effect; SpoofVMM handles the VMM spoof
+- SpoofVMM is now only taken from the bundled release: the build no longer falls back to another SpoofVMM zip or to an old, previously extracted `SpoofVMM.kext` (possible when running from source), checks that the added kext really is 4.9.6, and stops with an error if the payload is missing. The second SpoofVMM injection in the T2 handling (logged as "3.0.0") uses the same path now
+- this is not yet tested on real hardware. Please report whether Stage 2 of the Tahoe installer gets past "Failed to install a software update" (attach `/var/log/install.log`)
+
+Non-T2 Macs:
+- fixes MacBookPro11,1, 11,2 and 11,3 (2013/2014 Haswell) freezing at the Apple logo on macOS 15 Sequoia and macOS 26 Tahoe (#218). Since alpha 18 these models got the `ProvideCurrentCpuInfo` kernel quirk, which on Intel CPUs patches the core count to the thread count (meant for Alder Lake and other asymmetrical CPUs) and gave the kernel a wrong CPU topology. It is now only used on MacBookAir8,1 and 8,2 again. Rebuild and reinstall OpenCore to pick up the fix
+
+## 4.0.0.190009.5 - 4.0.0 alpha 19.9.5
+OpenCore:
+- non-T2 Macs now get OpenCore 1.0.8 (`payloads/OpenCore/OpenCore-NON-T2-{DEBUG,RELEASE}.zip`) instead of the T2 OpenCorePkg fork. T2 Macs keep using the T2 fork (`OpenCore-{DEBUG,RELEASE}.zip`, 2.0.4). The payload is picked per build target, so building on a T2 Mac for a non-T2 Mac (and the other way round) uses the right one; the build log and `#Revision > OpenCore-Version` in config.plist show which version was used. The fork was never designed for non-T2 Macs and would cause issues if used on a non-T2 system, including stalls and kernel panics.
+
 ## 4.0.0.190009.4 - 4.0.0 alpha 19.9.4
 This release fixes root patching problems introduced or left over while porting Dortania's macOS 26 Tahoe patching scheme:
 

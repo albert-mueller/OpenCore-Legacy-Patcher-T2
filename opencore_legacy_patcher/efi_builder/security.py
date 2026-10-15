@@ -338,15 +338,19 @@ class BuildSecurity:
 
                 if self.is_tahoe_target:
                     logging.info("- Injecting SpoofVMM for macOS Tahoe bypass on T2")
-                    support.BuildSupport(self.model, self.constants, self.config).enable_kext(
-                        "SpoofVMM.kext", self.constants.spoofvmm_version, self.constants.spoofvmm_path
-                    )
+                    support.BuildSupport(self.model, self.constants, self.config).enable_spoofvmm()
 
                     # SpoofVMM >= 4.9.1: the board-id swap is opt-in via -spoofvmmbid.
                     # Without it, MobileSoftwareUpdate (MSU) on T2 Macs that Apple dropped
                     # from Tahoe can't find a matching manifest during installation
                     # (Stage 2). Natively supported T2 Macs (Max OS Supported >= Tahoe)
                     # don't need the swap, so they keep the real board-id (Wi-Fi calibration).
+                    # SpoofVMM 4.9.6-alpha2: the Stage 2 installer bypass (cs_validate_page)
+                    # is on by default and needs no boot-arg (-spoofvmmnobypass /
+                    # -spoofvmmnostage2 / -spoofvmmnocs turn parts of it off). The default
+                    # bridge-model (J214kAP) now matches the default board-id
+                    # (Mac-5F9802EFE386AA28, both MacBookPro16,2), so -spoofvmmbid stays
+                    # the only SpoofVMM boot-arg OCLP has to add.
                     if is_unsupported_t2_mac(self.model):
                         logging.info("- Enabling SpoofVMM board-id swap (-spoofvmmbid) for unsupported T2 Mac")
                         self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args", "-spoofvmmbid")

@@ -503,13 +503,17 @@ class BuildMiscellaneous:
 
     def _cpu_topology_handling(self) -> None:
         """Apply CPU topology / thread pooling panic fixes on affected models."""
-        if self.model in ["MacBookAir8,1", "MacBookAir8,2", "MacBookPro11,1", "MacBookPro11,2", "MacBookPro11,3"]: # <- behebt eine Sicherheitslücke, die erlaubt Angreifern zu zwingen, CPU-Topologie-Patches zu überspringen, um DoS-Angriffe zu starten
+        # MacBookPro11,x (Haswell) must NOT get ProvideCurrentCpuInfo: on Intel CPUs the quirk patches
+        # core count to thread count for asymmetrical SMP CPUs (Alder Lake). On a Haswell CPU with
+        # Hyper-Threading that gives the kernel a wrong CPU topology and it freezes at the Apple logo
+        # (issue #218). Dortania's OCLP doesn't set it for these models either.
+        if self.model in ["MacBookAir8,1", "MacBookAir8,2"]: # <- behebt eine Sicherheitslücke, die erlaubt Angreifern zu zwingen, CPU-Topologie-Patches zu überspringen, um DoS-Angriffe zu starten
             self._cpu_topology_fix()
         else:
             return
 
     def _cpu_topology_fix(self) -> None:
-        if self.model in ["MacBookAir8,1", "MacBookAir8,2", "MacBookPro11,1", "MacBookPro11,2", "MacBookPro11,3"]: # <- behebt eine Sicherheitslücke, die erlaubt Angreifern, nur per einfaches Anruf von die Funktion self._cpu_topology_fix, CPU-Topologie-Patches auf nicht unterstützte Hardware zu injizieren, um DoS-Angriffe zu starten
+        if self.model in ["MacBookAir8,1", "MacBookAir8,2"]: # <- behebt eine Sicherheitslücke, die erlaubt Angreifern, nur per einfaches Anruf von die Funktion self._cpu_topology_fix, CPU-Topologie-Patches auf nicht unterstützte Hardware zu injizieren, um DoS-Angriffe zu starten
             try:
                 logging.info(f"- Applying patches for {self.model} to fix CPU topology / thread pooling panic layouts")
                 self.config["Kernel"]["Quirks"]["ProvideCurrentCpuInfo"] = True
@@ -535,13 +539,19 @@ class BuildMiscellaneous:
             for kext, ver, path in [
                 ("WhateverGreen.kext", self.constants.whatevergreen_version, self.constants.whatevergreen_path),
                 ("CryptexFixup.kext", "1.0.5", self.constants.kexts_path),
-                ("SpoofVMM.kext", "3.0.0", self.constants.kexts_path),
                 # ("AMFIPass.kext", "1.4.1", self.constants.kexts_path) # Temporarily disabled for testing AMFI stall
             ]:
                 obj = builder.get_kext_by_bundle_path(kext)
                 if not obj or obj.get("Enabled") is not True:
                     logging.info(f"- Enabling {kext}")
                     builder.enable_kext(kext, ver, path)
+
+            # SpoofVMM only ever comes from the bundled release (constants.spoofvmm_path),
+            # never from an older zip or a stale extracted kext.
+            spoofvmm = builder.get_kext_by_bundle_path("SpoofVMM.kext")
+            if not spoofvmm or spoofvmm.get("Enabled") is not True:
+                logging.info("- Enabling SpoofVMM.kext")
+                builder.enable_spoofvmm()
 
             # Handle explicit performance/timeout panics on specific MacBook lines
             # Der Grund warum MinKernel auf 24.0.0 (Sequoias Version von Darwin) stattdessen von 25.x.x eingestellt ist, ist es die Installationsprogramm läuft auf Darwin 24 noch, auch die von 26 Tahoe.
@@ -572,7 +582,7 @@ class BuildMiscellaneous:
                 # iGPU-only models and Polaris/Vega dGPUs use agdpmod=vit9696 instead.
                 _agdpmod = "pikera" if self.computer.dgpu and getattr(self.computer.dgpu, "arch", None) == device_probe.AMD.Archs.Navi else "vit9696"
                 self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args",
-                    f"-v rddelay=10 igfxfw=2 igfxonln=1 -disable_ext_panics -no_compat_check -revbeta "
+                    f"-v rddelay=10 igfxfw=2 igfxonln=1 -disable_ext_panics -no_compat_check "
                     f"agdpmod={_agdpmod} forceRenderStandby=0 ipc_control_port_options=0 AMFIPass=0x1 amfi=0x80")
             except Exception as e:
                 logging.error("Injecting T2 specific boot arguments failed due to the following error:")

@@ -12,6 +12,90 @@ from pathlib import Path
 
 from . import utilities, subprocess_wrapper
 from .. import constants
+from ..datasets import model_array
+
+
+# GPT partition type GUID of the EFI System Partition (diskutil may report either the name or the GUID)
+_ESP_TYPE_GUID = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
+
+# Partitions that only exist on disks with a Windows installation. "Microsoft Basic Data" alone is NOT
+# used, since macOS uses the same type for plain FAT32/exFAT data partitions (including a separate
+# OpenCore partition) - for that type only the NTFS filesystem counts as Windows.
+_WINDOWS_CONTENT_TYPES = {
+    "microsoft reserved", "windows recovery", "windows_ntfs",
+    "e3c9e316-0b5c-4db8-817d-f92df00215ae",  # Microsoft Reserved
+    "de94bba4-06d1-4d40-a16a-bfd50179d6ac",  # Windows Recovery Environment
+}
+_WINDOWS_FILESYSTEMS = {"ntfs"}
+
+_LINUX_CONTENT_TYPES = {
+    "0fc63daf-8483-4772-8e79-3d69d8477de4",  # Linux filesystem data
+    "0657fd6d-a4ab-43c4-84e5-0933c84b4f4f",  # Linux swap
+    "e6d6d379-f507-44c2-a23c-238f2a3df928",  # Linux LVM
+    "a19d880f-05fc-4d3b-a006-743f0f84911e",  # Linux RAID
+    "4f68bce3-e8cd-4db1-96e7-fbcaf984b709",  # Linux root (x86-64)
+    "933ac7e1-2eb4-4f13-b844-0e14e2aef915",  # Linux /home
+    "bc13c2ff-59e6-4262-a352-b275fd6f7172",  # Linux /boot (XBOOTLDR)
+}
+_LINUX_FILESYSTEMS = {"ext2", "ext3", "ext4", "btrfs", "xfs", "f2fs", "reiserfs", "jfs"}
+
+# Boot loader folders other operating systems put on the ESP (EFI/<name>). EFI/BOOT (generic fallback
+# path) and EFI/APPLE / EFI/OC are deliberately not listed.
+_WINDOWS_ESP_FOLDERS = {"microsoft"}
+_LINUX_ESP_FOLDERS = {
+    "ubuntu", "debian", "fedora", "redhat", "centos", "rocky", "almalinux", "opensuse", "sles",
+    "arch", "manjaro", "endeavouros", "linuxmint", "pop", "elementary", "kali", "gentoo", "void",
+    "nixos", "grub", "systemd", "refind", "linux", "t2linux",
+}
+
+
+def _foreign_os_from_partitions(partitions) -> list:
+    """
+    Return the operating systems ("Windows"/"Linux") found in an iterable of (filesystem, content) pairs
+    """
+    found = []
+    for fs, content in partitions:
+        fs = (fs or "").lower()
+        content = (content or "").lower()
+        if fs in _WINDOWS_FILESYSTEMS or content in _WINDOWS_CONTENT_TYPES:
+            if "Windows" not in found:
+                found.append("Windows")
+        if fs in _LINUX_FILESYSTEMS or content in _LINUX_CONTENT_TYPES or content.startswith("linux"):
+            if "Linux" not in found:
+                found.append("Linux")
+    return found
+
+
+def _foreign_os_from_esp(mount_path: Path) -> list:
+    """
+    Return the operating systems whose boot loaders live in EFI/ of a mounted ESP
+    """
+    found = []
+    try:
+        folders = {entry.name.lower() for entry in (mount_path / "EFI").iterdir() if entry.is_dir()}
+    except Exception:
+        return found
+    if folders & _WINDOWS_ESP_FOLDERS:
+        found.append("Windows")
+    if folders & _LINUX_ESP_FOLDERS:
+        found.append("Linux")
+    return found
+
+
+def is_esp(content: str) -> bool:
+    return (content or "").upper() in ("EFI", _ESP_TYPE_GUID)
+
+
+SHARED_ESP_HELP = (
+    "On T2 Macs OpenCore must not share the EFI partition with Windows or Linux, because their boot "
+    "loaders and OpenCore would interfere with each other there.\n\n"
+    "On Windows 11 on T2 Macs if OpenCore is flashed to the ESP, it results in This device needs to \n\n"
+    "be repaired error. On T2 Macs unfortuantely their UEFI is very sensitive and would be impossible to fix \n\n"
+    "if this happened."
+    "Create a separate partition for OpenCore instead: in Disk Utility select the disk, click "
+    "\"Partition\", add a new partition of about 300 MB, format it as \"MS-DOS (FAT)\" and name it "
+    "\"OPENCORE\". Then search for disks again and select that partition."
+)
 
 
 class tui_disk_installation:
@@ -70,6 +154,51 @@ class tui_disk_installation:
             })
         return supported_disks
 
+    def target_is_t2(self) -> bool:
+        """
+        True if OpenCore is being installed for a T2 Mac (build target, not necessarily the host)
+        """
+        return (self.constants.custom_model or self.constants.computer.real_model) in model_array.T2Macs
+
+    def _shared_esp_check_enabled(self) -> bool:
+        if not self.target_is_t2():
+            return False
+        if getattr(self.constants, "allow_oc_on_shared_t2_esp", False) is True:
+            logging.warning("allow_oc_on_shared_t2_esp is set: skipping the Windows/Linux EFI partition check for T2 Macs")
+            return False
+        return True
+
+    def foreign_os_on_disk(self, disk_identifier: str, supported_disks: dict) -> list:
+        """
+        Windows/Linux installations found on a disk from list_disks()
+        """
+        disk = supported_disks.get(disk_identifier) or {}
+        partitions = disk.get("partitions", {})
+        return _foreign_os_from_partitions((partitions[p].get("fs"), partitions[p].get("type")) for p in partitions)
+
+    def _foreign_os_on_parent_disk(self, parent_disk: str) -> list:
+        """
+        Same as foreign_os_on_disk(), but queries diskutil directly (used right before installing)
+        """
+        pairs = []
+        try:
+            disk_list = plistlib.loads(subprocess.run(["/usr/sbin/diskutil", "list", "-plist", parent_disk], stdout=subprocess.PIPE).stdout)
+        except Exception as e:
+            logging.warning(f"Could not list partitions of {parent_disk}: {e}")
+            return []
+        for disk in disk_list.get("AllDisksAndPartitions", []):
+            for partition in disk.get("Partitions", []):
+                content = partition.get("Content", "")
+                fs = ""
+                try:
+                    info = plistlib.loads(subprocess.run(["/usr/sbin/diskutil", "info", "-plist", partition["DeviceIdentifier"]], stdout=subprocess.PIPE).stdout)
+                    fs = info.get("FilesystemType", "")
+                    content = info.get("Content", content)
+                except Exception:
+                    pass
+                pairs.append((fs, content))
+        return _foreign_os_from_partitions(pairs)
+
     def list_partitions(self, disk_response, supported_disks):
         disk_identifier = disk_response
 
@@ -79,15 +208,25 @@ class tui_disk_installation:
             logging.error(f"The selected disk {disk_identifier} wasn't found.")
             return {}
 
+        # T2 Macs: if Windows or Linux is installed on this disk, the EFI partition is off limits and
+        # OpenCore has to go to a separate FAT32 partition (see SHARED_ESP_HELP).
+        foreign_os = self.foreign_os_on_disk(disk_identifier, supported_disks) if self._shared_esp_check_enabled() else []
+        if foreign_os:
+            logging.info(f"{' and '.join(foreign_os)} detected on {disk_identifier}: the EFI partition can't be used for OpenCore on T2 Macs")
+
         supported_partitions = {}
         for partition in selected_disk["partitions"]:
             if selected_disk["partitions"][partition]["fs"] not in ("msdos", "EFI"):
                 continue
+            blocked_reason = None
+            if foreign_os and is_esp(selected_disk["partitions"][partition]["type"]):
+                blocked_reason = f"{' and '.join(foreign_os)} installed on this disk"
             supported_partitions.update({
                 partition: {
                     "partition": partition,
                     "name": selected_disk["partitions"][partition]["name"],
-                    "size": utilities.human_fmt(selected_disk["partitions"][partition]["size"])
+                    "size": utilities.human_fmt(selected_disk["partitions"][partition]["size"]),
+                    "blocked_reason": blocked_reason,
                 }
             })
         return supported_partitions
@@ -160,6 +299,21 @@ class tui_disk_installation:
         if mounted_info.get("DeviceIdentifier") != partition_info.get("DeviceIdentifier"):
             logging.error(f"Refusing to install OpenCore: {mount_path} does not belong to {full_disk_identifier}.")
             return False
+
+        # T2 Macs: never install to an EFI partition that is shared with Windows or Linux. The GUI already
+        # disables these partitions; this is the backstop for every other caller and also catches boot
+        # loaders on the ESP itself (e.g. Windows/Linux on another disk using this ESP).
+        if self._shared_esp_check_enabled() and is_esp(partition_info.get("Content", "")):
+            foreign_os = self._foreign_os_on_parent_disk(parent_disk)
+            for os_name in _foreign_os_from_esp(mount_path):
+                if os_name not in foreign_os:
+                    foreign_os.append(os_name)
+            if foreign_os:
+                logging.error(f"Refusing to install OpenCore to the EFI partition {full_disk_identifier}: {' and '.join(foreign_os)} detected.")
+                logging.error(SHARED_ESP_HELP)
+                if not self.constants.recovery_status:
+                    subprocess_wrapper.run_as_root(["/usr/sbin/diskutil", "umount", mount_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                return False
 
         # Start der Dateioperationen
         try:

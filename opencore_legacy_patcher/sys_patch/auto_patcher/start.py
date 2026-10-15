@@ -187,7 +187,7 @@ class StartAutomaticPatching:
         try:
             response = network_handler.NetworkUtilities().get(
                 api_url,
-                headers={"User-Agent": f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0/OpenCoreLegacyPatcherT2/{self.constants.patcher_version}"},
+                headers={"User-Agent": f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0/OpenCoreLegacyPatcherT2/{self.constants.patcher_version}"},
                 timeout=10,
             )
             releases = response.json()
@@ -275,6 +275,7 @@ class StartAutomaticPatching:
 
             buttonsizer = wx.BoxSizer(wx.HORIZONTAL)
             buttonsizer.Add(close_button,   0, wx.ALIGN_CENTRE | wx.RIGHT, 5)
+            buttonsizer.AddStretchSpacer(1)  # push "Update Later" to the far left
             buttonsizer.Add(view_button,    0, wx.ALIGN_CENTRE | wx.LEFT | wx.RIGHT, 5)
             buttonsizer.Add(install_button, 0, wx.ALIGN_CENTRE | wx.LEFT, 5)
 
@@ -282,7 +283,7 @@ class StartAutomaticPatching:
             sizer.Add(title_text,  0, wx.ALIGN_CENTRE | wx.TOP, 20)
             sizer.Add(description, 0, wx.ALIGN_CENTRE | wx.BOTTOM, 20)
             sizer.Add(self.web_view, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
-            sizer.Add(buttonsizer, 0, wx.ALIGN_RIGHT | wx.ALL, 20)
+            sizer.Add(buttonsizer, 0, wx.EXPAND | wx.ALL, 20)
             panel.SetSizer(sizer)
             frame.Centre()
 

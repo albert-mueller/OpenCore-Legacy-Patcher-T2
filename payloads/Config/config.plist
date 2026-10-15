@@ -1603,7 +1603,7 @@
                     <key>ExecutablePath</key>
                     <string>Contents/MacOS/AirPortBrcmNIC</string>
                     <key>MaxKernel</key>
-                    <string></string>
+                    <string>24.99.99</string>
                     <key>MinKernel</key>
                     <string>23.0.0</string>
                     <key>PlistPath</key>
@@ -1613,15 +1613,15 @@
                     <key>Arch</key>
                     <string>x86_64</string>
                     <key>BundlePath</key>
-                    <string>BroadcomVTD.kext</string>
+                    <string>AirPortBrcmNIC-Tahoe.kext</string>
                     <key>Comment</key>
-                    <string>BroadcomVTD-Tahoe (Broadcom Wi-Fi with AppleVTD on Tahoe, requires Lilu)</string>
+                    <string>Tahoe Broadcom Wifi Patch</string>
                     <key>Enabled</key>
                     <false/>
                     <key>ExecutablePath</key>
-                    <string>Contents/MacOS/BroadcomVTD</string>
+                    <string>Contents/MacOS/AirPortBrcmNIC</string>
                     <key>MaxKernel</key>
-                    <string>25.99.99</string>
+                    <string></string>
                     <key>MinKernel</key>
                     <string>25.0.0</string>
                     <key>PlistPath</key>

@@ -603,7 +603,7 @@ class MainFrame(wx.Frame):
             self.description = wx.StaticText(panel, label=f"The newest build of the {self.constants.update_channel_label} channel is {oclp_version} - You have {self.constants.patcher_version_label}. Builds from different channels are not directly comparable, this may install a lower version number. Would you like to switch?")
         else:
             self.title_text = wx.StaticText(panel, label=f"A new version of {self.constants.patcher_name} is available!")
-            self.description = wx.StaticText(panel, label=f"{self.constants.patcher_name} {oclp_version} is now available - You have {self.constants.patcher_version_label}. Would you like to update?")
+            self.description = wx.StaticText(panel, label=f"{self.constants.patcher_name} {oclp_version} is now available - You have {self.constants.patcher_version_label}. When would you like to update?")
         self.title_text.SetFont(gui_support.font_factory(19, wx.FONTWEIGHT_BOLD))
         self.description.SetFont(gui_support.font_factory(13, wx.FONTWEIGHT_NORMAL))
         # Ohne Wrap() ragt der Text bei langen Versions-/Produktnamen über die feste Dialogbreite hinaus
@@ -639,6 +639,7 @@ class MainFrame(wx.Frame):
 
         buttonsizer = wx.BoxSizer(wx.HORIZONTAL)
         buttonsizer.Add(self.close_button, 0, wx.ALIGN_CENTRE | wx.RIGHT, 5)
+        buttonsizer.AddStretchSpacer(1)  # push "Update Later" to the far left
         buttonsizer.Add(self.view_button, 0, wx.ALIGN_CENTRE | wx.LEFT|wx.RIGHT, 5)
         buttonsizer.Add(self.install_button, 0, wx.ALIGN_CENTRE | wx.LEFT, 5)
 
@@ -646,7 +647,7 @@ class MainFrame(wx.Frame):
         sizer.Add(self.title_text, 0, wx.ALIGN_CENTRE | wx.TOP, 20)
         sizer.Add(self.description, 0, wx.ALIGN_CENTRE | wx.BOTTOM, 20)
         sizer.Add(self.web_view, 1, wx.EXPAND | wx.LEFT|wx.RIGHT, 10)
-        sizer.Add(buttonsizer, 0, wx.ALIGN_RIGHT | wx.ALL, 20)
+        sizer.Add(buttonsizer, 0, wx.EXPAND | wx.ALL, 20)
         panel.SetSizer(sizer)
         frame.Centre()
 

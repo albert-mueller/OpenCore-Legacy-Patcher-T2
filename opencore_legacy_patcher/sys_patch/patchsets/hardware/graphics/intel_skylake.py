@@ -64,6 +64,13 @@ class IntelSkylake(BaseHardware):
         """
         Model specific patches
         """
+        metal_driver_source = self._resolve_gcn_skylake_metal_drivers() or (
+            "12.5-26" if self._xnu_major >= os_data.golden_gate.value
+            else ("12.5-25" if self._xnu_major >= os_data.tahoe.value
+            else ("12.5-24" if self._xnu_major >= os_data.sequoia.value
+            else "12.5"))  # 12.5-22 only ships the BDW MTLDriver, not SKL
+        )
+
         return {
             "Intel Skylake": {
                 PatchType.OVERWRITE_SYSTEM_VOLUME: {
@@ -71,12 +78,7 @@ class IntelSkylake(BaseHardware):
                         "AppleIntelSKLGraphics.kext":            self._resolve_monterey_framebuffers(),
                         "AppleIntelSKLGraphicsFramebuffer.kext": self._resolve_monterey_framebuffers(),
                         "AppleIntelSKLGraphicsGLDriver.bundle":  "12.5",
-                        "AppleIntelSKLGraphicsMTLDriver.bundle": (
-                            "12.5-26" if self._xnu_major >= os_data.golden_gate.value
-                            else ("12.5-25" if self._xnu_major >= os_data.tahoe.value
-                            else ("12.5-24" if self._xnu_major >= os_data.sequoia.value
-                            else "12.5"))  # 12.5-22 only ships the BDW MTLDriver, not SKL
-                        ),
+                        "AppleIntelSKLGraphicsMTLDriver.bundle": metal_driver_source,
                         "AppleIntelSKLGraphicsVADriver.bundle":  "12.5",
                         "AppleIntelSKLGraphicsVAME.bundle":      "12.5",
                         "AppleIntelGraphicsShared.bundle":       "12.5",
