@@ -1901,13 +1901,13 @@
                     <key>Arch</key>
                     <string>x86_64</string>
                     <key>BundlePath</key>
-                    <string>SpoofVMM.kext</string>
+                    <string>T2TahoeFixup.kext</string>
                     <key>Comment</key>
-                    <string>SpoofVMM</string>
+                    <string>T2TahoeFixup</string>
                     <key>Enabled</key>
                     <false/>
                     <key>ExecutablePath</key>
-                    <string>Contents/MacOS/SpoofVMM</string>
+                    <string>Contents/MacOS/T2TahoeFixup</string>
                     <key>MaxKernel</key>
                     <string></string>
                     <key>MinKernel</key>

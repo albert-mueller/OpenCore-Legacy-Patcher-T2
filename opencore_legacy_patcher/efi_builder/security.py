@@ -337,23 +337,18 @@ class BuildSecurity:
                     self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args", "-amfipassbeta igfxonln=1 igfxfw=2 forceRenderStandby=0 agdpmod=vit9696")
 
                 if self.is_tahoe_target:
-                    logging.info("- Injecting SpoofVMM for macOS Tahoe bypass on T2")
-                    support.BuildSupport(self.model, self.constants, self.config).enable_spoofvmm()
+                    logging.info("- Injecting T2TahoeFixup for macOS Tahoe bypass on T2")
+                    support.BuildSupport(self.model, self.constants, self.config).enable_t2tahoefixup()
 
-                    # SpoofVMM >= 4.9.1: the board-id swap is opt-in via -spoofvmmbid.
-                    # Without it, MobileSoftwareUpdate (MSU) on T2 Macs that Apple dropped
-                    # from Tahoe can't find a matching manifest during installation
-                    # (Stage 2). Natively supported T2 Macs (Max OS Supported >= Tahoe)
-                    # don't need the swap, so they keep the real board-id (Wi-Fi calibration).
-                    # SpoofVMM 4.9.6-alpha2: the Stage 2 installer bypass (cs_validate_page)
-                    # is on by default and needs no boot-arg (-spoofvmmnobypass /
-                    # -spoofvmmnostage2 / -spoofvmmnocs turn parts of it off). The default
-                    # bridge-model (J214kAP) now matches the default board-id
-                    # (Mac-5F9802EFE386AA28, both MacBookPro16,2), so -spoofvmmbid stays
-                    # the only SpoofVMM boot-arg OCLP has to add.
-                    if is_unsupported_t2_mac(self.model):
-                        logging.info("- Enabling SpoofVMM board-id swap (-spoofvmmbid) for unsupported T2 Mac")
-                        self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args", "-spoofvmmbid")
+                    # T2TahoeFixup (replaces SpoofVMM) needs no boot-args: it detects the
+                    # T2 Macs Apple dropped from Tahoe by their bridge board itself, keeps
+                    # the native board-id and only reports the J214kAP bridge-model /
+                    # Mac-5F9802EFE386AA28 (MacBookPro16,2) to the installer processes.
+                    # Its own boot-args are for testing only (-t2tahoefixupoff / -t2off,
+                    # -t2tahoefixupdbg / -t2dbg, -t2tahoefixupbeta / -t2beta,
+                    # -t2tahoeforce, -t2tahoestage2, t2tahoe-bridge=, t2tahoe-board=),
+                    # so OCLP doesn't add any. The old SpoofVMM args (-spoofvmmbid etc.)
+                    # are scrubbed in build.py.
 
                 if self.constants.t2_installer_workaround is True:
                     logging.info("- Enabling T2 Installer Workarounds (VESA Mode & AMFI bypass)")

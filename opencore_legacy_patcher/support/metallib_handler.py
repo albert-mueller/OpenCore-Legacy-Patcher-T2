@@ -24,7 +24,7 @@ from ..datasets import os_data
 METALLIB_INSTALL_PATH:        str  = "/Library/Application Support/Pyquick/MetallibSupportPkg"
 METALLIB_INSTALL_PATH_LEGACY: str  = "/Library/Application Support/Dortania/MetallibSupportPkg"
 METALLIB_INSTALL_PATH_HACKDOC:str  = "/Library/Application Support/Hackdoc/MetallibSupportPkg"
-METALLIB_API_LINK:            str  = "https://albert-mueller.github.io/MetallibSupportPkg/manifest.json"
+METALLIB_API_LINK:            str  = "https://albert-mueller.github.io/metallibs/MetallibSupportPkg/manifest.json"
 
 # Every catalog we know of, in priority order. No single one is complete (ours lacks
 # some older Sequoia builds Dortania still lists, the Medelcartelinc mirror lags behind
@@ -33,9 +33,9 @@ METALLIB_API_LINK:            str  = "https://albert-mueller.github.io/MetallibS
 # one wins - our own API first, so a third-party mirror can never override it.
 METALLIB_API_LINKS: tuple = (
     # Same catalog as METALLIB_API_LINK, read straight from the repository
-    # (github.com/albert-mueller/albert-mueller.github.io): always the latest commit,
+    # (github.com/albert-mueller/metallibs): always the latest commit,
     # without waiting for GitHub Pages to rebuild, and still reachable if Pages is down.
-    "https://raw.githubusercontent.com/albert-mueller/albert-mueller.github.io/main/MetallibSupportPkg/manifest.json",
+    "https://raw.githubusercontent.com/albert-mueller/metallibs/main/MetallibSupportPkg/manifest.json",
     METALLIB_API_LINK,
     "https://dortania.github.io/MetallibSupportPkg/manifest.json",
     "https://raw.githubusercontent.com/Medelcartelinc/MetallibSupportPkg/main/manifest.json",

@@ -123,7 +123,7 @@ class BuildSMBIOS:
         SMBIOS Handler
         """
 
-        # Allow SMBIOS spoofing on T2 Macs only on macOS 26 Tahoe, because SpoofVMM requires it.
+        # Allow SMBIOS spoofing on T2 Macs only on macOS 26 Tahoe, because T2TahoeFixup requires it.
         # detected_os is a Darwin major (Tahoe = 25); comparing against 15 (El Capitan)
         # made this branch unreachable, so T2 Macs were always spoofed.
         if self.model in model_array.T2Macs and self.constants.detected_os < os_data.os_data.sonoma:

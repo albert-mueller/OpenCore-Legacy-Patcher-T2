@@ -148,7 +148,7 @@ class BuildOpenCore:
                     "ProtectSecureBoot": True,
                     "ForceBooterSignature": True,
                 })
-                # On Tahoe+, T2 requires SMBIOS spoofing for SpoofVMM.
+                # On Tahoe+, T2 requires SMBIOS spoofing for T2TahoeFixup.
                 # detected_os is a Darwin major (Tahoe = 25), so compare against
                 # os_data.tahoe - "15" is El Capitan and matched every macOS.
                 # detected_os is the host's running OS, not the build target: an unsupported T2 Mac
@@ -221,10 +221,13 @@ class BuildOpenCore:
                 # Also drop dart=0: it is only meant for pre-T2 targets and must not
                 # survive into a T2 config via the template or a previous build.
                 # RestrictEvents args (-revbeta, revpatch=, revblock=) are dropped too:
-                # RestrictEvents is not injected on T2 Macs, SpoofVMM does the VMM spoof.
+                # RestrictEvents is not injected on T2 Macs, T2TahoeFixup does the VMM spoof.
+                # SpoofVMM args (-spoofvmmbid, -spoofvmmnobypass, ...) are dropped as well:
+                # SpoofVMM was replaced by T2TahoeFixup, which doesn't need any boot-args.
                 scrubbed_args = " ".join([
                     arg for arg in raw_args.split()
                     if not arg.startswith("-lilu")
+                    and not arg.startswith("-spoofvmm")
                     and arg not in ["dart=0", "-revbeta"]
                     and not arg.startswith(("revpatch=", "revblock="))
                 ])

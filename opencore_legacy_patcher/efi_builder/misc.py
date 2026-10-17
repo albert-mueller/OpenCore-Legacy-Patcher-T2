@@ -546,12 +546,12 @@ class BuildMiscellaneous:
                     logging.info(f"- Enabling {kext}")
                     builder.enable_kext(kext, ver, path)
 
-            # SpoofVMM only ever comes from the bundled release (constants.spoofvmm_path),
-            # never from an older zip or a stale extracted kext.
-            spoofvmm = builder.get_kext_by_bundle_path("SpoofVMM.kext")
-            if not spoofvmm or spoofvmm.get("Enabled") is not True:
-                logging.info("- Enabling SpoofVMM.kext")
-                builder.enable_spoofvmm()
+            # T2TahoeFixup only ever comes from the bundled release (constants.t2tahoefixup_path),
+            # never from an older zip or a stale extracted kext. It replaces SpoofVMM.
+            t2tahoefixup = builder.get_kext_by_bundle_path("T2TahoeFixup.kext")
+            if not t2tahoefixup or t2tahoefixup.get("Enabled") is not True:
+                logging.info("- Enabling T2TahoeFixup.kext")
+                builder.enable_t2tahoefixup()
 
             # Handle explicit performance/timeout panics on specific MacBook lines
             # Der Grund warum MinKernel auf 24.0.0 (Sequoias Version von Darwin) stattdessen von 25.x.x eingestellt ist, ist es die Installationsprogramm läuft auf Darwin 24 noch, auch die von 26 Tahoe.
