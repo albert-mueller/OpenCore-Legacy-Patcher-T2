@@ -300,7 +300,7 @@ class Constants:
         self.dGPU_switch:            bool = False  # Set Display GPU Switching for Windows
         self.force_surplus:          bool = False  # Force SurPlus patch in newer OSes
         self.force_latest_psp:       bool = False  # Force latest PatcherSupportPkg
-        self.use_ybronst_wifi:       bool = True   # WiFi root patches: YBronst's approach (reuse the Sequoia -24 builds on Tahoe) instead of Dortania's -25 layout. PatcherSupportPkg ships YBronst's builds in the regular folders, no -YB suffix
+        self.use_ybronst_wifi:       bool = True   # WiFi root patches below Tahoe: YBronst's builds (PatcherSupportPkg ships them in the regular folders, no -YB suffix). Tahoe always uses Dortania's -25 layout, matching the Tahoe AirPort kexts
         self.disable_fw_throttle:    bool = False  # Disable MSR Power Control and XCPM
         self.software_demux:         bool = False  # Enable Software Demux patch set
         self.force_vmm:              bool = False  # Force VMM patch

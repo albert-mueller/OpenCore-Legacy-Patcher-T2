@@ -56,13 +56,13 @@ class ModernWireless(BaseHardware):
         Base patches for Modern Wireless
         """
         # Note: PatcherSupportPkg (albert-mueller, since c2a5900) ships YBronst's WiFi builds in the
-        # regular 13.7.2-<xnu_major> folders; separate -YB folders no longer exist in any release.
-        if self._constants.use_ybronst_wifi is True:
-            # YBronst's approach, proven working on Sonoma, Sequoia and Tahoe: Tahoe reuses the 13.7.2-24 build.
-            source = f"13.7.2-{self._xnu_major}" if self._xnu_major < os_data.tahoe.value else "13.7.2-24"
-        else:
-            # Upstream layout: the 13.7.2-25 folder on Tahoe (matches Dortania's code).
-            source = f"13.7.2-{self._xnu_major}"
+        # regular 13.7.2-<xnu_major> folders up to Sequoia (-24); separate -YB folders no longer exist.
+        # Tahoe always uses Dortania's 13.7.2-25 build, like upstream: the EFI loads Dortania's
+        # AirPortBrcmNIC-Tahoe.kext on macOS 26 (9e7f7b31, port of dortania/OpenCore-Legacy-Patcher@d9604c3)
+        # and Dortania built their -25 IO80211/WiFiPeerToPeer shims for exactly that kext. YBronst has no
+        # Tahoe build, and reusing his Sequoia (-24) frameworks with the Tahoe kext is untested (#218).
+        # use_ybronst_wifi therefore only matters for what PatcherSupportPkg ships below Tahoe.
+        source = f"13.7.2-{self._xnu_major}"
         return {
             "Modern Wireless": {
                 PatchType.OVERWRITE_SYSTEM_VOLUME: {

@@ -1,0 +1,52 @@
+name: Typosquat site watch
+
+on:
+  schedule:
+    - cron: "41 5 * * *"   # daily, 05:41 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only report findings, don't open any issues"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+  pages: read
+
+concurrency:
+  group: typosquat-sites
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Scan for lookalike websites
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORIGINAL_REPO: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry_run == true && 'true' || 'false' }}
+          SITE_URL: ""   # empty = detected from the repo's GitHub Pages settings
+          # Names whose typo variants are checked as domains under each TLD
+          KEYWORDS: "opencore-legacy-patcher-t2 oclp-t2"
+          TLDS: "com net org io app dev info site xyz"
+          # Substrings searched for in certificate-transparency logs (crt.sh)
+          CT_KEYWORDS: "legacy-patcher-t2 legacypatchert2 oclp-t2 oclpt2"
+          # Newly registered domains (WhoisDS daily lists): days to look back, and names to
+          # match in them; a hit is filed even before the domain shows any content
+          NRD_DAYS: "3"
+          NRD_KEYWORDS: "opencore-legacy-patcher-t2 oclp-t2 legacy-patcher-t2"
+          # A site only counts if its page mentions one of these (case-insensitive, | separated)
+          CONTENT_MARKERS: "opencore legacy patcher t2|opencore-legacy-patcher-t2|oclp-t2|oclp t2"
+          # Hosts (and their subdomains) that are never flagged
+          ALLOWLIST: "github.com githubusercontent.com dortania.github.io"
+        run: python .github/scripts/typosquat_sites.py

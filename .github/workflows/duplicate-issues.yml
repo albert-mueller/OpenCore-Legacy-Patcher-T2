@@ -110,9 +110,20 @@ jobs:
               return inter / (A.size + B.size - inter);
             };
 
+            // ---- Untitled issues ("[Bug]: " with nothing after it) ------------
+            // Kept in sync with issue-title-check.yml. Template-only titles are all
+            // identical, so comparing them would mark every untitled issue as a duplicate.
+            const GENERIC_TITLE = /^(bug|issue|problem|error|help|crash|not working|doesn'?t work|question|title|n\/?a|-|\.)?$/i;
+            const hasRealTitle = i => {
+              const rest = (i.title || '').replace(/^\s*\[[^\]]*\]\s*:?\s*/i, '').trim();
+              return rest.length >= 6 && !GENERIC_TITLE.test(rest);
+            };
+
             const score = (issue, other) => {
-              const titleScore = dice(issue.title, other.title);
               const hasBodies = (issue.body || '').length > 30 && (other.body || '').length > 30;
+              // An older issue without a real title: only its body can count
+              if (!hasRealTitle(other)) return hasBodies ? jaccard(issue.body, other.body) : 0;
+              const titleScore = dice(issue.title, other.title);
               if (!hasBodies) return titleScore;
               const bodyScore = jaccard(issue.body, other.body);
               // The body can only raise the score, never lower it
@@ -234,6 +245,13 @@ jobs:
 
             // ---- Check one issue; returns its matches (empty if none/skipped) --
             async function checkIssue(issue, useAi = true) {
+              // Give the reporter time to name the issue first (see issue-title-check.yml).
+              // Once the title is fixed, the daily scheduled run checks it normally.
+              if (!hasRealTitle(issue)) {
+                core.info(`#${issue.number}: no real title yet, skipping duplicate check.`);
+                return [];
+              }
+
               // Don't comment twice (e.g. when an issue is reopened)
               const comments = await github.paginate(github.rest.issues.listComments, {
                 owner, repo, issue_number: issue.number, per_page: 100,

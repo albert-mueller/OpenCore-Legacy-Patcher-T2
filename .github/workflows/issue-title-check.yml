@@ -1,0 +1,74 @@
+name: Issue title check
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions:
+  issues: write
+
+jobs:
+  check-title:
+    runs-on: ubuntu-latest
+    # Ignore pull requests
+    if: github.event.issue.pull_request == null
+    steps:
+      - uses: actions/github-script@v8
+        with:
+          script: |
+            const MARKER = '<!-- issue-title-check -->';
+            const LABEL = 'needs-title';
+            const issue = context.payload.issue;
+            const { owner, repo } = context.repo;
+            const issue_number = issue.number;
+
+            // Strip template prefixes like "[Bug]:" / "[Bug]" / "[Feature]:" and see what's left
+            const rest = (issue.title || '')
+              .replace(/^\s*\[[^\]]*\]\s*:?\s*/i, '')
+              .trim();
+
+            // Titles that say nothing about the actual problem
+            const generic = /^(bug|issue|problem|error|help|crash|not working|doesn'?t work|question|title|n\/?a|-|\.)?$/i;
+            const isBad = rest.length < 6 || generic.test(rest);
+
+            // Find a comment we already posted
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100,
+            });
+            const ours = comments.find(c => c.body && c.body.includes(MARKER));
+            const hasLabel = (issue.labels || []).some(l => (l.name || l) === LABEL);
+
+            if (isBad) {
+              const body = [
+                MARKER,
+                `Hi @${issue.user.login}, thanks for the report!`,
+                '',
+                `Your issue title (\`${issue.title.trim()}\`) doesn't describe the problem yet.`,
+                '**Please edit the title** and write there what the issue actually is, for example:',
+                '',
+                '> `[Bug]: Kernel panic (AppleKeyStore) on boot – macOS 26 Tahoe, Macmini8,1`',
+                '',
+                '⚠️ Issues with an empty or generic title can\'t be told apart from other reports and are likely to be **closed as a duplicate**.',
+                '',
+                'Click **Edit** next to the title at the top of this page. This message and the label will be removed automatically once the title is fixed.',
+              ].join('\n');
+
+              if (!ours) {
+                await github.rest.issues.createComment({ owner, repo, issue_number, body });
+              }
+              if (!hasLabel) {
+                await github.rest.issues.addLabels({ owner, repo, issue_number, labels: [LABEL] });
+              }
+            } else {
+              // Title is fine now: clean up
+              if (ours) {
+                await github.rest.issues.deleteComment({ owner, repo, comment_id: ours.id });
+              }
+              if (hasLabel) {
+                try {
+                  await github.rest.issues.removeLabel({ owner, repo, issue_number, name: LABEL });
+                } catch (e) {
+                  core.info(`Label already removed: ${e.message}`);
+                }
+              }
+            }

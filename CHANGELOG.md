@@ -1,4 +1,12 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.190009.8 - 4.0.0 alpha 19.9.8
+Non-T2 Macs:
+- fixes the Wi-Fi root patches on macOS 26 Tahoe (#218). Since alpha 19.9.7 OpenCore loads Dortania's Tahoe AirPort kexts (`AirPortBrcmNIC-Tahoe`, `AirPortAtheros40-Tahoe`) on Tahoe, but the root patches still installed YBronst's macOS 15 Sequoia (-24) Wi-Fi frameworks on Tahoe. That paired the Tahoe kexts with frameworks that were never built or tested for them. Tahoe now uses Dortania's -25 root patches, like upstream (thx @Jazzzny and @Dortania):
+  - Modern Wireless (e.g. BCM4360 in the MacBookPro11,x): `IO80211.framework`, `WiFiPeerToPeer.framework` and `wifip2pd` from `13.7.2-25`. The `13.7.2-25` folder in PatcherSupportPkg held a copy of YBronst's Sequoia build until now; Dortania's Tahoe binaries are restored there (PatcherSupportPkg `7c27d34`, byte-identical to Dortania's PatcherSupportPkg 2.0.3). This part needs a PatcherSupportPkg release that contains this commit
+  - Legacy Wireless: Dortania's `12.7.2-25` frameworks. YBronst's `airportd`, `wps` and `wifip2pd` builds still apply on Tahoe
+- macOS 13 Ventura to macOS 15 Sequoia are not affected: the Wi-Fi root patches there keep using YBronst's builds
+- this is not yet tested on real hardware. If Wi-Fi still does not work on Tahoe after root patching, please attach the root patching log
+
 ## 4.0.0.190009.7 - 4.0.0 alpha 19.9.7
 This release:
 - on T2 Macs, now no longer allows flashing to the ESP if Windows or Linux is installed. On Linux is untested whether flashing OpenCore to the ESP causes issues, but on Windows 11 it results in This device needs to be repaired. Now if Windows is installed, it'll show this warning instead:

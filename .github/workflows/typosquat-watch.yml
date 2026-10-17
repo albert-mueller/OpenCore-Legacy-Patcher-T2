@@ -1,0 +1,46 @@
+name: Typosquat watch
+
+on:
+  schedule:
+    - cron: "17 4 * * *"   # daily, 04:17 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only report findings, don't open any issues"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: typosquat-watch
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Scan for typosquatting copies
+        env:
+          # Optional: a classic PAT with the public_repo scope lets the workflow
+          # also open issues on the copies. Without it, the built-in token is used
+          # and copies are only tracked in this repo.
+          GH_TOKEN: ${{ secrets.TYPOSQUAT_PAT || github.token }}
+          HAS_PAT: ${{ secrets.TYPOSQUAT_PAT != '' }}
+          ORIGINAL_REPO: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry_run == true && 'true' || 'false' }}
+          MAX_DISTANCE: "2"            # max typo distance that still counts as a squat
+          FINGERPRINT_COMMITS: "20"    # how many of your commits to look for in copies
+          CONTACT_SUSPICIOUS: "true"   # also post a notice on repos that look malicious
+          ALLOWLIST: ""                # space-separated owner/repo names to ignore
+          ALIASES: "OCLP-T2"           # other names of the project; lookalikes of these count too
+        run: python .github/scripts/typosquat_watch.py

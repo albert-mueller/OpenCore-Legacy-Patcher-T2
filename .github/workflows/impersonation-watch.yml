@@ -1,0 +1,60 @@
+name: Impersonation watch
+
+on:
+  schedule:
+    - cron: "53 6 * * *"   # daily, 06:53 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only report findings, don't open any issues"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+  pages: read
+
+concurrency:
+  group: impersonation-watch
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Scan for repos and sites impersonating the project
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORIGINAL_REPO: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry_run == true && 'true' || 'false' }}
+          # Optional: a Brave Search API key enables the website search.
+          # Without it, only GitHub repositories are checked.
+          BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
+          # How the project is named; '-', '_' and spaces are treated the same (| separated)
+          CONTENT_MARKERS: "opencore legacy patcher t2|oclp t2"
+          # GitHub repository searches (| separated); fork:true also finds forks of other projects
+          REPO_QUERIES: >-
+            "OpenCore Legacy Patcher T2" in:name,description,readme fork:true|
+            "OpenCore-Legacy-Patcher-T2" in:name,description,readme fork:true|
+            "OCLP-T2" in:name,description,readme fork:true|
+            "OCLP T2" in:name,description,readme fork:true
+          # Web searches (| separated), used only with BRAVE_API_KEY
+          WEB_QUERIES: >-
+            "OpenCore Legacy Patcher T2"|
+            "OpenCore Legacy Patcher T2" download|
+            "OCLP-T2" download|
+            "OCLP T2" macOS
+          # Repos (owner/name) and hosts (with subdomains) that are never flagged
+          ALLOWLIST_REPOS: ""
+          ALLOWLIST_HOSTS: >-
+            dortania.github.io reddit.com macrumors.com insanelymac.com
+            tonymacx86.com youtube.com wikipedia.org apple.com stackexchange.com
+        run: python .github/scripts/impersonation_watch.py

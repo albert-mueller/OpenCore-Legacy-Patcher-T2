@@ -111,8 +111,10 @@ class LegacyWireless(BaseHardware):
         # Note: PatcherSupportPkg (albert-mueller, since c2a5900) ships YBronst's WiFi builds in the
         # regular folders (12.7.2, 12.7.2-24, ...); separate -YB folders no longer exist in any release.
         # Only 12.7.2-25 is Dortania's (YBronst has no Tahoe build).
-        if self._constants.use_ybronst_wifi is True:
-            # YBronst's approach, proven working on Sequoia and Tahoe: Tahoe reuses the 12.7.2-24 build.
+        # Tahoe always uses Dortania's layout, like upstream (dortania/OpenCore-Legacy-Patcher@d622cde): the EFI
+        # loads Dortania's Tahoe AirPort kexts on macOS 26, and their 12.7.2-25 frameworks belong to them (#218).
+        if self._constants.use_ybronst_wifi is True and self._xnu_major < os_data.tahoe:
+            # YBronst's approach, proven working on Sequoia: Sequoia uses the 12.7.2-24 build.
             binary_version = framework_version = "12.7.2" if self._xnu_major < os_data.sequoia else "12.7.2-24"
         else:
             # Dortania's layout: Tahoe uses Dortania's 12.7.2-25 frameworks,
