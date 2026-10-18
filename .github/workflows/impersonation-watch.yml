@@ -53,7 +53,9 @@ jobs:
             "OCLP-T2" download|
             "OCLP T2" macOS
           # Repos (owner/name) and hosts (with subdomains) that are never flagged
-          ALLOWLIST_REPOS: ""
+          ALLOWLIST_REPOS: >-
+            riludev/OpenCore-Legacy-Patcher-T2-Instructions-for-T2-Macs
+            GUTY345/OpenCore-Legacy-Patcher-T2-Fork
           ALLOWLIST_HOSTS: >-
             dortania.github.io reddit.com macrumors.com insanelymac.com
             tonymacx86.com youtube.com wikipedia.org apple.com stackexchange.com
