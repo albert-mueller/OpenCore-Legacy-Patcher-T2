@@ -1,17 +1,6 @@
 requests
 pyobjc
 wxpython<4.2.5
-# The pip-distributed pyinstaller sdist bundles the SAME precompiled macOS
-# bootloader as the wheel does, so --no-binary alone isn't enough to get a
-# locally-rebuilt one - PYINSTALLER_COMPILE_BOOTLOADER is also required to
-# force pip's build step to actually recompile it (see PyInstaller's
-# "Building the Bootloader" docs). This matters because the bundled
-# precompiled bootloader carries a code signature format that old macOS's
-# own codesign can't fully strip, which breaks Build-Project.command with
-# "AssertionError: Executable contains code signature!" on hosts like
-# 10.13 High Sierra. Install with:
-#   PYINSTALLER_COMPILE_BOOTLOADER=1 pip install --no-binary pyinstaller -r requirements.txt --verbose
-# (--verbose lets you confirm in the log that the bootloader was actually rebuilt)
 pyinstaller --no-binary=pyinstaller
 packaging
 py_sip_xnu
