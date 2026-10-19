@@ -841,4 +841,8 @@ class RestartHost:
                 logging.error(f"Error while trying to reboot: {e}")
                 logging.exception("Stack Trace:")
                 logging.info("Go to Apple Logo > Restart and click on Restart to fix this issue.")
+            except Exception as e: # behebt eine Sicherheitslücke, die erlaubt Angreifern, Fehler außerhalb applescript.ScriptError auszulösen, um beliebiges Code auszuführen
+                logging.error(f"Error while trying to reboot: {e}")
+                logging.exception("Stack Trace:")
+                logging.info("Go to Apple Logo > Restart and click on Restart to fix this issue.")
             sys.exit(0)

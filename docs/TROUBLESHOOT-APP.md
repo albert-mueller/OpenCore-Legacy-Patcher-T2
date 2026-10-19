@@ -1,7 +1,6 @@
 # Application issues
 
 * [OpenCore Legacy Patcher T2 not launching](#opencore-legacy-patcher-t2-not-launching)
-* [Privileged Helper Tool not found](#privileged-helper-tool-not-found)
 * ["You don't have permission to save..." error when creating USB installer](#you-don-t-have-permission-to-save-error-when-creating-usb-installer)
 * [Internal disk missing when building OpenCore](#internal-disk-missing-when-building-opencore)
 * ["Unable to resolve dependencies, error code 71" when root patching](#unable-to-resolve-dependencies-error-code-71-when-root-patching)
@@ -10,15 +9,11 @@
 
 ## OpenCore Legacy Patcher T2 not launching
 
-If the application won't launch (e.g. icon will bounce in the Dock), try launching OCLP via Terminal by typing the following command.
+If the application won't launch (e.g. icon will bounce in the Dock), try launching OpenCore Legacy Patcher T2 via Terminal by typing the following command.
 
 ```sh
 /Library/Application\ Support/albert-mueller/OpenCore-Patcher-T2/OpenCore-Patcher-T2.app/Contents/MacOS/OpenCore-Patcher-T2
 ```
-
-## Privileged Helper Tool not found
-
-OCLPT2 needs a Privileged Helper Tool to run parts of the application as root. If you encounter this error, reinstall OCLP using the PKG installer to fix Privileged Helper Tool. If your system lacks WiFi connection due to lack of patches, use Ethernet. You can also use another computer to download the app and move it to a USB drive.
 
 
 ## "You don't have permission to save..." error when creating USB installer

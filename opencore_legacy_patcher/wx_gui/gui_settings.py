@@ -467,18 +467,6 @@ class SettingsFrame(wx.Frame):
                     "function": self._populate_oc_build_override,
                     "args": wx.Frame,
                     },
-                "Turn Off Auto Updates": {
-                    "type": "checkbox",
-                    "value": not self.constants.auto_update,
-                    "variable": "AllowAutoUpdates",
-                    "description": [
-                        "When enabled, the app will still automatically",
-                        "check for updates.",
-                        "but will not apply them automatically."
-                    ],
-                    "override_function": self.toggle_auto_updates,
-                    "warning": "Turning this off will make your system more vulnerable to security issues. You will need to manually check for updates via the application's menu or GitHub.",
-                },
                 "wrap_around 1": {
                     "type": "wrap_around",
                 },
@@ -511,6 +499,21 @@ class SettingsFrame(wx.Frame):
                         "in the macOS Tahoe installer on T2 Macs."
                     ],
                     "condition": self.constants.True_Developer_Mode
+                },
+                "Application security": {
+                    "type": "title",
+                },
+                 "Turn Off Auto Updates": {
+                    "type": "checkbox",
+                    "value": not self.constants.auto_update,
+                    "variable": "AllowAutoUpdates",
+                    "description": [
+                        "When enabled, the app will still automatically",
+                        "check for updates.",
+                        "but will not apply them automatically."
+                    ],
+                    "override_function": self.toggle_auto_updates,
+                    "warning": "Disabling automatic updates will make your system more vulnerable to security issues that attackers may exploit for malware delivery to steal your personal information or harm your computer. You will need to manually check for updates via the application or GitHub. Procceed at your own risk.",
                 },
             },
         }

@@ -38,7 +38,6 @@ class CatalogVersion(StrEnum):
     VENTURA:        str = "13"
     MONTEREY:       str = "12"
     BIG_SUR:        str = "11"
-    BIG_SUR_LEGACY: str = "10.16"
     CATALINA:       str = "10.15"
     MOJAVE:         str = "10.14"
     HIGH_SIERRA:    str = "10.13"

@@ -18,9 +18,7 @@ OpenCore Legacy Patcher 2.0.0 supports Sequoia for the models below, however som
 
 <img width="625" alt="" src="./images/OCLP-200-Initial-Support.png">
 
-Unfortunately due to T2 related problems, the recently dropped MacBookAir8,x models cannot be supported at this time. We have made some progress on this issue, but panics are still occurring and there is still a significant amount of development work to do before T2 machines may even get to the install screen. We cannot provide any estimate on when T2 machines will be supported. 
-
-[More information here.](https://github.com/dortania/OpenCore-Legacy-Patcher/issues/1136)
+The T2-related AppleKeyStore panic that used to keep the recently dropped MacBookAir8,x models (and other unsupported T2 Macs) from booting through OpenCorePkg has been resolved in OpenCore Legacy Patcher T2. T2 support is still in alpha, though: installation does not complete yet. See [T2 security chip](#t2-security-chip) below for the current status.
 
 ## Non-functional features
 
@@ -52,9 +50,7 @@ Dual booting Sequoia and older will not be possible with all cores enabled due t
 
 ### T2 security chip
 
-The current biggest issue we face with supporting the MacBookAir8,x (2018/19) series is the T2 chip's lack of communication when booted through OpenCorePkg.
-
-What happens when one of these units boots through OpenCorePkg is that AppleKeyStore.kext panics due to timeouts with the T2 chip:
+Booting T2 Macs such as the MacBookAir8,x (2018/19) series through OpenCorePkg used to end in a kernel panic, because AppleKeyStore.kext ran into timeouts while communicating with the T2 chip:
 
 ```
 "AppleKeyStore":3212:0: sks timeout strike 18
@@ -63,13 +59,11 @@ What happens when one of these units boots through OpenCorePkg is that AppleKeyS
 panic(cpu 0 caller 0xffffff801cd12509): "AppleSEPManager panic for "AppleKeyStore": sks request timeout" @AppleSEPManagerIntel.cpp:809
 ```
 
-This affects not only macOS Sequoia, but macOS Ventura and Sonoma are confirmed to have the same issue. Thus an underlying problem with the MacBookAir8,x's firmware where it is not happy with OpenCorePkg.
+**This panic no longer occurs.** OpenCore Legacy Patcher T2 now gets past the AppleKeyStore timeouts on unsupported T2 Macs, so the machines boot into the installer.
 
-* MacBookPro15,2, MacBookPro16,2 and Macmini8,1 do not exhibit these issues in local testing
-* MacPro7,1 does seem to surprisingly based on reports: [MacPro7,1 - OpenCorePkg](https://forums.macrumors.com/threads/manually-configured-opencore-on-the-mac-pro.2207814/post-29418464)
-  * Notes from this report were unsuccessful locally: [Cannot boot MacPro7,1 #1487](https://github.com/acidanthera/bugtracker/issues/1487)
+However, T2 support is still in **alpha**. The remaining issue is that the macOS installation currently ends with "Failed to install a software update" before it finishes. We cannot provide an estimate on when T2 installations will fully work yet.
 
-We have made some progress on this issue, but panics are still occurring and there is still a significant amount of development work to do before T2 machines may even get to the install screen. We cannot provide any estimate on when T2 machines will be supported.
+If you want to help test or share results, please use [GitHub Discussions](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/discussions).
 
 ### USB 1.1 (OHCI/UHCI) Support
 

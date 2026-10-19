@@ -6,7 +6,6 @@ from ..base import BaseHardware, HardwareVariant, HardwareVariantGraphicsSubclas
 
 from ...base import PatchType
 
-from ...shared_patches.metal_31001     import LegacyMetal31001
 from ...shared_patches.monterey_gva    import MontereyGVA
 from ...shared_patches.monterey_opencl import MontereyOpenCL
 from ...shared_patches.tahoe_graphics  import TahoeGraphics
@@ -81,17 +80,12 @@ class AMDNavi(BaseHardware):
                         "AMDRadeonX6000.kext":            self._resolve_monterey_framebuffers(),
                         "AMDRadeonX6000Framebuffer.kext": "12.5",
 
-                        "AMDRadeonVADriver2.bundle":      "12.5-26" if self._xnu_major >= os_data.golden_gate.value else "12.5-25" if self._xnu_major >= os_data.tahoe.value else "12.5",
-                        "AMDRadeonX6000GLDriver.bundle":  "12.5-26" if self._xnu_major >= os_data.golden_gate.value else "12.5-25" if self._xnu_major >= os_data.tahoe.value else "12.5",
-                        **({ "AMDRadeonX6000MTLDriver.bundle": (
-                            "12.5-26" if self._xnu_major >= os_data.golden_gate.value
-                            else ("12.5-25" if self._xnu_major >= os_data.tahoe.value
-                            else ("12.5-24" if self._xnu_major >= os_data.sequoia.value
-                            else f"12.5-{self._xnu_major}"))
-                        ) }),
+                        "AMDRadeonVADriver2.bundle":      "12.5-25" if self._xnu_major >= os_data.tahoe else "12.5",
+                        "AMDRadeonX6000GLDriver.bundle":  "12.5-25" if self._xnu_major >= os_data.tahoe else "12.5",
+                        "AMDRadeonX6000MTLDriver.bundle": "12.5-25" if self._xnu_major >= os_data.tahoe else "12.5" if self._xnu_major < os_data.sequoia else "12.5-24",
                         "AMDRadeonX6000Shared.bundle":    "12.5",
 
-                        "AMDShared.bundle":               "12.5-26" if self._xnu_major >= os_data.golden_gate.value else "12.5-25" if self._xnu_major >= os_data.tahoe.value else "12.5",
+                        "AMDShared.bundle":               "12.5-25" if self._xnu_major >= os_data.tahoe else "12.5",
                     },
                 }
             }
@@ -130,7 +124,6 @@ class AMDNavi(BaseHardware):
             return {}
 
         return {
-            **LegacyMetal31001(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
             **MontereyGVA(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).revert_patches(),
             **MontereyOpenCL(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
             **AMDOpenCL(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),

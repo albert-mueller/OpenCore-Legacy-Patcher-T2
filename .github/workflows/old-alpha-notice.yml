@@ -13,11 +13,11 @@ jobs:
     if: github.event.sender.type != 'Bot'
     runs-on: ubuntu-latest
     steps:
-      - name: Detect alpha 17 or older
+      - name: Detect alpha 18 or older
         uses: actions/github-script@v7
         with:
           script: |
-            const MAX_OLD_ALPHA = 17;
+            const MAX_OLD_ALPHA = 18;
             const MARKER = '<!-- old-alpha-notice-bot -->';
             const LABEL = 'outdated-version';
 

@@ -6,11 +6,7 @@ This guide explains how to get fully up to date application, bootloader and patc
 
 When you open the app, it checks for a newer version. If an update is detected, the app downloads and installs it automatically, no confirmation needed.
 
-* If you'd rather confirm updates yourself, you can turn off automatic updates. The app will still check for updates when opened, but shows the new version with its changelog and asks before installing it. The option is in the `Advanced` tab, which is only shown when Experimental Features are enabled:
-   1. Open `Settings -> App` and tick `Enable Experimental Features`.
-   2. Confirm the warning. The app restarts itself to apply the change.
-   3. Open `Settings -> Advanced` and tick `Turn Off Auto Updates`.
-* You can also check for updates at any time with the `Check for updates` button.
+* You can also check for updates at any time with the `Check for updates` button inside Settings.
 * Automatic updates are disabled when running the app from source or on special builds.
 
 [You can also manually download the latest release here.](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/releases)
@@ -19,7 +15,7 @@ After the update, the application asks if you want to update OpenCore and root p
 
 * If you do not need to change any settings, click "Yes" on the patch update question and follow the procedure to update OpenCore and root patches automatically.
    * If you do want to change settings, select "No" and do your settings.
-   * In case you selected "No", you will have to manually build and install OpenCore and then manually install new root patches to ensure you're running on the latest OpenCore with your settings and the fixes for on-disk patches. 
+   * In case you selected "No", you will have to manually build and install OpenCore and then manually install new root patches to ensure you're running on the latest OpenCore with your settings and the fixes for on-disk patches. However, some updates are only security fixes and then if you install a security-only update, then rebuilding OpenCore will likely change nothing.
 
 
 | Update available (with auto updates turned off) | App update success, patch update question |
@@ -61,13 +57,13 @@ This part is for major upgrades, such as `Sonoma (14)` -> `Sequoia (15)`
 3. Start macOS installation and follow the process, do not use Disk Utility if you don't want to wipe your disk.
 4. After installation, reinstall [root patches](POST-INSTALL.md#applying-post-install-volume-patches).
 
-**Note:** Major upgrades may work using System Settings but this is not recommended.
+**Note:** Major upgrades may work using System Settings but on Macs with USB1.1, this is absolutely not recommended as after the install is done, you'll have your USB not functioning at all. On all models, it's okay to update via System Settings and you shouldn't face issues as the patches get overriden by macOS during the upgrade anyways.
 
 ### Minor updates
 
 This part is for minor updates, which are also called the "dot updates". Such as `12.x`, `13.x` etc.
 
-1. Make sure the OCLP app is up to date. 
+1. Make sure the OCLP-T2 app is up to date. 
 2. Rebuild OpenCore to the internal disk to update the bootloader. 
    * You can also update root patches but this part is optional in this stage, as they will be wiped by the update.
 3. Start update from System Settings.

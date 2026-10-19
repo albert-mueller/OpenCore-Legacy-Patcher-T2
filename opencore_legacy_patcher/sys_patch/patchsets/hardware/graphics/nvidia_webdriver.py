@@ -7,7 +7,6 @@ from ..base import BaseHardware, HardwareVariant, HardwareVariantGraphicsSubclas
 from ...base import PatchType
 
 from ...shared_patches.non_metal             import NonMetal
-from ...shared_patches.monterey_webkit       import MontereyWebKit
 from ...shared_patches.non_metal_ioaccel     import NonMetalIOAccelerator
 from ...shared_patches.non_metal_coredisplay import NonMetalCoreDisplay
 from ...shared_patches.non_metal_enforcement import NonMetalEnforcement
@@ -158,7 +157,6 @@ class NvidiaWebDriver(BaseHardware):
             **NonMetal(self._xnu_major, self._xnu_minor, self._os_build, iosurface_version="10.14.6").patches(),
             **NonMetalIOAccelerator(self._xnu_major, self._xnu_minor, self._os_build).patches(),
             **NonMetalCoreDisplay(self._xnu_major, self._xnu_minor, self._os_build).patches(),
-            **MontereyWebKit(self._xnu_major, self._xnu_minor, self._os_build).patches(),
             **self._model_specific_patches(),
             **NonMetalEnforcement(self._xnu_major, self._xnu_minor, self._os_build).patches(),
         }

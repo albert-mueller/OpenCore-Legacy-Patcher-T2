@@ -27,7 +27,6 @@ Due to limitations with Apple's `createinstallmedia` tool used for installer cre
 * **Catalina 10.14** to make installers for macOS Tahoe.
 
 The patcher is designed to target **macOS Big Sur 11.x to macOS Sequoia 26.x**.
-* Other versions may work, albeit in a broken state. No support is provided for any version outside of the above.
 
 ## Application versioning
 
@@ -46,7 +45,7 @@ Refer to [Updating OpenCore and patches](UPDATE.md) for how to update the applic
 
 ## Where are the GUI settings saved?
 
-In OpenCore Legacy Patcher 2.1.0 and newer, the status of settings are saved under ```/Users/Shared/.com.dortania.opencore-legacy-patcher.plist```. The application will utilize this file to keep track of and retain settings for relaunches and application updates, no longer requiring a reconfiguring each time. The user interface will reset if any model other than "Host Model" is selected, as building for a different model will require different settings.
+In every version of OpenCore Legacy Patcher T2, the status of settings are saved under ```/Users/Shared/.com.dortania.opencore-legacy-patcher.plist```. The application will utilize this file to keep track of and retain settings for relaunches and application updates, no longer requiring a reconfiguring each time. The user interface will reset if any model other than "Host Model" is selected, as building for a different model will require different settings.
 
 In case of issues, delete the file and restart the application to revert the GUI to default settings, then rebuild OpenCore with newly configured settings.
 
@@ -57,8 +56,6 @@ In case of issues, delete the file and restart the application to revert the GUI
 Only settings made within OCLP are accounted for, modifications made directly into the ```config.plist``` file in the EFI partition outside of OCLP **will continue to reset**. Additionally, modifying ```config.plist``` manually may lead to a state where settings showed in the GUI are not in sync compared to settings in use, due to the application not knowing whether the file has been manually modified. 
 
 :::
-
-In versions older than 2.1.0, the status of settings was not tracked. Therefore in these versions GUI will continue to reset to defaults after every launch, requiring settings to be reconfigured each time.
 
 ## Can I use the same USB install media as a universal installer?
 
@@ -236,11 +233,11 @@ These GPUs are typically met in systems from 2012-2015.
 
 ## Why isn't iPhone Mirroring working?
 
-iPhone Mirroring requires a T2 chip, which means it will not be available on OCLP patched systems. The connection fails due to failure to establish T2 attestation.
+iPhone Mirroring requires a T2 chip, which means it will not be available on OCLP patched systems. The connection fails due to failure to establish T2 attestation. iPhone Mirroring may not be available on unsupported T2 Macs, but that remains to be tested.
 
 ## Where is Apple Intelligence?
 
-Apple Intelligence requires Neural Engine, which is only found in Apple Silicon chips.
+Apple Intelligence requires Neural Engine, which is only found in Apple Silicon chips. Even if you use a 13th gen Hackintosh and you have an NPU, it still won't work, you need a real Mac for Apple Intelligence as Apple Intelligence is designed to require Apple Silicon.
 
 
 

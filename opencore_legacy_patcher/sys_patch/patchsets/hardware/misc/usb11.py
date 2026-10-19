@@ -83,13 +83,6 @@ class USB11Controller(BaseHardware):
         return True
 
 
-    def requires_kernel_debug_kit(self) -> bool:
-        """
-        Requires replacing IOUSBHostFamily and its plugins in the Boot/System Kernel Collections
-        """
-        return self._xnu_major >= os_data.ventura.value
-
-
     def _base_patches(self) -> dict:
         """
         Base patches for USB 1.1 Controller

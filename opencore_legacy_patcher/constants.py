@@ -29,7 +29,7 @@ class Constants:
 
         # URLs
         self.url_patcher_support_pkg:         str = "https://github.com/albert-mueller/PatcherSupportPkg/releases/download/"
-        self.guide_link:                      str = "https://albert-mueller.github.io/OpenCore-Legacy-Patcher-T2/"
+        self.guide_link:                      str = "https://albert-mueller.github.io/"
         self.repo_link:                       str = "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/"
 
         # Update channels (Settings > App > "Update Channel")
@@ -44,9 +44,12 @@ class Constants:
                 "label": "Albert Müller - Official (T2 - recommended)",
                 "repo":  "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/",
             },
-            "medelcartelinc": {
-                "label": "Medelcartelinc (Fork)",
-                "repo":  "https://github.com/Medelcartelinc/OpenCore-Legacy-Patcher-T2/",
+            # Matteo's fork - formerly github.com/Medelcartelinc, that account is gone
+            # and he moved to matteoiacca. Settings that still hold the old
+            # "medelcartelinc" key fall back to "official" (unknown key).
+            "matteoiacca": {
+                "label": "Matteo / matteoiacca (Fork)",
+                "repo":  "https://github.com/matteoiacca/OpenCore-Legacy-Patcher-T2/",
             },
         }
         self.update_channel:           str = "official"  # Channel selected in the GUI
@@ -64,7 +67,7 @@ class Constants:
         self.project_status_checked:   bool = False
         self.project_eol_notice_shown: bool = False
 
-        self.custom_installer_url:            str = "https://github.com/Medelcartelinc/OpenCore-Legacy-Patcher-T2"
+        self.custom_installer_url:            str = "https://github.com/matteoiacca/OpenCore-Legacy-Patcher-T2"
         self.custom_installer_version=self.patcher_version
         self.installer_pkg_url:               str = f"{self.repo_link.rstrip('/')}/releases/download/{self.patcher_version}/AutoPkg-Assets-T2.pkg"
 
@@ -491,8 +494,9 @@ class Constants:
 
     @property
     def t2tahoefixup_path(self):
-        # T2TahoeFixup ships both a Debug and a Release build (kext_variant: RELEASE/DEBUG).
-        return self.payload_kexts_path / Path(f"T2/T2TahoeFixup-{self.t2tahoefixup_version}-{self.kext_variant.capitalize()}.zip")
+        # Only a Release build of T2TahoeFixup is bundled (the Debug build was dropped in #561
+        # because it lagged behind the Release build), so it is used for both kext_variant values.
+        return self.payload_kexts_path / Path(f"T2/T2TahoeFixup-{self.t2tahoefixup_version}-Release.zip")
 
 
 

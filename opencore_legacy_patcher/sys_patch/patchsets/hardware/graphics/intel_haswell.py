@@ -66,7 +66,6 @@ class IntelHaswell(BaseHardware):
         """
         New compiler format introduced in macOS 15, Sequoia
         """
-        # Not needed on Tahoe: prebuilt 26.0-3802 metallibs are used instead (dortania@c70f40a)
         return os_data.sequoia.value <= self._xnu_major < os_data.tahoe.value
 
 
@@ -85,6 +84,21 @@ class IntelHaswell(BaseHardware):
                         "AppleIntelHD5000GraphicsVADriver.bundle":  "12.5",
                         "AppleIntelHSWVA.bundle":                   "12.5",
                         "AppleIntelGraphicsShared.bundle":          "12.5",
+                    },
+                },
+            },
+        }
+
+
+    def _framebuffer_only_patches(self) -> dict:
+        """
+        Framebuffer only patches
+        """
+        return {
+            "Intel Haswell": {
+                PatchType.OVERWRITE_SYSTEM_VOLUME: {
+                    "/System/Library/Extensions": {
+                        "AppleIntelFramebufferAzul.kext": self._resolve_monterey_framebuffers(),
                     },
                 },
             },

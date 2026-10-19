@@ -6,7 +6,6 @@ from ..base import BaseHardware, HardwareVariant, HardwareVariantGraphicsSubclas
 
 from ...base import PatchType
 
-from ...shared_patches.metal_31001     import LegacyMetal31001
 from ...shared_patches.monterey_opencl import MontereyOpenCL
 
 from .....constants  import Constants
@@ -65,10 +64,7 @@ class IntelSkylake(BaseHardware):
         Model specific patches
         """
         metal_driver_source = self._resolve_gcn_skylake_metal_drivers() or (
-            "12.5-26" if self._xnu_major >= os_data.golden_gate.value
-            else ("12.5-25" if self._xnu_major >= os_data.tahoe.value
-            else ("12.5-24" if self._xnu_major >= os_data.sequoia.value
-            else "12.5"))  # 12.5-22 only ships the BDW MTLDriver, not SKL
+            "12.5-25" if self._xnu_major >= os_data.tahoe else "12.5" if self._xnu_major < os_data.sequoia else "12.5-24"
         )
 
         return {
@@ -96,7 +92,6 @@ class IntelSkylake(BaseHardware):
             return {}
 
         return {
-            **LegacyMetal31001(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
             **MontereyOpenCL(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
             **self._model_specific_patches(),
         }

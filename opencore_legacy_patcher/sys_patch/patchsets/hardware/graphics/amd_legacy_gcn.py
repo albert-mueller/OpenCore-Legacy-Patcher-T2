@@ -6,12 +6,10 @@ from ..base import BaseHardware, HardwareVariant, HardwareVariantGraphicsSubclas
 
 from ...base import PatchType
 
-from ...shared_patches.metal_31001     import LegacyMetal31001
 from ...shared_patches.monterey_gva    import MontereyGVA
 from ...shared_patches.monterey_opencl import MontereyOpenCL
 from ...shared_patches.tahoe_graphics  import TahoeGraphics
 from ...shared_patches.amd_opencl      import AMDOpenCL
-from .amd_legacy_gcn_yellow_fix import patch as yellow_fix_patch
 
 from .....constants  import Constants
 from .....detections import device_probe
@@ -86,8 +84,8 @@ class AMDLegacyGCN(BaseHardware):
                 device_probe.NVIDIA.Archs.Kepler,
             ]
         ) is False:
-            if self._xnu_major >= os_data.sequoia.value:
-                bronze_bundle_source = "12.5-25" if self._xnu_major >= os_data.tahoe.value else "12.5-24"
+            if self._xnu_major >= os_data.sequoia:
+                bronze_bundle_source = "12.5-25" if self._xnu_major >= os_data.tahoe else "12.5-24"
 
         bronze_bundle_source = self._resolve_gcn_skylake_metal_drivers() or bronze_bundle_source
 
@@ -109,7 +107,7 @@ class AMDLegacyGCN(BaseHardware):
                         "AMDRadeonVADriver2.bundle":     "12.5",
                         "AMDRadeonX4000GLDriver.bundle": "12.5",
                         "AMDMTLBronzeDriver.bundle":     bronze_bundle_source,
-                        "AMDShared.bundle":              "12.5-GCN-25" if self._xnu_major >= os_data.tahoe.value else "12.5",
+                        "AMDShared.bundle":              "12.5-GCN-25" if self._xnu_major >= os_data.tahoe else "12.5",
                     },
                 },
             },
@@ -123,9 +121,7 @@ class AMDLegacyGCN(BaseHardware):
         if self.native_os() is True:
             return {}
 
-        _base = {
-            **LegacyMetal31001(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
-        }
+        _base = {}
 
         # AMD GCN and newer GPUs can still use the native GVA stack
         _base.update({
@@ -138,11 +134,5 @@ class AMDLegacyGCN(BaseHardware):
             **TahoeGraphics(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
             **self._model_specific_patches(),
         })
-
-        # Tahoe-only color fix (same gating as amd_polaris.py) - must not change gamma on Ventura - Sequoia
-        if self._xnu_major >= os_data.tahoe.value:
-            _base.update({
-                **yellow_fix_patch,
-            })
 
         return _base

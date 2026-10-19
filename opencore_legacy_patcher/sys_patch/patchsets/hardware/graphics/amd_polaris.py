@@ -8,13 +8,10 @@ from ..base import BaseHardware, HardwareVariant, HardwareVariantGraphicsSubclas
 
 from ...base import PatchType
 
-from ...shared_patches.metal_31001     import LegacyMetal31001
 from ...shared_patches.monterey_gva    import MontereyGVA
 from ...shared_patches.monterey_opencl import MontereyOpenCL
 from ...shared_patches.tahoe_graphics  import TahoeGraphics
 from ...shared_patches.amd_opencl      import AMDOpenCL
-
-from .amd_legacy_gcn_yellow_fix import patch as yellow_fix_patch
 
 from .....constants  import Constants
 from .....detections import device_probe
@@ -37,8 +34,7 @@ class AMDPolaris(BaseHardware):
 
     def present(self) -> bool:
         """
-        Targeting AMD Polaris GPUs with CPUs lacking AVX2.0 or missing Framebuffer patches (ie. MacBookPro13,3).
-        Enabling MacBookPro14,3 for Tahoe experimental testing.
+        Targeting AMD Polaris GPUs with CPUs lacking AVX2.0 or missing Framebuffer patches (ie. MacBookPro13,3 and MacBookPro14,3)
         """
         return self._is_gpu_architecture_present(
             gpu_architectures=[
@@ -109,10 +105,7 @@ class AMDPolaris(BaseHardware):
         # Assuming non-AVX2.0 CPUs
         # Note missing framebuffers are not restored (ex. 'ATY,Berbice')
         metal_driver_source = self._resolve_gcn_skylake_metal_drivers() or (
-            "12.5-26" if self._xnu_major >= os_data.golden_gate.value
-            else ("12.5-25" if self._xnu_major >= os_data.tahoe.value
-            else ("12.5-24" if self._xnu_major >= os_data.sequoia.value
-            else f"12.5-{self._xnu_major}"))
+            "12.5-25" if self._xnu_major >= os_data.tahoe else "12.5" if self._xnu_major < os_data.sequoia else "12.5-24"
         )
 
         return {
@@ -124,7 +117,7 @@ class AMDPolaris(BaseHardware):
                         "AMDRadeonVADriver2.bundle":     "12.5",
                         "AMDRadeonX4000GLDriver.bundle": "12.5",
                         "AMDMTLBronzeDriver.bundle":     metal_driver_source,
-                        "AMDShared.bundle":              "12.5-GCN-25" if self._xnu_major >= os_data.tahoe.value else "12.5",
+                        "AMDShared.bundle":              "12.5-GCN-25" if self._xnu_major >= os_data.tahoe else "12.5",
                     },
                 },
             },
@@ -143,7 +136,6 @@ class AMDPolaris(BaseHardware):
             return self._model_specific_patches()
 
         _base = {
-            **LegacyMetal31001(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
             **MontereyOpenCL(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
             **TahoeGraphics(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).patches(),
             **self._model_specific_patches(),
@@ -157,10 +149,5 @@ class AMDPolaris(BaseHardware):
         _base.update({
             **MontereyGVA(self._xnu_major, self._xnu_minor, self._constants.detected_os_version).revert_patches(),
         })
-
-        if self._xnu_major >= os_data.tahoe.value:
-            _base.update({
-                **yellow_fix_patch,
-            })
 
         return _base

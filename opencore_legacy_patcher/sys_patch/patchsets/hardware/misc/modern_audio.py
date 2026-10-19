@@ -8,6 +8,7 @@ from ...base import PatchType
 
 from .....constants import Constants
 
+from .....datasets import smbios_data
 from .....datasets.os_data import os_data
 
 
@@ -25,19 +26,13 @@ class ModernAudio(BaseHardware):
 
 
     def present(self) -> bool:
-        """
-        AppleHDA was outright removed in macOS Tahoe, so this patch set is always present if OS requires it
-        """
-        if self._constants.allow_modern_audio is False:
-            return False
-        return True
+        model_data = smbios_data.smbios_dictionary.get(self._computer.real_model)
+        return model_data is not None and model_data.get("SecureBootModel", "Default") is None
 
 
     def native_os(self) -> bool:
         """
         - Everything before macOS Tahoe 26 is considered native
-        - T2 Macs retain native (digital) audio routing under macOS Tahoe;
-          Apple only removed AppleHDA-based analog audio routing for non-T2 Macs
         """
         if self._xnu_major < os_data.tahoe.value:
             return True
@@ -46,19 +41,7 @@ class ModernAudio(BaseHardware):
         if self._os_build == "25A5279m":
             return True
 
-        # Non-T2 models (including T1 models like MacBookPro13,x and MacBookPro14,x)
-        # require AppleHDA on macOS Tahoe even if spoofed to a T2 model.
-        real_model = getattr(self._computer, "real_model", "")
-        if self._computer.t2_chip is True and real_model not in ["MacBookPro14,3", "MacBookPro14,2", "MacBookPro14,1", "MacBookPro13,3", "MacBookPro13,2", "MacBookPro13,1"]:
-            return True
-
         return False
-
-    def requires_kernel_debug_kit(self) -> bool:
-        """
-        Apple no longer provides standalone kexts in the base OS
-        """
-        return True
 
 
     def hardware_variant(self) -> HardwareVariant:
@@ -66,6 +49,10 @@ class ModernAudio(BaseHardware):
         Type of hardware variant
         """
         return HardwareVariant.MISCELLANEOUS
+
+
+    def requires_kernel_debug_kit(self) -> bool:
+        return self._xnu_major >= os_data.tahoe.value
 
 
     def _modern_audio_patches(self) -> dict:
