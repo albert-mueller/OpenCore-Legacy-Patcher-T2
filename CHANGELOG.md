@@ -6,6 +6,22 @@ This release:
 - removes macOS Big Sur Beta (macOS 10.16) definitions
 - root patching: requires reverting the root patches again before patching with a different patcher build (different patcher version, PatcherSupportPkg version or commit), like upstream. Previously new patches could be merged on top of patches from an older build, leaving files from both on the system volume. On non-Metal Macs this mixed the old Moraea SkyLight stack with the current one, so the menu bar disappeared and apps failed to launch (#539). Completing an unfinished root patch with the same build (e.g. after the network-only first stage) is still possible
 - root patching: the leftover preferences of the old Moraea non-Metal stack are now also removed for the logged-in user when the patcher runs as root (e.g. `sudo ... --patch_sys_vol`)
+- fixes a vulnerability where an attacker could replace  applescript.AppleScript('tell app "loginwindow" to \u00abevent aevtrrst\u00bb').run() with a malformed script to trigger an error outside applescript.ScriptError as e in a very sophisticated attack:
+
+       if answer == wx.ID_YES:
+            # Reboots with Count Down prompt (user can still dismiss if needed)
+            self.frame.Hide()
+            wx.Yield()
+            try:
+                applescript.AppleScript('tell app "loginwindow" to \u00abevent aevtrrst\u00bb').run()
+            except applescript.ScriptError as e: 
+                logging.error(f"Error while trying to reboot: {e}")
+                logging.exception("Stack Trace:")
+                logging.info("Go to Apple Logo > Restart and click on Restart to fix this issue.")
+            # <- an attacker could replace applescript.AppleScript('tell app "loginwindow" to \u00abevent aevtrrst\u00bb').run() with a malformed script to trigger an error outside applescript.ScriptError
+
+Severity: low
+Impact: an attacker may be able to replace applescript.AppleScript('tell app "loginwindow" to \u00abevent aevtrrst\u00bb').run() with a malicious script that is intentionally empty or malformed to launch a sophisticated DoS attack to crash the application. This vulnerability has been fixed by ensuring that it displays an error on every exception.
 
 ## 4.0.0.190009.9 - 4.0.0 alpha 19.9.9
 This release:
