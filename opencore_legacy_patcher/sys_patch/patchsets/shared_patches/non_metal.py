@@ -98,7 +98,7 @@ class NonMetal(BaseSharedPatchSet):
                     },
                     "/System/Library/PrivateFrameworks": {
                         "GPUSupport.framework": "10.14.3",
-                        **({"FaceCore.framework":  f"13.5"} if self._xnu_major >= os_data.sonoma else {}),
+                        **({"FaceCore.framework":  "13.5"} if self._xnu_major >= os_data.sonoma else {}),
                     },
                 },
             },

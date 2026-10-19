@@ -1,4 +1,12 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.1900010 - 4.0.0 alpha 19.10
+This release:
+- for all GPUs, Legacy Audio, Modern Audio, USB1.1, now we're migrating for those away from the costum patchset inside the patcher itself only and switching to Dortania's, which are proven to be stable, thx @Dortania and @Jazzzny
+- on T2 Macs, T2TahoeFixup.kext is updated to fix a couple of issues
+- removes macOS Big Sur Beta (macOS 10.16) definitions
+- root patching: requires reverting the root patches again before patching with a different patcher build (different patcher version, PatcherSupportPkg version or commit), like upstream. Previously new patches could be merged on top of patches from an older build, leaving files from both on the system volume. On non-Metal Macs this mixed the old Moraea SkyLight stack with the current one, so the menu bar disappeared and apps failed to launch (#539). Completing an unfinished root patch with the same build (e.g. after the network-only first stage) is still possible
+- root patching: the leftover preferences of the old Moraea non-Metal stack are now also removed for the logged-in user when the patcher runs as root (e.g. `sudo ... --patch_sys_vol`)
+
 ## 4.0.0.190009.9 - 4.0.0 alpha 19.9.9
 This release:
 - replaces Spoof-VMM with T2TahoeFixup, thx @matteoiacca, @gandolf243 and @@zkennedy137

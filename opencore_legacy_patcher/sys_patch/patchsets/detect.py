@@ -499,6 +499,19 @@ class HardwarePatchsetDetection:
             return True
 
         installed_patches = set(manifest) - WIRELESS_PATCHSET_KEYS - MANIFEST_METADATA_KEYS
+
+        # Patches from a different build must never be stacked: merging a newer
+        # payload set over an older one leaves files of both on the volume (MERGE
+        # keeps what is already there). On non-Metal Macs this mixes the old Moraea
+        # SkyLight stack with the current one, breaking WindowServer (no menu bar,
+        # apps failing to launch - #539). Upstream enforces the same rule.
+        # Checked before the "uninstalled patches" exception below, which is only
+        # meant for completing patching with the same build (ie. network stage 2).
+        patched_with = self._manifest_build_mismatch(manifest)
+        if patched_with and (installed_patches or set(manifest) & WIRELESS_PATCHSET_KEYS):
+            logging.error(f"Installed patches are from a different build ({patched_with}), unpatching is required")
+            return True
+
         # If any detected hardware patches for this machine are NOT yet in the manifest,
         # repatching must be permitted so the user can complete system patching (e.g. stage 2
         # after wireless or applying remaining graphics/audio/camera patches).
@@ -526,6 +539,35 @@ class HardwarePatchsetDetection:
             logging.info("Only network patches are installed, patching can continue")
 
         return False
+
+
+    def _manifest_build_mismatch(self, manifest: dict) -> "str | None":
+        """
+        Determine whether the patches recorded in a manifest come from another build
+
+        Compares the patcher version, the PatcherSupportPkg version and, when both are
+        known, the commit URL against the running build. The versions are compared too
+        because builds run from source report an empty commit URL.
+
+        Returns:
+            str | None: Description of the differing build, None if it is the same build
+        """
+        differences = []
+
+        recorded_version = manifest.get("OpenCore Legacy Patcher")
+        if recorded_version and recorded_version != f"v{self._constants.patcher_version}":
+            differences.append(f"patcher {recorded_version} vs v{self._constants.patcher_version}")
+
+        recorded_pkg = manifest.get("PatcherSupportPkg")
+        if recorded_pkg and recorded_pkg != f"v{self._constants.patcher_support_pkg_version}":
+            differences.append(f"PatcherSupportPkg {recorded_pkg} vs v{self._constants.patcher_support_pkg_version}")
+
+        recorded_url = manifest.get("Commit URL")
+        running_url  = self._constants.commit_info[2] if self._constants.commit_info else None
+        if recorded_url and running_url and recorded_url != running_url:
+            differences.append("different commit")
+
+        return ", ".join(differences) if differences else None
 
 
     def _read_manifest(self, manifest_path: Path = None) -> dict:
@@ -621,7 +663,9 @@ class HardwarePatchsetDetection:
         oclp_plist = self._read_manifest(utilities.find_any_oclp_manifest())
         if not oclp_plist:
             return False
-        return "Legacy Wireless" in oclp_plist or "Modern Wireless" in oclp_plist
+        # "Modern Wireless Common" is the name used since the switch back to Dortania's modern_wireless.py;
+        # "Modern Wireless" is kept so manifests from earlier fork builds are still recognised.
+        return any(key in oclp_plist for key in ["Legacy Wireless", "Modern Wireless", "Modern Wireless Common"])
 
 
     def _is_cached_kernel_debug_kit_present(self) -> bool:

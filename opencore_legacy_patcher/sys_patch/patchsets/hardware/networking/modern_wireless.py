@@ -33,6 +33,7 @@ class ModernWireless(BaseHardware):
             self._computer.wifi.chipset in [
                 device_probe.Broadcom.Chipsets.AirPortBrcm4360,
                 device_probe.Broadcom.Chipsets.AirportBrcmNIC,
+                # We don't officially support this chipset, however we'll throw a bone to hackintosh users
                 device_probe.Broadcom.Chipsets.AirPortBrcmNICThirdParty,
             ]
         )
@@ -51,69 +52,60 @@ class ModernWireless(BaseHardware):
         """
         return HardwareVariant.NETWORKING
 
-    def _base_patch(self) -> dict:
+    def _patches_modern_wireless_common_extended(self) -> dict:
         """
-        Base patches for Modern Wireless
-        """
-        # Note: PatcherSupportPkg (albert-mueller, since c2a5900) ships YBronst's WiFi builds in the
-        # regular 13.7.2-<xnu_major> folders up to Sequoia (-24); separate -YB folders no longer exist.
-        # Tahoe always uses Dortania's 13.7.2-25 build, like upstream: the EFI loads Dortania's
-        # AirPortBrcmNIC-Tahoe.kext on macOS 26 (9e7f7b31, port of dortania/OpenCore-Legacy-Patcher@d9604c3)
-        # and Dortania built their -25 IO80211/WiFiPeerToPeer shims for exactly that kext. YBronst has no
-        # Tahoe build, and reusing his Sequoia (-24) frameworks with the Tahoe kext is untested (#218).
-        # use_ybronst_wifi therefore only matters for what PatcherSupportPkg ships below Tahoe.
-        source = f"13.7.2-{self._xnu_major}"
-        return {
-            "Modern Wireless": {
-                PatchType.OVERWRITE_SYSTEM_VOLUME: {
-                    "/usr/libexec": {
-                        "wifip2pd": source,
-                    },
-                },
-                PatchType.MERGE_SYSTEM_VOLUME: {
-                    "/System/Library/PrivateFrameworks": {
-                        "IO80211.framework":        source,
-                        "WiFiPeerToPeer.framework": source,
-                    },
-                }
-            },
-        }
-
-    def _extended_patch(self) -> dict:
-        """
-        Extended patches for Modern Wireless
+        Extended modern wireless patches
         """
         if self._xnu_major > os_data.sonoma:
             return {}
-
-        source = f"13.7.2-{self._xnu_major}"
 
         return {
             "Modern Wireless Extended": {
                 PatchType.OVERWRITE_SYSTEM_VOLUME: {
                     "/usr/libexec": {
-                        "airportd": source,
+                        "airportd": f"13.7.2-{self._xnu_major}",
                     },
                 },
                 PatchType.MERGE_SYSTEM_VOLUME: {
                     "/System/Library/Frameworks": {
-                        **({ "CoreWLAN.framework": source } if self._xnu_major == os_data.sonoma else {}),
+                        "CoreWLAN.framework": f"13.7.2-{self._xnu_major}",
                     },
                     "/System/Library/PrivateFrameworks": {
-                        "CoreWiFi.framework":       source,
+                        "CoreWiFi.framework":  f"13.7.2-{self._xnu_major}",
                     },
-                }
+                },
+            },
+        }
+
+
+    def _patches_modern_wireless_common(self) -> dict:
+        """
+        Common modern wireless patches
+        """
+        return {
+            "Modern Wireless Common": {
+                PatchType.OVERWRITE_SYSTEM_VOLUME: {
+                    "/usr/libexec": {
+                        "wifip2pd": f"13.7.2-{self._xnu_major}",
+                    },
+                },
+                PatchType.MERGE_SYSTEM_VOLUME: {
+                    "/System/Library/PrivateFrameworks": {
+                        "IO80211.framework":        f"13.7.2-{self._xnu_major}",
+                        "WiFiPeerToPeer.framework": f"13.7.2-{self._xnu_major}",
+                    },
+                },
             },
         }
 
     def patches(self) -> dict:
         """
-        Patches for Modern Wireless
+        Dictionary of patches
         """
         if self.native_os() is True:
             return {}
 
         return {
-            **self._base_patch(),
-            **self._extended_patch(),
+            **self._patches_modern_wireless_common(),
+            **self._patches_modern_wireless_common_extended(),
         }
