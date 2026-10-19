@@ -141,7 +141,7 @@ To run the project from source, see here: [Build and run from source](./SOURCE.m
 * [nxvid](https://github.com/nxvid/OpenCore-Legacy-Patcher-T2/)
     * for documenting and fixing an issue where sbvmm might not have been injected on T2 Macs
 
-* [Matteo](https://github.com/Medelcartelinc)
+* [Matteo](https://github.com/Medelcartelinc) and [Matteo](https://github.com/matteoiacca)
     * Adding support for T1 Macs on Tahoe
     * writing patches for T1 and non-T1 Macs for macOS 26 Tahoe
     * fixing some bugs, testing and documenting issues
