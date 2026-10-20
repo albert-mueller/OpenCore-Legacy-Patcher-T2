@@ -329,12 +329,16 @@ class BuildSecurity:
                 # 2. Grafik- & Kernel-Injektionen (Unabhängig von Variablen-Fluktuatuationen absichern)
                 self._apply_t2_graphics_injection()
 
-                # 3. Ergänzende kosmetische Argumente sauber anhängen
-                self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args", "-disable_sidecar_mac -disable_media_analysis")
-
-                # 4. Scope graphics injection flags strictly to active valid targets
-                if self._requires_t2_graphics_injection():
-                    self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args", "-amfipassbeta igfxonln=1 igfxfw=2 forceRenderStandby=0 agdpmod=vit9696")
+                # 3./4. Removed boot-args (no effect on T2 Macs):
+                #  - -disable_sidecar_mac: FeatureUnlock arg, but FeatureUnlock is only injected
+                #    for models with Max OS Supported < Sonoma, i.e. never on a T2 Mac.
+                #  - -disable_media_analysis: not read by FeatureUnlock or the kernel.
+                #  - igfxonln=1 igfxfw=2 forceRenderStandby=0: misc.py _t2_handling() adds
+                #    them for every T2 Mac anyway.
+                #  - agdpmod=vit9696: misc.py picks agdpmod per GPU (pikera for Navi). Adding
+                #    vit9696 here first made it win over pikera on Navi Macs.
+                #  - -amfipassbeta: added by the AMFIPass block below whenever AMFIPass.kext
+                #    is actually injected (Tahoe target); without the kext it does nothing.
 
                 if self.is_tahoe_target:
                     logging.info("- Injecting T2TahoeFixup for macOS Tahoe bypass on T2")

@@ -228,13 +228,15 @@ class BuildOpenCore:
                     arg for arg in raw_args.split()
                     if not arg.startswith("-lilu")
                     and not arg.startswith("-spoofvmm")
-                    and arg not in ["dart=0", "-revbeta"]
+                    and arg not in ["dart=0", "-revbeta", "-ibtcompatbeta", "AMFIPass=0x1",
+                                    "-disable_sidecar_mac", "-disable_media_analysis"]
                     and not arg.startswith(("revpatch=", "revblock="))
                 ])
 
-                # Append required T2 args safely without compounding spaces
-                t2_args = "-ibtcompatbeta"
-                self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = f"{scrubbed_args} {t2_args}".strip()
+                # -ibtcompatbeta used to be appended here. It belongs to IntelBluetoothFirmware/
+                # IntelBTPatcher, which OCLP doesn't ship (T2 Macs use Broadcom Bluetooth), so
+                # nothing ever read it. It is now scrubbed like the other dead args above.
+                self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] = scrubbed_args.strip()
 
                 # RestrictEvents.kext is intentionally NOT injected on T2 Macs; they will use a
                 # separate, dedicated kext (in development). See misc.py _restrict_events_handling.
