@@ -296,7 +296,6 @@ def run_as_root(*args, **kwargs):
         logging.warning(f"Privileged Helper Tool not found at {OCLP_PRIVILEGED_HELPER}.")
     return _run_via_authorization_services(_command, **kwargs)
 
-    return _run_elevated_without_helper(_command, **kwargs)
 
 
 # Wrapper run as root by _run_via_authorization_services(). Constant script, the real
