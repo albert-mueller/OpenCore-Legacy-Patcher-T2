@@ -2,6 +2,7 @@
 #
 # Asks the reporter for their exact macOS and OpenCore Legacy Patcher versions
 # when an issue doesn't contain them (or only says "latest", "new", "N/A", ...).
+# Versions found in the issue title count as well, even if the form fields are empty.
 # Security / malicious-site / typosquatting reports (detected from the form's
 # issue type or the reporter's own text, never the form headings) and
 # suggestions / change requests (also icon or artwork contributions) are
@@ -124,7 +125,9 @@ jobs:
               } else {
                 found = valueRe.test(title + '\n' + body);
               }
-              return found || valueRe.test(authorText);
+              // Versions mentioned only in the title count too (e.g. "Panic on 26.1 with 4.0.0.18009"),
+              // even when the matching form field was left empty or just says "latest".
+              return found || valueRe.test(title) || valueRe.test(authorText);
             }
 
             const hasMacOS = hasVersion(/macos|os version/i, MACOS_RE);
