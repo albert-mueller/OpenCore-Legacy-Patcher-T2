@@ -139,7 +139,7 @@ class EntryPoint:
                     logging.info("Developer Mode is ON, bypassing Mode Selector → Experimental UI")
                     self.constants.app_mode = "matteo"
                     entry = gui_main_menu.MainFrame
-            except Exception as e:
+            except Exception:
                 logging.error("We couldn't enter or exit Developer Mode due to an error:")
                 logging.exception("Stack Trace:")
                 logging.info("Please report this issue.")

@@ -365,7 +365,7 @@ class BuildFrame(wx.Frame):
         try:
             build.BuildOpenCore(self.constants.custom_model or self.constants.computer.real_model, self.constants)
             self.build_successful = True
-        except Exception as e:
+        except Exception:
             logging.error("An internal error occurred while building:\n")
             logging.error(traceback.format_exc())
 

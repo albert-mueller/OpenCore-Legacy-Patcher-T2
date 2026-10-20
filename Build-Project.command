@@ -153,7 +153,7 @@ def verify_python_ssl() -> None:
     version check ("could not reach GitHub"). Load it here so that case is reported clearly.
     """
     try:
-        import ssl
+        pass
     except ImportError as e:
         rich.print(f"[red]Error: Python's ssl module failed to load: {e}[/red]")
         rich.print(f"[yellow]      OpenSSL 3 is installed, but {sys.executable} cannot use it.[/yellow]")

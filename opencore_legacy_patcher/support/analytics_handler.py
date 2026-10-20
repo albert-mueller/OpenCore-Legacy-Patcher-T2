@@ -75,7 +75,7 @@ class Analytics:
 
         try:
             result = plistlib.load(Path(path).open("rb"))
-        except Exception as e:
+        except Exception:
              logging.error("We're facing an unexpected error while trying to fetch the country name set in System Settings.")
              return "Unexpected error occured while fetching country name"
         except:

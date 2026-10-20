@@ -83,7 +83,7 @@ class DownloadObject:
             self.checksum = None
             if self.has_network:
                 self._populate_file_size()
-        except Exception as e:
+        except Exception:
             logging.error("Wir haben einen Problem, einige Aktualisierungsparametern zu setzen")
             logging.error("We have an issue to set some update parameters")
             logging.exception("Stack Trace:")

@@ -169,7 +169,6 @@ class InstallUSBFrame(wx.Frame):
                 logging.info("If you are writing to the EFI while the patcher is actively trying to unmount it,")
                 logging.info("that causes this error. At this point, abort any read/write operations,")
                 logging.info("and then try to unmount it manually.")
-                pass
 
     def _mount_efi(self):
         self._append_log(f"Mounting {self.selected_efi}...")

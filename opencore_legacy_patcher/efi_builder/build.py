@@ -107,10 +107,9 @@ class BuildOpenCore:
                     logging.info("You're not building OpenCore on your target system that is running macOS 27 Golden Gate.")
             else:
                 logging.info("You're not targeting macOS 27 Golden Gate, this is good.")
-        except Exception as e:
+        except Exception:
             logging.error("We couldn't make sure if you are targeting macOS 27 Golden Gate or newer. Skip checking...")
             logging.exception("Stack Trace:")
-            pass
 
         utilities.cls()
         logging.info(f"Building Configuration {'for external' if self.constants.custom_model else 'on model'}: {self.model}")
@@ -244,7 +243,7 @@ class BuildOpenCore:
                 # Ensure WriteFlash is enabled to commit changes to SPI ROM
                 self.config["NVRAM"]["WriteFlash"] = True
 
-            except Exception as e:
+            except Exception:
                 logging.error("Whoops, applying in-memory T2 booter and SMBIOS alignments failed because of the following error:")
                 logging.exception("Stack Trace:")
                 logging.info("Please try again later.")
@@ -293,7 +292,7 @@ class BuildOpenCore:
         ]:
             try:
                 function(self.model, self.constants, self.config)
-            except Exception as e:
+            except Exception:
                 logging.error("There is a serious error")
                 logging.exception(f"Failed to initialize the function called {function.__name__}")
                 logging.exception("Stack Trace:")
@@ -520,7 +519,7 @@ class BuildOpenCore:
                 self.constants.serial_settings = "Moderate"
 
             self._build_efi()
-        except Exception as e:
+        except Exception:
             logging.error(f"Whoops, Generating OpenCore configuration for {self.model} because of the following error:")
             logging.exception("Stack Trace:") # This prints the full technical error
             logging.info("Please try again later.")
@@ -584,14 +583,14 @@ class BuildOpenCore:
                     support.BuildSupport(self.model, self.constants, self.config).get_kext_by_bundle_path("IO80211FamilyLegacy.kext/Contents/PlugIns/AirPortBrcmNIC.kext")["Enabled"] = True
                     support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Block"], "Identifier", "com.apple.iokit.IOSkywalkFamily")["Enabled"] = True
                     support.BuildSupport(self.model, self.constants, self.config).enable_kext("AirportBrcmFixup.kext", self.constants.airportbcrmfixup_version, self.constants.airportbcrmfixup_path)
-                except Exception as e:
+                except Exception:
                     logging.error("Injecting WiFi drivers has failed due to the following error:")
                     logging.exception("Stack Trace:")
                     sys.exit(3)
                 try:
                     logging.info("Injecting the sound kext")
                     support.BuildSupport(self.model, self.constants, self.config).enable_kext("AppleALC.kext", self.constants.applealc_version, self.constants.applealc_path)
-                except Exception as e:
+                except Exception:
                     logging.error("Failed to inject the sound kext - it is necessary so you can have any sound on your machine.")
                     logging.exception("Stack Trace:")
                     sys.exit(3)
@@ -678,7 +677,7 @@ class BuildOpenCore:
 
             support.BuildSupport(self.model, self.constants, self.config).cleanup()
             self._save_config()
-        except Exception as e:
+        except Exception:
             logging.error(f"Whoops, spoofing the SMBIOS for {self.model} failed because of the following error:")
             logging.exception("Stack Trace:")
             logging.info("Please try again later.")
@@ -773,7 +772,7 @@ class BuildOpenCore:
                     except TypeError:
                         shutil.rmtree(profile_output, ignore_errors=True)
                     # behebt eine Sicherheitslücke, die beim Löschen des Verzeichnisses, beim einen unerwarteter Fehler (z.B einen Angreifer versucht, nicht autorisierte Verzeichnisse zu löschen), DoS-Angriffe zu starten
-                    except Exception as e:
+                    except Exception:
                         logging.error("While deleting a directory, an error occured.")
                         logging.exception("Stack Trace:")
                         logging.info("This could be because an attacker may have tried to delete an unauthorized directory. Please check the full Stack Trace carefully and ensure the application hasn't been tampered with malware. If you are not sure, contact the main developers immediately and tell from which source the app was downloaded.")
@@ -793,7 +792,7 @@ class BuildOpenCore:
             else:
                 logging.info(f"    {self.constants.opencore_release_folder}")
             logging.info("")
-        except Exception as e:
+        except Exception:
             logging.info("")
             logging.error(f"Your OpenCore EFI for {self.model} is not ready due to an unexpected error:")
             logging.exception("Stack Trace:")

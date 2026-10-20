@@ -122,7 +122,7 @@ class MainFrame(wx.Frame):
                 model_Button = wx.Button(self, label=f"Model: {self.constants.custom_model or self.constants.computer.real_model}", pos=(-1, version_label.GetPosition()[1] + 40))
             else:
                 model_Button = wx.Button(self, label=f"Model: {self.constants.custom_model or self.constants.computer.real_model}", pos=(-1, version_label.GetPosition()[1] + 30))
-        except Exception as e:
+        except Exception:
             logging.error("We couldn't verify whether Experimental Mode is on or off due to a critical bug.")
             logging.info("Please, report this bug.")
             logging.exception("The error is the following:")

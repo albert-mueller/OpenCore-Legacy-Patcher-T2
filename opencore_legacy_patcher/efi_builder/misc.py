@@ -496,7 +496,7 @@ class BuildMiscellaneous:
                               f"Find={len(find_bytes)} Bytes, Replace={len(replace_bytes)} Bytes.")
                 return False
             return True
-        except Exception as e:
+        except Exception:
             logging.error("Wir haben einen Problem, die Bytes-Länge zu vergleichen")
             logging.error("We have an issue to compare the bytes length.")
             sys.exit(3)
@@ -517,7 +517,7 @@ class BuildMiscellaneous:
             try:
                 logging.info(f"- Applying patches for {self.model} to fix CPU topology / thread pooling panic layouts")
                 self.config["Kernel"]["Quirks"]["ProvideCurrentCpuInfo"] = True
-            except Exception as e:
+            except Exception:
                 logging.error("Applying patches to fix this specific kernel panic failed due to the following error:")
                 logging.exception("Stack Trace:")
                 logging.info("Please try again later.")
@@ -563,13 +563,13 @@ class BuildMiscellaneous:
                     m2 = builder.get_kext_by_bundle_path("USB-Map-Tahoe.kext")
                     if m1: m1["Enabled"] = False
                     if m2: m2["Enabled"] = False
-                except Exception as e:
+                except Exception:
                     logging.info(f"- {self.model}: Great news! We tried disabling USB-Map.kext and USB-Map-Tahoe.kext but we didn't find them.")
                     logging.info("You don't have to worry about this message.")
             try:
                 APPLE_NVRAM_UUID = "7C436110-AB2A-4BBB-A880-FE41995C9F82"
                 logging.info("- Defining NVRAM variable APPLE_NVRAM_UUID")
-            except Exception as e:
+            except Exception:
                 logging.error("We failed to define APPLE_NVRAM_UUID. It failed to do so because of the following error:")
                 logging.exception("Stack Trace:")
                 logging.info("Please try again later.")
@@ -589,7 +589,7 @@ class BuildMiscellaneous:
                 self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args",
                     f"-v rddelay=10 igfxfw=2 igfxonln=1 -disable_ext_panics -no_compat_check "
                     f"agdpmod={_agdpmod} forceRenderStandby=0 ipc_control_port_options=0 amfi=0x80")
-            except Exception as e:
+            except Exception:
                 logging.error("Injecting T2 specific boot arguments failed due to the following error:")
                 logging.exception("Stack Trace:")
                 logging.info("Please try again later.")
@@ -605,7 +605,7 @@ class BuildMiscellaneous:
             try:
                 logging.info("- Set SIP to allow Root Volume patching on T2 Macs (03080000)")
                 self._set_nvram_value(APPLE_NVRAM_UUID, "csr-active-config", binascii.unhexlify("03080000"), overwrite=True)
-            except Exception as e:
+            except Exception:
                 logging.error("Setting SIP to 03080000 failed due to the following error:")
                 logging.exception("Stack Trace:")
                 logging.info("Please try again later.")
@@ -687,7 +687,7 @@ class BuildMiscellaneous:
                 logging.info("- Injecting User-Space Attestation bypass flags (Fixes Error -10000)")
                 self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args", "-oas_skip_attestation")
                 self._set_nvram_value(APPLE_NVRAM_UUID, "IAS_ENV_SKIP_ATTESTATION", "1", overwrite=True)
-            except Exception as e:
+            except Exception:
                 logging.error("Failed to inject Attestation Error -10000 bypass flags:")
                 logging.exception("Stack Trace:")
                 logging.info("Please try again later.")
@@ -697,7 +697,7 @@ class BuildMiscellaneous:
                 logging.info("- Disabling UEFI updates for T2 Macs to prevent errors after 29 minutes remaining")
                 logging.info("This patch will block UEFI updates on T2 Macs. To update the UEFI on T2 Macs while running unsupported macOS versions, if you care about your UEFI being up to date, you'll need to update it via exiting OpenCore and entering DFU mode using another Mac.")
                 self._set_nvram_value(APPLE_NVRAM_UUID, "run-efi-updater", "No", overwrite=True)
-            except Exception as e:
+            except Exception:
                 logging.error("Failed to disable UEFI updates for T2 Macs after 29 minutes remaining due to an error:")
                 logging.exception("Stack Trace:")
                 logging.info("Please try again later.")

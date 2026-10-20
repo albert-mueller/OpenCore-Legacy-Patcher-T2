@@ -139,7 +139,7 @@ class UpdateFrame(wx.Frame):
             self.title_label = wx.StaticText(self.frame, label="Preparing download...", pos=(-1, 1))
             self.title_label.SetFont(gui_support.font_factory(19, wx.FONTWEIGHT_BOLD))
             self.title_label.Centre(wx.HORIZONTAL)
-        except Exception as e:
+        except Exception:
             logging.error("Failed to download the update")
             logging.exception("Stack Trace:")
             wx.MessageBox("Failed to download the update", "Critical Error")
@@ -554,7 +554,7 @@ class UpdateFrame(wx.Frame):
             if not Path(_executable).exists():
                 _executable = f"{_macos_dir}/OpenCore-Patcher"
             subprocess.Popen([_executable, "--update_installed"])
-        except Exception as e:
+        except Exception:
             logging.error("Das Starten des Aktualisierung durch den Builtin-Update-Instrument hat fehlgeschlagen.")
             logging.error("Launching the update via the builtin updater failed.")
             logging.exception("Stack Trace:")

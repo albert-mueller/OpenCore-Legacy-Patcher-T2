@@ -323,7 +323,7 @@ class PatchSysVolume:
                 self.mount_location,
                 self.skip_root_kmutil_requirement
             ).merge(save_hid_cs)
-        except Exception as e:
+        except Exception:
             logging.error("Merging KDK with root volume failed")
             logging.exception("Stack Trace:")
             # Fatal: merge() only raises when a KDK is actually required (Ventura+
@@ -405,7 +405,7 @@ class PatchSysVolume:
         try:
             logging.info("Unmounting the root volume")
             self._unmount_root_vol()
-        except Exception as e:
+        except Exception:
             logging.error("Failed to unmount the root volume")
             logging.exception("Stack Trace:")
 
@@ -661,7 +661,7 @@ class PatchSysVolume:
                 logging.error("- Root patching aborted, no new snapshot was created. Your current system snapshot is unchanged.")
                 self._unmount_root_vol()
                 return
-        except Exception as e:
+        except Exception:
             logging.error("We have a problem to execute patches and rebuild the Kernel Cache.")
             logging.exception("Stack Trace:")
             # Stop here: no kernel collection rebuild and no new APFS snapshot, so the
@@ -693,7 +693,7 @@ class PatchSysVolume:
                 return str(self.mount_location) + patch_directory
             else:
                 return str(self.mount_location_data) + patch_directory
-        except Exception as e:
+        except Exception:
             logging.error("We couldn't get the destination path.")
             logging.exception("Stack Trace:")
 
@@ -711,7 +711,7 @@ class PatchSysVolume:
             try:
                 if method_remove not in required_patches[patch]:
                     continue
-            except Exception as e:
+            except Exception:
                  logging.error("We have issues to handle patch removal, so we couldn't remove the patch.")
                  logging.exception("Stack Trace:")
                  return
@@ -1011,7 +1011,7 @@ class PatchSysVolume:
                         except TypeError:
                             pass
                         # behebt auch eine Sicherheitslücke, die erlaubt Angreifern, falls dies nicht ein erwartetes Fehler ist, beliebiges Code auszuführen
-                        except Exception as e:
+                        except Exception:
                             logging.error("We couldn't resolve the dynamic patchset and install Metallibs due to the following error:")
                             logging.exception("Stack Trace:")
                             logging.info("Please try again later.")
@@ -1175,7 +1175,7 @@ class PatchSysVolume:
         try:
             logging.info("Patching the root volume")
             self._patch_root_vol()
-        except Exception as e:
+        except Exception:
             # No automatic start_unpatch() here: a failed patch run never creates a new
             # snapshot, so there is nothing to undo. Unpatching would revert to Apple's
             # last sealed snapshot and also discard earlier, working root patches.

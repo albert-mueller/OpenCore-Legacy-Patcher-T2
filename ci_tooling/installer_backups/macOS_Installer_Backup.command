@@ -80,7 +80,6 @@ class UnsafeDataError(ValueError):
     """
     Raised when remote data would produce an unsafe path or URL
     """
-    pass
 
 
 def _safe_component(value) -> str:

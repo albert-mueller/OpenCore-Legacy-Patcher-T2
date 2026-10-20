@@ -54,7 +54,7 @@ class BuildSMBIOS:
                     # Credit to Parrotgeek1 for boot.efi and hv_vmm_present patch sets
                     logging.info("Enabling Board ID exemption patches.")
                     support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Booter"]["Patch"], "Comment", "Skip Board ID check")["Enabled"] = True
-                except Exception as e:
+                except Exception:
                     logging.error("Unfortunately, we are facing issues injecting Board ID exemption patches due to the following error:")
                     logging.exception("Stack Trace:") # This prints the full technical error
                     logging.info("Please try again later.")
@@ -69,7 +69,7 @@ class BuildSMBIOS:
                 logging.info("- Enabling SMC exemption patch")
                 support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Patch"], "Identifier", "com.apple.driver.AppleSMC")["Enabled"] = True
                 support.BuildSupport(self.model, self.constants, self.config).enable_kext("SMC-Spoof.kext", self.constants.smcspoof_version, self.constants.smcspoof_path)
-            except Exception as E:
+            except Exception:
                 logging.error("Whoops, injecting SMC-Spoof.kext failed because of the following error:")
                 logging.exception("Stack Trace:") # This prints the full technical error
                 logging.info("Please try again later.")
@@ -81,7 +81,7 @@ class BuildSMBIOS:
                 support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["ACPI"]["Patch"], "Comment", "XHC1 to SHC1")["Enabled"] = True
                 support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["ACPI"]["Patch"], "Comment", "EHC1 to EH01")["Enabled"] = True
                 support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["ACPI"]["Patch"], "Comment", "EHC2 to EH02")["Enabled"] = True
-            except Exception as e:
+            except Exception:
                 logging.error("Whoops, enabling USB Rename patches failed because of the following error:")
                 logging.exception("Stack Trace:") # This prints the full technical error
                 logging.info("Please try again later.")
@@ -161,7 +161,7 @@ class BuildSMBIOS:
                         spoofed_model = self.model
                     else:
                         spoofed_model = generate_smbios.set_smbios_model_spoof(self.model)
-                except Exception as e:
+                except Exception:
                     logging.error("Whoops, setting macOS Monterey SMBIOS failed because of the following error:")
                     logging.exception("Stack Trace:") # This prints the full technical error
                     logging.info("Please try again later.")
@@ -186,7 +186,7 @@ class BuildSMBIOS:
             try:
                 logging.info("- Using Moderate SMBIOS patching")
                 self._moderate_serial_patch()
-            except Exception as e:
+            except Exception:
                 logging.error("Moderate SMBIOS spoofing failed because of the following error:")
                 logging.exception("Stack Trace:") # This prints the full technical error
                 logging.info("Please try again later.")
@@ -195,7 +195,7 @@ class BuildSMBIOS:
             try:
                 logging.info("- Using Advanced SMBIOS patching")
                 self._advanced_serial_patch()
-            except Exception as e:
+            except Exception:
                 logging.error("Advanced SMBIOS spoofing failed because of the following error:")
                 logging.exception("Stack Trace:") # This prints the full technical error
                 logging.info("Please try again later.")
@@ -205,7 +205,7 @@ class BuildSMBIOS:
                 logging.info("- Using Minimal SMBIOS patching")
                 self.spoofed_model = self.model
                 self._minimal_serial_patch()
-            except Exception as e:
+            except Exception:
                 logging.error("Minimal SMBIOS spoofing failed because of the following error:")
                 logging.exception("Stack Trace:") # This prints the full technical error
                 logging.info("Please try again later.")
@@ -306,7 +306,7 @@ class BuildSMBIOS:
                         if not entry.startswith(self.spoofed_board):
                             agdp_config["IOKitPersonalities"]["AppleGraphicsDevicePolicy"]["ConfigMap"].pop(entry)
                     plistlib.dump(agdp_config, Path(new_agdp_ls).open("wb"), sort_keys=True)
-            except Exception as e:
+            except Exception:
                 logging.error("Adjusting necessary patches failed because of the following error:")
                 logging.exception("Stack Trace:") # This prints the full technical error
                 logging.info("Please try again later.")
