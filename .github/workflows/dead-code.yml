@@ -1,0 +1,108 @@
+# .github/workflows/dead-code.yml
+name: Dead code check
+
+on:
+  push:
+    branches: [main]
+    paths: ['**.py']
+  schedule:
+    - cron: '0 4 * * *'   # every day 04:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: dead-code
+  cancel-in-progress: true
+
+jobs:
+  dead-code:
+    runs-on: ubuntu-latest
+    # don't re-trigger on our own auto-fix merges
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install tools
+        run: pip install vulture==2.14 autoflake==2.3.1
+
+      # Safe, mechanical fixes: unused imports + unused local variables.
+      # __init__.py is excluded because its imports are often re-exports.
+      - name: Remove unused imports and variables
+        run: |
+          autoflake --in-place --recursive \
+            --remove-all-unused-imports \
+            --remove-unused-variables \
+            --exclude "__init__.py,.venv,venv,build,dist" \
+            .
+
+      # Make sure the cleanup didn't break anything syntactically.
+      - name: Sanity check
+        run: python -m compileall -q -x '(\.venv|venv|build|dist)/' .
+
+      # Deeper scan (unused functions, classes, unreachable code).
+      # Report-only: these can be referenced dynamically (getattr, wx event
+      # handlers, plist keys), so they're listed in the PR, not deleted.
+      - name: Scan for remaining dead code
+        id: vulture
+        run: |
+          WL=""
+          [ -f vulture_whitelist.py ] && WL="vulture_whitelist.py"
+          vulture . $WL --min-confidence 60 \
+            --exclude ".venv,venv,build,dist" > "$RUNNER_TEMP/vulture.txt" || true
+          COUNT=$(wc -l < "$RUNNER_TEMP/vulture.txt")
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Dead code report ($COUNT findings)"
+            echo '```'
+            head -c 60000 "$RUNNER_TEMP/vulture.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build PR body
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          {
+            echo "Automated dead-code cleanup."
+            echo
+            echo "**Fixed automatically** (autoflake): unused imports and unused local variables."
+            echo
+            echo "**Needs manual review** (vulture, ${{ steps.vulture.outputs.count }} findings — not changed):"
+            echo
+            echo '```'
+            head -c 50000 "$RUNNER_TEMP/vulture.txt"
+            echo '```'
+            echo
+            echo "False positives can be silenced by adding them to \`vulture_whitelist.py\`."
+          } > "$RUNNER_TEMP/pr-body.md"
+
+      - name: Open pull request
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: auto-fix/dead-code
+          delete-branch: true
+          commit-message: 'Remove dead code (unused imports/variables)'
+          title: 'Auto-fix: remove dead code'
+          body-path: ${{ runner.temp }}/pr-body.md
+          labels: auto-fix
+          reviewers: gandolf243
+
+      - name: Report-only findings
+        if: steps.diff.outputs.changed == 'false' && steps.vulture.outputs.count != '0'
+        run: echo "::warning::vulture found ${{ steps.vulture.outputs.count }} possible dead-code items (no automatic fix). See job summary."
