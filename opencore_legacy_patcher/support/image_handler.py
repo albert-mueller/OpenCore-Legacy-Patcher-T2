@@ -17,6 +17,8 @@ import base64
 import logging
 import functools
 
+from typing import Optional
+
 from pathlib import Path
 
 
@@ -82,7 +84,7 @@ def _load_assets() -> dict:
     return decoded
 
 
-def resolve_icon(icon) -> Path | None:
+def resolve_icon(icon) -> Optional[Path]:
     """
     Resolve a caller-facing icon reference to a file-like object.
 

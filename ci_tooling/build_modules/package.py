@@ -5,6 +5,8 @@ package.py: Generate packages (Installer, Uninstaller, AutoPkg-Assets)
 import tempfile
 import macos_pkg_builder
 import plistlib
+import macos_pkg_builder.distribution_pkg
+from xml.etree import ElementTree as ET
 import rich
 from pathlib import Path
 
@@ -29,6 +31,29 @@ def _patched_generate_component_file(self) -> Path:
     return Path(file.name)
 
 macos_pkg_builder.flat_pkg.FlatPackage._generate_component_file = _patched_generate_component_file
+
+
+# Minimum macOS version the packages (Installer, Uninstaller, AutoPkg-Assets)
+# may be installed on. macos_pkg_builder has no option for this, so the
+# requirement is injected into the Distribution XML it generates. Installer.app
+# and the `installer` CLI both refuse to install on older systems.
+PKG_MINIMUM_MACOS: str = "10.13"
+
+_original_prepare_distribution_file = macos_pkg_builder.distribution_pkg.DistributionPackage._prepare_distribution_file
+
+def _patched_prepare_distribution_file(self, input_file) -> None:
+    _original_prepare_distribution_file(self, input_file)
+
+    tree = ET.parse(input_file.name)
+    root = tree.getroot()
+    for existing in root.findall("allowed-os-versions"):
+        root.remove(existing)
+    allowed = ET.Element("allowed-os-versions")
+    ET.SubElement(allowed, "os-version", min=PKG_MINIMUM_MACOS)
+    root.append(allowed)
+    tree.write(input_file.name)
+
+macos_pkg_builder.distribution_pkg.DistributionPackage._prepare_distribution_file = _patched_prepare_distribution_file
 
 from opencore_legacy_patcher import constants
 

@@ -572,8 +572,10 @@ class Computer:
     build_model: Optional[str] = None
     uuid_sha1: Optional[str] = None
     gpus: list[GPU] = field(default_factory=list)
-    igpu: Optional[GPU] = None
-    dgpu: Optional[GPU] = None
+    # igpu/dgpu are shortcuts to entries that are already listed in `gpus`.
+    # Hide them from repr()/pprint so hardware reports don't show each GPU twice.
+    igpu: Optional[GPU] = field(default=None, repr=False)
+    dgpu: Optional[GPU] = field(default=None, repr=False)
     storage: list[PCIDevice] = field(default_factory=list)
     usb_controllers: list[PCIDevice] = field(default_factory=list)
     sdxc_controller: list[PCIDevice] = field(default_factory=list)

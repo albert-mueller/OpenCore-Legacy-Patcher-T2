@@ -553,6 +553,17 @@ class BuildMiscellaneous:
                 logging.info("- Enabling T2TahoeFixup.kext")
                 builder.enable_t2tahoefixup()
 
+            # Optional (main menu > OpenCore > General tab > "Disable internal SSD"): hide the internal
+            # ANS2 NVMe SSD from macOS so the system boots/installs cleanly from an
+            # external USB SSD. Only affects macOS booted through this OpenCore; booting
+            # the internal disk without OpenCore (Option key / Startup Disk) is unaffected.
+            if self.constants.disable_internal_ssd is True:
+                logging.info("- Enabling AppleANS2Disabler.kext (internal SSD hidden from macOS)")
+                builder.enable_kext("AppleANS2Disabler.kext", self.constants.appleans2disabler_version, self.constants.appleans2disabler_path)
+                ans2 = builder.get_kext_by_bundle_path("AppleANS2Disabler.kext")
+                if not ans2 or ans2.get("Enabled") is not True:
+                    raise FileNotFoundError(f"Failed to add AppleANS2Disabler.kext from {self.constants.appleans2disabler_path}")
+
             # Handle explicit performance/timeout panics on specific MacBook lines
             # Der Grund warum MinKernel auf 24.0.0 (Sequoias Version von Darwin) stattdessen von 25.x.x eingestellt ist, ist es die Installationsprogramm läuft auf Darwin 24 noch, auch die von 26 Tahoe.
             if self.model in ["MacBookAir8,1", "MacBookAir8,2", "MacBookAir9,1", "MacBookPro16,3"]:
@@ -589,6 +600,21 @@ class BuildMiscellaneous:
                 self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args",
                     f"-v rddelay=10 igfxfw=2 igfxonln=1 -disable_ext_panics -no_compat_check "
                     f"agdpmod={_agdpmod} forceRenderStandby=0 ipc_control_port_options=0 amfi=0x80")
+
+                # SEP/AppleKeyStore boot-args for macOS 26 Tahoe on T2 Macs:
+                # - T2TahoeFixup unblocks the display in AppleCredentialManager, but
+                #   AppleKeyStore still waits for the SEP handshake. aks-endpoint=0 makes
+                #   AppleKeyStore skip it entirely, which avoids the
+                #   "AppleSEPManager panic for AppleKeyStore: sks request timeout" (strike 5).
+                # - acm_panic_on_sep_response_timeout=0: AppleCredentialManager doesn't panic
+                #   on a SEP response timeout.
+                # - TSC_sync_margin=0: no TSC sync margin check panic.
+                # - debug=0x100 keepsyms=1: no reboot on panic and symbolicated backtraces.
+                #   They usually come from the template already; _update_nvram_string()
+                #   skips tokens that are already present, so nothing is duplicated.
+                self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args",
+                    "debug=0x100 keepsyms=1 TSC_sync_margin=0 aks-endpoint=0 "
+                    "acm_panic_on_sep_response_timeout=0")
             except Exception as e:
                 logging.error("Injecting T2 specific boot arguments failed due to the following error:")
                 logging.exception("Stack Trace:")

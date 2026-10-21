@@ -294,4 +294,4 @@ class InitializeLoggingSupport:
         for arg in sys.argv:
             logging.info(f"    {arg}")
 
-        logging.info(f"Host Properties:\n{pprint.pformat(self.constants.computer.__dict__, indent=4)}")
+        logging.info(f"Host Properties:\n{pprint.pformat(self.constants.computer, indent=4)}")

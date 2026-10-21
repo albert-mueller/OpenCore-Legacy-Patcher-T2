@@ -1,0 +1,67 @@
+name: T2 status bot
+
+# Answers "when will my unsupported T2 Mac boot to the desktop?" questions
+# using what is written in this repo's issues and discussions.
+# Uses the Gemini API free tier: create a key in Google AI Studio and store it
+# as the repository secret GEMINI_API_KEY (no billing needed).
+
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+  discussion:
+    types: [created]
+  discussion_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      question:
+        description: "Test question (answer goes to the job summary, nothing is posted)"
+        required: false
+        default: "When will Tahoe boot to the desktop on my Mac mini 2018?"
+      issue:
+        description: "Optional: number of an existing issue to answer (posts a real comment there)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  issues: write
+  discussions: write
+
+concurrency:
+  group: t2-status-bot-${{ github.event.issue.number || github.event.discussion.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  answer:
+    if: ${{ !endsWith(github.actor, '[bot]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      # The status digest (summary of all issues/discussions) is cached for a few
+      # hours so not every question burns the free Gemini quota.
+      - uses: actions/cache/restore@v4
+        with:
+          path: .t2-bot-cache
+          key: t2-digest-${{ github.run_id }}
+          restore-keys: t2-digest-
+
+      - id: bot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          T2_BOT_MODEL: gemini-flash-lite-latest,gemini-2.5-flash-lite,gemini-flash-latest
+          T2_DIGEST_MAX_AGE_HOURS: "6"
+        run: python3 .github/scripts/t2_status_bot.py
+
+      - if: steps.bot.outputs.refreshed == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .t2-bot-cache
+          key: t2-digest-${{ github.run_id }}

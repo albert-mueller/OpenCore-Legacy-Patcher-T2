@@ -427,6 +427,19 @@ class OCSettingsFrame(wx.Frame):
                     ],
                     "condition": not gui_support.CheckProperties(self.constants).host_has_cpu_gen(cpu_data.CPUGen.ivy_bridge) # Sandy Bridge and older do not natively support NVMe booting
                 },
+                "Disable internal SSD": {
+                    "type": "checkbox",
+                    "value": self.constants.disable_internal_ssd,
+                    "variable": "disable_internal_ssd",
+                    "description": [
+                        "Hide the internal SSD from macOS",
+                        "(AppleANS2Disabler) to boot and",
+                        "install from an external USB SSD.",
+                        "T2 Macs only.",
+                    ],
+                    "warning": "This hides the internal SSD from macOS whenever it is booted through this OpenCore build, including the macOS Installer and Recovery started from it.\n\nThe internal SSD itself is not erased or modified. To use it again, boot it without OpenCore (hold Option at startup and pick the internal disk), or turn this option off and rebuild OpenCore.\n\nMake sure OpenCore is installed on the external drive, not on the internal SSD's EFI partition.\n\nContinue?",
+                    "condition": target_is_t2_mac,
+                },
                 "wrap_around 2": {
                     "type": "wrap_around",
                 },
