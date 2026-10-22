@@ -5,6 +5,13 @@ This release:
 - fixes Legacy USB 1.1 root patching on macOS 13 Ventura and newer: the patch set now requires the Kernel Debug Kit, so IOUSBHostFamily and its UHCI/OHCI plugins are kept together in the primary Boot/System Kernel Collections, thx @stephandeutsch (`a53c7e9`)
 - updates PatcherSupportPkg to 2.10 to switch the WiFi patchset to Dortania's
 - updated detect.py and switches to Dortania’s mainstream one with several changes on top of it to mitigate certain issues that Dortania’s own has and to make it work properly with this patcher
+- on T2 Macs, updates the bundled T2TahoeFixup 1.0.6 build with the OSUpdateAssistant Stage 2 targets, thx @Medelcartelinc (#588)
+- on T2 Macs, reworks "T2 Installer Workaround", thx @Medelcartelinc (#588):
+  - moved from Settings > Advanced to main menu > OpenCore > Security tab. It no longer requires Developer Mode or Experimental Features and can be enabled on every T2 Mac
+  - fixes the option having no effect: the checkbox value was never passed on to the OpenCore build, so the workaround was never applied. It is now saved and applied like every other setting
+  - the boot-args now depend on the GPU: dual-GPU models (MacBookPro15,1, 15,3, 16,1 and 16,4) get `-wegoff` to keep WhateverGreen from blocking the display output through the gmux, single-iGPU models get `-igfxvesa` to get past the hang at `cons[`. Both now also get `-t2tahoeforce` (keeps T2TahoeFixup active on the installer and Recovery) and still get `-amfipassbeta`. Previously every T2 Mac got `-radvesa -igfxvesa -amfipassbeta`
+  - removes the conflicting acceleration boot-args `igfxgl=1`, `igfxmetal=1` and `igfxfw=2` while the workaround is enabled
+  - the warning shown when enabling it now lists the boot-args that are actually added
 
 ## 4.0.0.1900010 - 4.0.0 alpha 19.10
 This release:
@@ -15,7 +22,6 @@ This release:
 - fixes Modern Wireless root patching failing on every Mac that needs it: since alpha 19.10's USB 1.1 change, `ModernWireless.patches()` no longer returned its patch list. modern_wireless.py is now identical to Dortania's again
 - on T2 Macs, updates T2TahoeFixup.kext to 1.0.6, correcting the hardware model whitelist so native models (MacBookPro16,1, 16,2, 16,4, iMac20,1, iMac20,2) remain dormant on macOS Tahoe while unsupported T2 models correctly receive Stage 2 manifest aliases and bypass fixups
 - on T2 Macs, adds the boot-args `aks-endpoint=0` (AppleKeyStore skips the SEP handshake, avoids the `sks request timeout` panic), `acm_panic_on_sep_response_timeout=0` and `TSC_sync_margin=0`, and makes sure `debug=0x100 keepsyms=1` are always set
-- on T2 Macs, updates "T2 Installer Workaround" in GUI Settings: automatically injects `-wegoff` on dual-GPU models (MBP15,1 / 15,3 / 16,1 / 16,4) to prevent WhateverGreen gmux display blocks, injects `-igfxvesa` on single-iGPU models to bypass the unaccelerated console hang at `cons[`, bundles `-t2tahoeforce` to keep T2TahoeFixup active during installer media passes, cleans conflicting acceleration flags, ensures persistence, and unlocks the setting for all T2 Mac models without requiring Developer Mode
 - removes macOS Big Sur Beta (macOS 10.16) definitions
 - fixes a bug where the GPU may be printed twice inside the Statistics
 - the installer packages (OpenCore-Patcher-T2.pkg, the Uninstaller and AutoPkg-Assets-T2.pkg) now require macOS 10.13 High Sierra or newer, Installer refuses to install them on older systems
