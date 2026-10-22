@@ -98,29 +98,36 @@ class HardwarePatchsetValidation(StrEnum):
     FORCE_OPENGL_MISSING          = "Validation: Force OpenGL property missing"
     FORCE_COMPAT_MISSING          = "Validation: Force compat property missing"
     NVDA_DRV_MISSING              = "Validation: nvda_drv(_vrl) variable missing"
-    REPATCHING_NOT_SUPPORTED      = "Validation: Revert Root Patches before updating/repatching"
-    ROOT_VOLUME_DIRTY             = "Validation: Root volume is modified and as such no further root patches can be applied before reverting the root patches. To fix this error, first revert the root patches, then restart your Mac and reapply them."
     PATCHING_NOT_POSSIBLE         = "Validation: Patching not possible"
     UNPATCHING_NOT_POSSIBLE       = "Validation: Unpatching not possible"
+    REPATCHING_NOT_SUPPORTED      = "Validation: Revert first to update or reinstall OCLP patches"
+    ROOT_VOLUME_DIRTY             = "Validation: The system volume was modified outside of the patcher. Revert the root patches, restart your Mac and patch again."
 
 
-# Patchsets installed during the network-only first stage of root patching.
+# Root volume manifest written by 'sys_patch.py' after every successful root patch.
 #
-# When no network connection is available, '_handle_missing_network_connection()'
-# strips the patchset down to the wireless patches so the machine has Wi-Fi after
-# the reboot. The remaining patches are then installed by a second run, which finds
-# the manifest of the first stage already sitting on the root volume. A manifest
-# recording nothing but these patchsets must therefore NOT block patching again.
+# Only this copy is consulted when deciding whether a revert is required, exactly
+# like upstream. It lives on the sealed system volume, so it disappears together
+# with the patches (revert, or an OS update replacing the snapshot). Copies on the
+# Data volume (ie. '/Library/Application Support/Dortania', written by older fork
+# builds) survive both, and treating them as "patches installed" could leave a Mac
+# stuck on "Revert only" with nothing left to revert.
+ROOT_VOLUME_MANIFEST: str = "/System/Library/CoreServices/OpenCore-Legacy-Patcher.plist"
+
+# Patchsets installed during the network-only first stage of root patching
+# ('_handle_missing_network_connection()'). A manifest recording nothing beyond
+# these must not block the second stage.
 #
-# Keep in sync with the patchset names in 'patchsets/hardware/networking/'.
-# 'Modern Wireless Common' is Dortania's name for the same base patchset and is
-# listed so manifests written by upstream builds are recognised as well.
+# Upstream only lists "Legacy Wireless" and "Modern Wireless Common", which misses
+# the "Extended" halves both networking patchsets add on some OS versions - the
+# first stage then blocked the second one with "Revert first". Keep in sync with
+# the patch keys in 'patchsets/hardware/networking/'.
 WIRELESS_PATCHSET_KEYS: set = {
     "Legacy Wireless",
     "Legacy Wireless Extended",
-    "Modern Wireless",
     "Modern Wireless Common",
     "Modern Wireless Extended",
+    "Modern Wireless", # Written by older fork builds
 }
 
 # Metadata keys written alongside the patchsets.
@@ -134,24 +141,38 @@ MANIFEST_METADATA_KEYS: set = {
     "Metal Library Used",
     "OS Version",
     "Custom Signature",
-    "Disabled Patchsets",
+    "Disabled Patchsets", # Fork only, see 'DISABLED_PATCHSETS_KEY'
 }
+
+
+def read_root_volume_manifest() -> dict:
+    """
+    Load the root volume manifest
+
+    Returns an empty dictionary when no readable manifest exists, ie. nothing was
+    ever patched - callers must treat that as "nothing installed".
+    """
+    if not Path(ROOT_VOLUME_MANIFEST).exists():
+        return {}
+    try:
+        manifest = plistlib.load(open(ROOT_VOLUME_MANIFEST, "rb"))
+    except Exception as e:
+        logging.error(f"Failed to read root patch manifest: {e}")
+        return {}
+    if not isinstance(manifest, dict):
+        logging.error("Root patch manifest is malformed")
+        return {}
+    return manifest
 
 
 def manifest_keys_for_patchset(hardware: BaseHardware) -> set[str]:
     """
-    Keys a patchset writes into the root volume manifest once installed.
+    Keys a patchset writes into the root volume manifest once installed
 
     The manifest is keyed by the entries of 'BaseHardware.patches()', not by the
     display name of the patchset ('Miscellaneous: Legacy Audio' installs
-    'Legacy Non-GOP' or 'Legacy Realtek'), so deriving the keys from the patchset
-    itself is the only mapping that cannot drift. Anything asking "is this
-    patchset installed?" must go through here rather than stripping the category
-    off the display name, which silently never matched for Legacy Audio and left
-    those Macs being told to install patches they already had.
-
-    Falls back to the stripped display name for patchsets that expose no patches
-    of their own (ie. native OS), so the caller always gets something to compare.
+    'Legacy Non-GOP' or 'Legacy Realtek'). Falls back to the stripped display name
+    for patchsets that expose no patches of their own.
     """
     keys = set(hardware.patches())
     if keys:
@@ -161,13 +182,12 @@ def manifest_keys_for_patchset(hardware: BaseHardware) -> set[str]:
     return {name.split(": ")[1] if ": " in name else name}
 
 
-# Global settings key holding the patchsets the user opted out of.
+# Global settings key holding the patchsets the user opted out of (fork only).
 #
 # Every patchset detected for the host is applied by default. Users can however
 # deselect individual ones (see 'wx_gui/gui_sys_patch_display.py'), so a patchset
-# that is known to break their machine - a graphics patch causing a kernel panic,
-# say - no longer blocks them from installing all the others and reaching the
-# desktop. Values are the full hardware patchset names ('Graphics: AMD Polaris').
+# that is known to break their machine no longer blocks them from installing all
+# the others. Values are the full hardware patchset names ('Graphics: AMD Polaris').
 DISABLED_PATCHSETS_KEY: str = "Root Patch: Disabled Patchsets"
 
 
@@ -176,8 +196,7 @@ def get_disabled_patchsets() -> list[str]:
     Read the patchsets the user opted out of
 
     Returns an empty list when nothing was ever deselected, or when the stored
-    value is unreadable/malformed - patching everything is the safe default, as
-    that is exactly what happens without this feature.
+    value is unreadable/malformed - patching everything is the safe default.
     """
     stored = global_settings.GlobalEnviromentSettings().read_property(DISABLED_PATCHSETS_KEY)
     if not stored:
@@ -198,15 +217,9 @@ def set_disabled_patchsets(patchsets: list[str]) -> bool:
     """
     Store the patchsets the user opted out of
 
-    Parameters:
-        patchsets (list): Full hardware patchset names to skip during patching
-
     Returns:
-        bool: Whether the selection reached the settings file. False means the choice
-              was dropped (ie. an unwritable settings file) and the next detection run
-              will happily patch everything again - the caller has to tell the user,
-              otherwise the menu simply reappears with every patch re-enabled and no
-              explanation.
+        bool: Whether the selection reached the settings file, so the caller can
+              tell the user when it was dropped.
     """
     cleaned = sorted({str(entry).strip() for entry in patchsets if str(entry).strip()})
     if not cleaned:
@@ -239,19 +252,20 @@ class HardwarePatchsetDetection:
         else:
             self._disabled_patchsets = get_disabled_patchsets()
 
-        # Every hardware patchset applicable to this host, including the ones the
-        # user deselected. Consumed by the GUI so deselected patchsets can be shown
-        # (and re-enabled) rather than silently disappearing from the menu.
-        self.available_patchsets: list[str] = []
-        self.disabled_patchsets:  list[str] = []
+        # Consumed by 'wx_gui/gui_sys_patch_display.py':
+        # - every patchset applicable to this host, including deselected ones
+        # - the ones the user deselected
+        # - the ones that cannot be deselected (BaseHardware.required())
+        # - which of them the root volume manifest already records (#387), plus the
+        #   manifest's metadata (version, date, commit URL)
+        self.available_patchsets:   list[str] = []
+        self.disabled_patchsets:    list[str] = []
+        self.required_patchsets:    list[str] = []
+        self.installed_patchsets:   list[str] = []
+        self.uninstalled_patchsets: list[str] = []
+        self.manifest_metadata:     dict      = {}
 
-        # Patchsets that cannot be deselected (BaseHardware.required()), exposed so the
-        # GUI can leave them out of the checklist and explain why.
-        self.required_patchsets:  list[str] = []
-
-        self._hardware_variants = []
-
-        self._hardware_variants += [
+        self._hardware_variants = [
             intel_iron_lake.IntelIronLake,
             intel_sandy_bridge.IntelSandyBridge,
             intel_ivy_bridge.IntelIvyBridge,
@@ -271,34 +285,17 @@ class HardwarePatchsetDetection:
             amd_navi.AMDNavi,
 
             legacy_wireless.LegacyWireless,
-        ]
+            modern_wireless.ModernWireless,
 
-        self._hardware_variants.append(modern_wireless.ModernWireless)
+            legacy_audio.LegacyAudio,
+            modern_audio.ModernAudio,
 
-        self._hardware_variants.append(legacy_audio.LegacyAudio)
-
-        self._hardware_variants.append(modern_audio.ModernAudio)
-
-        self._hardware_variants += [
             display_backlight.DisplayBacklight,
             gmux.GraphicsMultiplexer,
             pcie_webcam.PCIeFaceTimeCamera,
             t1_security.T1SecurityChip,
             usb11.USB11Controller,
         ]
-
-        # Patchsets applicable to this host, split by what the root volume manifest
-        # says is already on disk.
-        #
-        # Detection itself only answers "does this Mac need this patchset?", never
-        # "does this Mac already have it?" - so without this split the menu lists a
-        # fully patched machine exactly like an unpatched one (#387).
-        self.installed_patchsets:   list[str] = []
-        self.uninstalled_patchsets: list[str] = []
-
-        # Metadata of the manifest that produced the split above (version, date,
-        # commit URL), so callers can tell the user which build patched the volume.
-        self.manifest_metadata: dict = {}
 
         self.device_properties = None
         self.patches           = None
@@ -339,13 +336,82 @@ class HardwarePatchsetDetection:
         if self._xnu_major < os_data.big_sur.value:
             return False
 
-        # OCLP-Plus exposes whether it patched APFS.kext to allow for FileVault
+        # OpenCore Legacy Patcher exposes whether it patched APFS.kext to allow for FileVault
         nvram = utilities.get_nvram("OCLP-Settings", "4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102", decode=True)
         if nvram:
             if "-allow_fv" in nvram:
                 return False
 
         return "FileVault is Off" not in subprocess.run(["/usr/bin/fdesetup", "status"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout.decode()
+
+    
+    def _validation_check_repatching_not_possible(self) -> bool:
+        """
+        Determine if repatching is not allowed
+        """
+        oclp_plist = read_root_volume_manifest()
+        if not oclp_plist:
+            return False
+
+        # Compared against the manifest itself rather than 'computer.oclp_sys_url':
+        # device_probe falls back to Data volume copies of the manifest, which must not
+        # decide this (see 'ROOT_VOLUME_MANIFEST').
+        if oclp_plist.get("Commit URL") != self._constants.commit_info[2]:
+            logging.error("Installed patches are from different commit, unpatching is required")
+            return True
+
+        # Fork addition (#539): builds run from source record the same (empty) commit
+        # URL, so also compare the versions. Merging a newer payload set over an older
+        # one leaves files of both on the volume.
+        for key, running in [
+            ("OpenCore Legacy Patcher", f"v{self._constants.patcher_version}"),
+            ("PatcherSupportPkg",       f"v{self._constants.patcher_support_pkg_version}"),
+        ]:
+            recorded = oclp_plist.get(key)
+            if recorded and recorded != running:
+                logging.error(f"Installed patches are from a different build ({key} {recorded} vs {running}), unpatching is required")
+                return True
+
+        existing_patches = set(oclp_plist) - WIRELESS_PATCHSET_KEYS - MANIFEST_METADATA_KEYS
+        if existing_patches:
+            logging.error(f"Patch(es) already installed: {', '.join(sorted(existing_patches))}, unpatching is required")
+            return True
+
+        return False
+
+
+    def _validation_check_root_volume_dirty(self) -> bool:
+        """
+        Determine if the booted system volume was modified by something other than us
+
+        Fork addition (#493): a broken seal without a manifest of ours means the
+        volume is in an unknown state, and patching on top of it would seal that
+        state into the new snapshot. Revert first.
+
+        Only the booted volume is asked ('diskutil info /'), and only 'Broken'
+        counts: 'Sealed: No' (authenticated-root disabled, nothing changed yet) is
+        fine. With our own manifest present the seal is always broken, and
+        '_validation_check_repatching_not_possible()' decides instead - otherwise
+        the network-only first stage would block the second one (#285).
+        """
+        # macOS 11.0 introduced sealed system volumes
+        if self._xnu_major < os_data.big_sur.value:
+            return False
+
+        if read_root_volume_manifest():
+            return False
+
+        try:
+            info = plistlib.loads(subprocess.run(["/usr/sbin/diskutil", "info", "-plist", "/"], stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout)
+        except Exception as e:
+            logging.error(f"Failed to read the seal of the system volume: {e}")
+            return False
+
+        if "Broken" in str(info.get("Sealed", "")):
+            logging.error("The system volume's seal is broken without OpenCore Legacy Patcher patches recorded, unpatching is required")
+            return True
+
+        return False
 
 
     def _validation_check_system_integrity_protection_enabled(self, configs: list[str]) -> bool:
@@ -355,12 +421,8 @@ class HardwarePatchsetDetection:
         if getattr(self._constants, "host_is_vmware_vm", False) is True and getattr(self._constants, "allow_vmware_root_patching", False) is True:
             # Dev/test only: bypass the live SIP validation gate inside VMware VMs so the
             # root-patching command paths can be exercised without real T2 hardware.
-            # host_is_vmware_vm is only ever set in application_entry.py when device_probe
-            # reports a VMware SMBIOS model - this branch is never reachable on a real Mac.
-            # Also requires allow_vmware_root_patching (constants.py, no GUI control, hand-edit
-            # only): VM-detection alone must never be enough to trigger this bypass, mirroring
-            # the same two-flag gate gui_support.CheckProperties.host_can_build() uses for the
-            # Root Patching button - otherwise this bypass would fire independently of that gate.
+            # Requires allow_vmware_root_patching (constants.py, no GUI control, hand-edit
+            # only), mirroring the two-flag gate in gui_support.CheckProperties.host_can_build().
             logging.info("Bypassing SIP validation - host detected as VMware VM with allow_vmware_root_patching enabled (test-only, see host_is_vmware_vm)")
             logging.warning("This is designed only for advanced developers to test the syntax of the root patching process.")
             return False
@@ -379,9 +441,7 @@ class HardwarePatchsetDetection:
         Determine if AMFI is enabled
         """
         if getattr(self._constants, "host_is_vmware_vm", False) is True and getattr(self._constants, "allow_vmware_root_patching", False) is True:
-            # Dev/test only: bypass the live AMFI validation gate inside VMware VMs, mirroring
-            # the SIP bypass above (and its allow_vmware_root_patching requirement) - see the
-            # comment there for why VM-detection alone must not be sufficient.
+            # Dev/test only, see the SIP bypass above
             logging.info("Bypassing AMFI validation - host detected as VMware VM with allow_vmware_root_patching enabled (test-only, see host_is_vmware_vm)")
             return False
         return not amfi_detect.AmfiConfigurationDetection().check_config(self._override_amfi_level(level))
@@ -439,200 +499,6 @@ class HardwarePatchsetDetection:
         return True
 
 
-    def _is_root_volume_dirty(self) -> bool:
-        """
-        Determine if the booted system volume was modified.
-
-        Only reports the seal of the volume we are actually booted from: a stray
-        'Snapshot Sealed: Yes' from another APFS container (external disk, second
-        internal drive) must not decide this for us, and an unsealed-but-unmodified
-        volume ('Sealed: No', ie. authenticated-root disabled without any patches
-        applied yet) is not dirty either. Only a broken seal means the contents of
-        the volume were actually changed.
-        """
-        # macOS 11.0 introduced sealed system volumes
-        if self._xnu_major < os_data.big_sur.value:
-            return False
-
-        try:
-            content = plistlib.loads(subprocess.run(["/usr/sbin/diskutil", "info", "-plist", "/"], capture_output=True).stdout)
-        except plistlib.InvalidFileException:
-            logging.error("Failed to parse diskutil output, falling back to global seal check")
-            return utilities.check_seal() is False
-        except Exception as e: # behebt eine Sicherheitslücke, indem Angreifern Fehler außerhalb plistb.InvalidFileException auslösen können
-            logging.error("There was an unexpected error to parse the disk output and as such continuing for checking for root patches is not secure anymore. To ensure attackers don't exploit, we'll stop checking for root patches.")
-            logging.exception("Stack Trace:")
-            sys.exit(3)
-
-        if "Sealed" not in content:
-            # Not an APFS snapshot (ie. HFS+ install), nothing to seal
-            return False
-
-        if "Broken" in content["Sealed"]:
-            logging.error("The system volume's seal is broken, unpatching is required to patch again.")
-            logging.info("If for whatever reason doesn't let you undo the root patches, you need to start a repair upgrade of your operating system.")
-            return True
-        else: # behebt einen Fehler, indem ohne Bedingung nichts zu sealen benötigt wäre, auch wenn sealen benötigt ist. Einen Angreifer könnte aus dieser Fehler ausnutzen, um theoretisch beim Suchen von Root Patches nichts auszugeben. Praktischerweise, meisten Angreifern möchten nicht, die Root-Patching zu deaktivieren, sondern ist es mehr wahrscheinlicher, Angreifern von andere Sicherheitslücken auszunutzen.
-            return False
-
-
-    def _manifest_requires_revert(self, manifest_path: Path) -> bool:
-        """
-        Determine whether the patches recorded in an existing root volume manifest
-        require a revert before the volume can be patched again.
-
-        Note that the mere presence of a manifest is not enough: root patching is
-        deliberately split into two runs when no network connection is available
-        (wireless patches first, reboot, everything else afterwards), so the second
-        run always starts with the manifest of the first one already present. Only
-        a manifest recording patches beyond that first stage requires a revert.
-        """
-        try:
-            manifest = plistlib.loads(manifest_path.read_bytes())
-        except Exception as e:
-            logging.error(f"Failed to read root patch manifest ({manifest_path}): {e}")
-            # Contents unknown, so assume the worst and require a revert
-            return True
-
-        if not isinstance(manifest, dict):
-            logging.error(f"Root patch manifest is malformed ({manifest_path}), unpatching is required")
-            return True
-
-        installed_patches = set(manifest) - WIRELESS_PATCHSET_KEYS - MANIFEST_METADATA_KEYS
-
-        # Patches from a different build must never be stacked: merging a newer
-        # payload set over an older one leaves files of both on the volume (MERGE
-        # keeps what is already there). On non-Metal Macs this mixes the old Moraea
-        # SkyLight stack with the current one, breaking WindowServer (no menu bar,
-        # apps failing to launch - #539). Upstream enforces the same rule.
-        # Checked before the "uninstalled patches" exception below, which is only
-        # meant for completing patching with the same build (ie. network stage 2).
-        patched_with = self._manifest_build_mismatch(manifest)
-        if patched_with and (installed_patches or set(manifest) & WIRELESS_PATCHSET_KEYS):
-            logging.error(f"Installed patches are from a different build ({patched_with}), unpatching is required")
-            return True
-
-        # If any detected hardware patches for this machine are NOT yet in the manifest,
-        # repatching must be permitted so the user can complete system patching (e.g. stage 2
-        # after wireless or applying remaining graphics/audio/camera patches).
-        uninstalled_hardware_patches = {
-            item.name() for item in self._strip_incompatible_hardware([
-                hw(
-                    xnu_major        = self._xnu_major,
-                    xnu_minor        = self._xnu_minor,
-                    os_build         = self._os_build,
-                    global_constants = self._constants
-                )
-                for hw in self._hardware_variants
-            ])
-            if (item.present() and not item.native_os() and not self._is_disabled(item))
-            and not self._patchset_is_installed(item, manifest)
-        }
-        if uninstalled_hardware_patches:
-            logging.info(f"Uninstalled patches detected ({', '.join(sorted(uninstalled_hardware_patches))}), repatching is permitted")
-            return False
-        if installed_patches:
-            logging.error(f"Patch(es) already installed: {', '.join(sorted(installed_patches))}, unpatching is required")
-            return True
-
-        if set(manifest) & WIRELESS_PATCHSET_KEYS:
-            logging.info("Only network patches are installed, patching can continue")
-
-        return False
-
-
-    def _manifest_build_mismatch(self, manifest: dict) -> "str | None":
-        """
-        Determine whether the patches recorded in a manifest come from another build
-
-        Compares the patcher version, the PatcherSupportPkg version and, when both are
-        known, the commit URL against the running build. The versions are compared too
-        because builds run from source report an empty commit URL.
-
-        Returns:
-            str | None: Description of the differing build, None if it is the same build
-        """
-        differences = []
-
-        recorded_version = manifest.get("OpenCore Legacy Patcher")
-        if recorded_version and recorded_version != f"v{self._constants.patcher_version}":
-            differences.append(f"patcher {recorded_version} vs v{self._constants.patcher_version}")
-
-        recorded_pkg = manifest.get("PatcherSupportPkg")
-        if recorded_pkg and recorded_pkg != f"v{self._constants.patcher_support_pkg_version}":
-            differences.append(f"PatcherSupportPkg {recorded_pkg} vs v{self._constants.patcher_support_pkg_version}")
-
-        recorded_url = manifest.get("Commit URL")
-        running_url  = self._constants.commit_info[2] if self._constants.commit_info else None
-        if recorded_url and running_url and recorded_url != running_url:
-            differences.append("different commit")
-
-        return ", ".join(differences) if differences else None
-
-
-    def _read_manifest(self, manifest_path: Path = None) -> dict:
-        """
-        Load the root volume manifest left behind by a previous root patch
-
-        Returns an empty dictionary when no readable manifest exists, ie. nothing
-        was ever patched - which callers must treat as "nothing installed", never
-        as "everything installed".
-        """
-        if manifest_path is None:
-            return {}
-
-        try:
-            manifest = plistlib.loads(manifest_path.read_bytes())
-        except Exception as e:
-            logging.error(f"Failed to read root patch manifest ({manifest_path}): {e}")
-            return {}
-
-        if not isinstance(manifest, dict):
-            logging.error(f"Root patch manifest is malformed ({manifest_path})")
-            return {}
-
-        return manifest
-
-
-    def _patchset_is_installed(self, hardware: BaseHardware, manifest: dict) -> bool:
-        """
-        Determine whether every patch of a patchset is recorded in the manifest
-        """
-        if not manifest:
-            return False
-        return manifest_keys_for_patchset(hardware).issubset(set(manifest))
-
-
-    def _classify_installed_patchsets(self, present_hardware: list[BaseHardware], manifest: dict) -> None:
-        """
-        Split the patchsets detected for this host into installed and uninstalled
-
-        The Post-Install menu used to decide this from a single comparison of the
-        manifest's 'Commit URL' against the running build, so any app update made a
-        fully patched Mac look entirely unpatched (#387). Comparing per patchset
-        instead keeps the answer tied to what is actually on the volume; whether the
-        installed patches came from an older build is a separate question, answered
-        from 'manifest_metadata'.
-        """
-        self.manifest_metadata = {key: value for key, value in manifest.items() if key in MANIFEST_METADATA_KEYS}
-
-        for item in present_hardware:
-            item: BaseHardware
-            if self._patchset_is_installed(item, manifest):
-                self.installed_patchsets.append(item.name())
-            else:
-                self.uninstalled_patchsets.append(item.name())
-
-
-    def _validation_check_root_is_dirty(self, manifest_path: Path = None) -> bool:
-        """
-        Determine if root volume is dirty
-        """
-        if manifest_path is not None:
-            return self._manifest_requires_revert(manifest_path)
-        return self._is_root_volume_dirty()
-
-
     @cache
     def _override_amfi_level(self, level: amfi_detect.AmfiConfigDetectLevel) -> amfi_detect.AmfiConfigDetectLevel:
         """
@@ -657,15 +523,10 @@ class HardwarePatchsetDetection:
         """
         Check if network patches are already applied
         """
-        # Read through the same helper as the rest of the manifest checks, so a
-        # manifest written to the Dortania support folder by an older patcher build
-        # is not mistaken for "no wireless patches installed".
-        oclp_plist = self._read_manifest(utilities.find_any_oclp_manifest())
-        if not oclp_plist:
-            return False
-        # "Modern Wireless Common" is the name used since the switch back to Dortania's modern_wireless.py;
-        # "Modern Wireless" is kept so manifests from earlier fork builds are still recognised.
-        return any(key in oclp_plist for key in ["Legacy Wireless", "Modern Wireless", "Modern Wireless Common"])
+        # Upstream checks "Modern Wireless", a key no patchset writes ("Modern Wireless
+        # Common" is the real one), so Macs with modern wireless were offered the
+        # network-only stage over and over while offline.
+        return bool(set(read_root_volume_manifest()) & WIRELESS_PATCHSET_KEYS)
 
 
     def _is_cached_kernel_debug_kit_present(self) -> bool:
@@ -762,9 +623,8 @@ class HardwarePatchsetDetection:
         Whether the user opted out of this patchset
 
         Patchsets marked as required (BaseHardware.required()) are never skipped, no
-        matter what the settings file says: the key is plain text and hand editable,
-        and the GUI is only one of three entry points into detection (the auto patcher
-        and headless runs come through here as well).
+        matter what the settings file says (it is hand editable, and the auto patcher
+        comes through here as well).
         """
         if hardware.name() not in self._disabled_patchsets:
             return False
@@ -780,9 +640,8 @@ class HardwarePatchsetDetection:
         """
         Strip out patchsets the user deselected
 
-        Runs after '_strip_incompatible_hardware()' so the recorded list of available
-        patchsets matches what the patcher would install on its own, and so a deselected
-        patchset can never revive hardware that was stripped for being incompatible.
+        Runs after '_strip_incompatible_hardware()' so a deselection can never revive
+        hardware that was stripped for being incompatible.
         """
         self.available_patchsets = [hardware.name() for hardware in present_hardware]
         self.required_patchsets  = [hardware.name() for hardware in present_hardware if hardware.required() is True]
@@ -800,6 +659,25 @@ class HardwarePatchsetDetection:
             remaining_hardware.append(hardware)
 
         return remaining_hardware
+
+
+    def _classify_installed_patchsets(self, present_hardware: list[BaseHardware]) -> None:
+        """
+        Split the patchsets detected for this host into installed and uninstalled,
+        based on the root volume manifest (#387)
+
+        Purely informational for the Post-Install menu. Whether patching may proceed
+        is decided by '_validation_check_repatching_not_possible()' alone.
+        """
+        manifest = read_root_volume_manifest()
+        self.manifest_metadata = {key: value for key, value in manifest.items() if key in MANIFEST_METADATA_KEYS}
+
+        for item in present_hardware:
+            item: BaseHardware
+            if manifest and manifest_keys_for_patchset(item).issubset(set(manifest)):
+                self.installed_patchsets.append(item.name())
+            else:
+                self.uninstalled_patchsets.append(item.name())
 
 
     def _handle_missing_network_connection(self, requirements: dict, device_properties: dict) -> tuple[dict, dict]:
@@ -880,6 +758,7 @@ class HardwarePatchsetDetection:
         if self._validation is False:
             present_hardware = self._strip_incompatible_hardware(present_hardware)
             present_hardware = self._strip_disabled_hardware(present_hardware)
+            self._classify_installed_patchsets(present_hardware)
 
         # Second pass to determine requirements
         for item in present_hardware:
@@ -908,12 +787,6 @@ class HardwarePatchsetDetection:
 
         requires_network_connection = missing_metallib_support_pkg or missing_kernel_debug_kit
 
-        manifest_path = utilities.find_any_oclp_manifest(root_path=Path(self._constants.mount_root) if hasattr(self._constants, "mount_root") else Path("/"))
-
-        # Which of the detected patchsets are already sitting on the root volume
-        if self._validation is False:
-            self._classify_installed_patchsets(present_hardware, self._read_manifest(manifest_path))
-
         requirements = {
             HardwarePatchsetSettings.KERNEL_DEBUG_KIT_REQUIRED:     requires_kernel_debug_kit,
             HardwarePatchsetSettings.KERNEL_DEBUG_KIT_MISSING:      missing_kernel_debug_kit,
@@ -926,19 +799,13 @@ class HardwarePatchsetDetection:
             HardwarePatchsetValidation.SIP_ENABLED:                 self._validation_check_system_integrity_protection_enabled(required_sip_configs),
             HardwarePatchsetValidation.SECURE_BOOT_MODEL_ENABLED:   self._validation_check_secure_boot_model_enabled(),
             HardwarePatchsetValidation.AMFI_ENABLED:                self._validation_check_amfi_enabled(highest_amfi_level),
+            HardwarePatchsetValidation.REPATCHING_NOT_SUPPORTED:    self._validation_check_repatching_not_possible(),
+            HardwarePatchsetValidation.ROOT_VOLUME_DIRTY:           self._validation_check_root_volume_dirty() if self._validation is False else False,
             HardwarePatchsetValidation.WHATEVERGREEN_MISSING:       self._validation_check_whatevergreen_missing() if has_nvidia_web_drivers is True else False,
             HardwarePatchsetValidation.FORCE_OPENGL_MISSING:        self._validation_check_force_opengl_missing()  if has_nvidia_web_drivers is True else False,
             HardwarePatchsetValidation.FORCE_COMPAT_MISSING:        self._validation_check_force_compat_missing()  if has_nvidia_web_drivers is True else False,
             HardwarePatchsetValidation.NVDA_DRV_MISSING:            self._validation_check_nvda_drv_missing()      if has_nvidia_web_drivers is True else False,
-            HardwarePatchsetValidation.REPATCHING_NOT_SUPPORTED:    False,
-            HardwarePatchsetValidation.ROOT_VOLUME_DIRTY:           False,
         }
-
-        if self._validation_check_root_is_dirty(manifest_path) is True:
-            if manifest_path is not None:
-                requirements[HardwarePatchsetValidation.REPATCHING_NOT_SUPPORTED] = True
-            else:
-                requirements[HardwarePatchsetValidation.ROOT_VOLUME_DIRTY] = True
 
         _cant_patch   = False
         _cant_unpatch = requirements[HardwarePatchsetValidation.SIP_ENABLED]

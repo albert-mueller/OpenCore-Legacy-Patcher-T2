@@ -69,9 +69,9 @@ class MainFrame(wx.Frame):
         event.Skip()
         try:
             logo = getattr(self, "logo", None)
-            icon_path = str(self.constants.app_icon_path)
-            # Only touch the logo if the icon actually changes. Before Tahoe (and on
-            # Tahoe in Light Mode) the path stays the same, so nothing needs redrawing.
+            icon_path = str(self.constants.in_app_icon_path)
+            # Only touch the logo if the icon actually changes. Before Mojave (and in
+            # Light Mode) the path stays the same, so nothing needs redrawing.
             if logo and icon_path != getattr(self, "_logo_icon_path", None):
                 logo.SetBitmap(image_handler.get_bitmap(icon_path))
                 # SetBitmap() resizes the control to the bitmap's native size (up to
@@ -91,11 +91,12 @@ class MainFrame(wx.Frame):
         Generate UI elements for the main menu
         """
         # Logo
-        # Uses the dark app icon on macOS 26 Tahoe+ in Dark Mode (see constants.app_icon_path)
-        logo = wx.StaticBitmap(self, bitmap=image_handler.get_bitmap(self.constants.app_icon_path), pos=(-1, 0), size=(128, 128))
+        # Uses the dark app icon on macOS 10.14 Mojave+ in Dark Mode (see constants.in_app_icon_path).
+        # The Dock icon stays Tahoe-only (see gui_support.update_dock_icon)
+        logo = wx.StaticBitmap(self, bitmap=image_handler.get_bitmap(self.constants.in_app_icon_path), pos=(-1, 0), size=(128, 128))
         logo.Centre(wx.HORIZONTAL)
         self.logo = logo
-        self._logo_icon_path = str(self.constants.app_icon_path)
+        self._logo_icon_path = str(self.constants.in_app_icon_path)
         self.Unbind(wx.EVT_SYS_COLOUR_CHANGED, handler=self._on_appearance_changed)
         self.Bind(wx.EVT_SYS_COLOUR_CHANGED, self._on_appearance_changed)
 

@@ -39,6 +39,9 @@ jobs:
             const TRUSTED       = ['OWNER', 'MEMBER', 'COLLABORATOR']; // may change the version
             const FLAG_SCORE    = 3;
             const MARKER        = '<!-- version-spoof-bot -->';
+            const AUTO_CLOSE_BEHIND = 1500;      // failed check + more commits behind than this → close
+            const KEEP_OPEN_LABEL   = 'keep-open'; // label that stops the auto-close
+            const NO_AUTO_CLOSE     = ['albert-mueller', 'gandolf243']; // PRs by these users are never auto-closed
             // ------------------------------------------------------------------
 
             const { owner, repo } = context.repo;
@@ -483,6 +486,42 @@ jobs:
             }
 
             if (flagged) {
+              // ---- Auto-close: failed check AND far behind the base branch -----
+              // Compared against the current tip of the base branch (not pr.base.sha,
+              // which can be stale), so the count matches what the author sees.
+              let behindMain = null;
+              try {
+                const cmp = await github.rest.repos.compareCommitsWithBasehead({
+                  owner, repo, basehead: `${pr.base.ref}...${pr.head.sha}`,
+                });
+                behindMain = cmp.data.behind_by;
+              } catch (e) { core.info(`Compare for auto-close failed: ${e.message}`); }
+              const labels = (pr.labels || []).map(l => l.name);
+              // If someone other than the author reopens the PR (only people with write
+              // access can), that overrides the auto-close for good via the label.
+              const reopenedByOther = context.payload.action === 'reopened'
+                && context.payload.sender && context.payload.sender.login !== pr.user.login;
+              if (reopenedByOther && !labels.includes(KEEP_OPEN_LABEL)) {
+                try {
+                  await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: [KEEP_OPEN_LABEL] });
+                  labels.push(KEEP_OPEN_LABEL);
+                } catch (e) { core.info(`Adding ${KEEP_OPEN_LABEL} label failed: ${e.message}`); }
+              }
+              const exempt = NO_AUTO_CLOSE.some(u => u.toLowerCase() === pr.user.login.toLowerCase());
+              if (exempt) core.info(`Auto-close skipped: @${pr.user.login} is exempt.`);
+              const autoClose = pr.state === 'open' && !exempt && behindMain !== null
+                && behindMain > AUTO_CLOSE_BEHIND && !labels.includes(KEEP_OPEN_LABEL);
+              const closeNote = autoClose ? [
+                '',
+                '---',
+                '',
+                `**🔒 Closed automatically / Automatisch geschlossen**`,
+                '',
+                `**English:** This PR was closed automatically because it failed this check and its branch is ${behindMain} commits behind \`${pr.base.ref}\` (limit: ${AUTO_CLOSE_BEHIND}). Please update your fork or branch to the latest version and open a new PR. If this was a mistake, a maintainer can reopen it.`,
+                '',
+                `**Deutsch:** Dieser PR wurde automatisch geschlossen, weil er diese Prüfung nicht bestanden hat und sein Branch ${behindMain} Commits hinter \`${pr.base.ref}\` liegt (Grenze: ${AUTO_CLOSE_BEHIND}). Bitte aktualisieren Sie Ihren Fork oder Branch auf die neueste Version und öffnen Sie einen neuen PR. Falls das ein Fehler war, kann ein Maintainer ihn wieder öffnen.`,
+              ].join('\n') : '';
+
               let vuln = null;
               try { vuln = await fixedVulnerabilities(); } catch (e) { core.info(`Vulnerability list failed: ${e.message}`); }
               const main = [
@@ -502,7 +541,7 @@ jobs:
                 list(true),
                 '',
                 `Jeder Punkt zeigt die in diesem PR gefundene Version neben der Version, mit der sie verglichen wurde, damit man es direkt nachprüfen kann. Der Updater und die Download-URL des Installers nutzen beide \`patcher_version\`. Ein veralteter Wert kann Nutzer daher auf eine alte, verwundbare Version verweisen. Ein Maintainer prüft das vor dem Mergen. Um das Problem zu beheben, aktualisieren Sie bitte Ihren Fork oder Branch auf die neueste verfügbare Version.`,
-              ].join('\n');
+              ].join('\n') + closeNote;
 
               const bodies = [];
               if (!vuln) bodies.push(main);
@@ -535,6 +574,12 @@ jobs:
                 });
               }
               await publish(bodies);
+              if (autoClose) {
+                try {
+                  await github.rest.pulls.update({ owner, repo, pull_number: pr.number, state: 'closed' });
+                  core.warning(`PR closed automatically: ${behindMain} commits behind ${pr.base.ref} (limit ${AUTO_CLOSE_BEHIND}).`);
+                } catch (e) { core.warning(`Auto-close failed: ${e.message}`); }
+              }
               for (const f of findings) core.warning(f.en);
               core.setFailed(`Possible use of an outdated version (score ${total}). See the PR comment.`);
             } else {

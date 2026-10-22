@@ -193,30 +193,78 @@ Rules: fix the code, never the check; no special cases for the simulator; change
 Always answer with JSON only, no prose, no code fences."""
 
 
-def ask(token, user, max_tokens=4000):
-    body = json.dumps({"model": MODEL, "temperature": 0, "max_tokens": max_tokens,
-                       "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]}).encode()
-    for attempt in range(5):
-        req = urllib.request.Request(API_URL, data=body, headers={
-            "Authorization": f"Bearer {token}", "Content-Type": "application/json",
-            "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"})
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+GEMINI_MODELS = [m.strip() for m in (os.environ.get("GEMINI_FIX_MODELS") or
+                 "gemini-flash-latest,gemini-2.5-flash,gemini-flash-lite-latest").split(",") if m.strip()]
+
+
+def _chat(url, headers, payload, name):
+    """POST one chat completion; returns the parsed JSON body or raises RuntimeError."""
+    body = json.dumps(payload).encode()
+    for attempt in range(4):
+        req = urllib.request.Request(url, data=body, headers={**headers, "Content-Type": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=180) as resp:
-                data = json.load(resp)
-            break
+                status, ctype, raw = resp.status, resp.headers.get("content-type", ""), resp.read()
         except urllib.error.HTTPError as e:
             detail = e.read()[:300]
             if e.code == 429:
                 wait = int(e.headers.get("retry-after") or 0)
-                if 0 < wait <= 120 and attempt < 4:          # per-minute limit: wait it out
+                if 0 < wait <= 120 and attempt < 3:          # per-minute limit: wait it out
                     time.sleep(wait + 1)
                     continue
-                raise RuntimeError(f"GitHub Models rate limit reached (daily cap?): {detail!r}")
-            if e.code in (500, 502, 503) and attempt < 4:
+                raise RuntimeError(f"{name} rate limit reached: {detail!r}")
+            if e.code in (500, 502, 503) and attempt < 3:
                 time.sleep(10 * (attempt + 1))
                 continue
-            raise RuntimeError(f"GitHub Models error {e.code}: {detail!r}")
-    text = (data.get("choices") or [{}])[0].get("message", {}).get("content") or ""
+            raise RuntimeError(f"{name} error {e.code}: {detail!r}")
+        except (urllib.error.URLError, TimeoutError) as e:
+            if attempt < 3:
+                time.sleep(10 * (attempt + 1))
+                continue
+            raise RuntimeError(f"{name} unreachable: {e}")
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            if attempt < 1:                                  # empty/garbled body: try once more
+                time.sleep(5)
+                continue
+            raise RuntimeError(f"{name} sent no JSON (HTTP {status}, {ctype or 'no content-type'}): {raw[:200]!r}")
+        if not (data.get("choices") or [{}])[0].get("message", {}).get("content"):
+            raise RuntimeError(f"{name} sent an empty answer: {str(data)[:200]}")
+        return data
+    raise RuntimeError(f"{name}: no answer")
+
+
+def ask(token, user, max_tokens=4000):
+    """GitHub Models first (free, GITHUB_TOKEN); if it doesn't answer, Gemini (free key in GEMINI_API_KEY)."""
+    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]
+    errors, data = [], None
+    if token:
+        try:
+            data = _chat(API_URL, {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
+                                   "X-GitHub-Api-Version": "2022-11-28"},
+                         {"model": MODEL, "temperature": 0, "max_tokens": max_tokens, "messages": messages},
+                         "GitHub Models")
+        except RuntimeError as e:
+            errors.append(str(e))
+            print(f"::warning::{e}")
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    if data is None and gemini_key:
+        for model in GEMINI_MODELS:
+            try:
+                data = _chat(GEMINI_URL, {"Authorization": f"Bearer {gemini_key}"},
+                             # Gemini's "thinking" counts against max_tokens - leave room for it
+                             {"model": model, "temperature": 0, "max_tokens": max_tokens + 8192, "messages": messages},
+                             f"Gemini ({model})")
+                print(f"Answered by Gemini ({model})")
+                break
+            except RuntimeError as e:
+                errors.append(str(e))
+                print(f"::warning::{e}")
+    if data is None:
+        raise RuntimeError("; ".join(errors) or "no model available (GITHUB_TOKEN / GEMINI_API_KEY missing)")
+    text = data["choices"][0]["message"]["content"]
     m = re.search(r"\{.*\}", text, re.S)
     if not m:
         raise ValueError(f"no JSON in the answer: {text[:200]!r}")

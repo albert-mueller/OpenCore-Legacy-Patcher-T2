@@ -1,0 +1,14 @@
+# Relocated notices: files deliberately deleted from this repository because they now live
+# somewhere else, together with their copyright, licence and credit notices.
+# Format, one entry per line:   <glob pattern>  ->  <where the files and notices live now>
+#
+# Read by the Attribution guard and the License Guard. A file matching an entry may be
+# DELETED without being reported as a violation. Nothing else changes: editing or removing
+# a notice in a file that still exists here is still a violation.
+# The guards read this list from the base branch (pull requests) or from the commit before
+# a push, so a change can't relocate its own deletions. Add the entry first, then delete.
+
+# Patcher website (VitePress), moved out of docs/ in Oct 2026. Dortania's licence page and
+# the copyright footers are kept in that repo: LICENSE.md, de/LICENSE.md, README.md,
+# de/index.md and .vitepress/config.mts.
+docs/**  ->  https://github.com/albert-mueller/albert-mueller.github.io

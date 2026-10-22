@@ -35,12 +35,19 @@ on:
   schedule:
     - cron: "0 6 * * 1"   # Mondays 06:00 UTC
   workflow_dispatch:
+  # "/ai-fix" in a comment on the tracking issue runs the auto-fix job on demand
+  # (only for the owner, members and collaborators - see the job's `if`).
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
 
+# Each comment gets its own group: every comment on any issue starts this
+# workflow (most are skipped right away), and they must not cancel push runs
+# or a running /ai-fix.
 concurrency:
-  group: python-check-${{ github.event.pull_request.number || github.ref }}
+  group: python-check-${{ github.event_name == 'issue_comment' && format('comment-{0}', github.event.comment.id) || github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -172,7 +179,11 @@ jobs:
 
   # Whole-project report for main: errors + warnings, kept in one tracking issue.
   main-report:
-    if: github.event_name != 'pull_request_target'
+    if: github.event_name != 'pull_request_target' && github.event_name != 'issue_comment'
+    # One run at a time, so two runs can't both create a tracking issue
+    concurrency:
+      group: python-check-main-report
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -214,16 +225,25 @@ jobs:
             const row = p => `| [\`${esc(p.file)}:${p.line}\`](${blob}/${encodeURI(p.file)}#L${p.line}) | ${esc(p.message)} |`;
             const kind = msg => msg.replace(/^Warning: /, '').replace(/'[^']*'/g, '…').replace(/line \d+/g, 'line …');
 
-            // Only our own issue - anybody can paste the marker into an issue
-            const issues = await github.paginate(github.rest.issues.listForRepo, { owner, repo, state: 'open', creator: 'github-actions[bot]', per_page: 100 });
-            const existing = issues.find(i => !i.pull_request && i.body && i.body.includes(MARKER));
+            // Only our own issues - anybody can paste the marker into an issue.
+            // Filtered here instead of with the API's `creator` filter, which
+            // sometimes returned nothing and led to duplicate reports (#587/#589).
+            const issues = await github.paginate(github.rest.issues.listForRepo, { owner, repo, state: 'open', per_page: 100 });
+            const ours = issues
+              .filter(i => !i.pull_request && i.user && i.user.login === 'github-actions[bot]' && i.body && i.body.includes(MARKER))
+              .sort((a, b) => b.number - a.number);
+            const existing = ours[0];
+            const close = async (n, text, reason) => {
+              await github.rest.issues.createComment({ owner, repo, issue_number: n, body: text });
+              await github.rest.issues.update({ owner, repo, issue_number: n, state: 'closed', state_reason: reason });
+            };
+            // Older duplicates: keep only the newest report open
+            for (const dup of ours.slice(1))
+              await close(dup.number, `Duplicate of #${existing.number}, which has the current report. / Duplikat von #${existing.number}.`, 'not_planned');
 
             if (!errors.length && !warnings.length) {
-              if (existing) {
-                await github.rest.issues.createComment({ owner, repo, issue_number: existing.number,
-                  body: `✅ main is clean as of ${short} - no errors or warnings left. Closing. / main ist bei ${short} sauber - keine Fehler oder Warnungen mehr. Wird geschlossen.` });
-                await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed', state_reason: 'completed' });
-              }
+              if (existing)
+                await close(existing.number, `✅ main is clean as of ${short} - no errors or warnings left. Closing. / main ist bei ${short} sauber - keine Fehler oder Warnungen mehr. Wird geschlossen.`, 'completed');
               return;
             }
 
@@ -267,6 +287,10 @@ jobs:
   # Opens (or updates) one PR with fixes for whatever can be fixed safely on
   # main. Never runs for PRs, so it only ever touches trusted main code.
   #   - Warnings with a mechanical, behaviour-preserving fix are fixed by ruff:
+  #       F401  unused import                  -> removed (not in __init__.py:
+  #             ruff treats those as possible re-exports and leaves them alone;
+  #             if another module still imported the name from here, the
+  #             re-check below sees the new ImportError and nothing is pushed)
   #       F541  f-string without placeholders  -> plain string
   #       F632  `is` / `is not` with a literal -> `==` / `!=`
   #       W605  invalid escape sequence        -> raw string / escaped backslash
@@ -274,8 +298,14 @@ jobs:
   #     .github/scripts/ai_syntax_fix.py with Claude, if the ANTHROPIC_API_KEY
   #     secret is set (small search/replace edits only, re-checked, rolled back
   #     if the file still doesn't parse).
-  # Everything else (NameError, ImportError, ...) needs a human and stays in
-  # the tracking issue above.
+  #   - All other errors still left (NameError, ImportError, ... - and syntax
+  #     errors, when ANTHROPIC_API_KEY isn't set) are fixed by
+  #     .github/scripts/ai_python_fix.py with a free GitHub Models model
+  #     (GITHUB_TOKEN with `models: read`), or Gemini (free GEMINI_API_KEY
+  #     secret) when GitHub Models doesn't answer. Only small edits in the
+  #     file that has the error; an edit is kept only if it removes one of that
+  #     file's errors and adds none anywhere, otherwise the file is restored.
+  # What can't be fixed safely stays in the tracking issue above.
   #
   # Before anything is pushed, the whole project is checked again; if the fixes
   # would add a single new error, nothing is pushed. The result always goes into
@@ -289,14 +319,26 @@ jobs:
   # other workflows, so the checks don't run on the auto-fix PR itself - the
   # fixes are verified here instead.
   auto-fix:
-    if: github.event_name != 'pull_request_target'
+    # On comments: only "/ai-fix" on the bot's own tracking issue, and only from
+    # people who can push anyway - anyone else's comment is ignored.
+    if: >-
+      github.event_name != 'pull_request_target' && (
+        github.event_name != 'issue_comment' || (
+          !github.event.issue.pull_request &&
+          github.event.issue.state == 'open' &&
+          github.event.issue.user.login == 'github-actions[bot]' &&
+          contains(github.event.issue.body, '<!-- python-check-main-report -->') &&
+          startsWith(github.event.comment.body, '/ai-fix') &&
+          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)))
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
+      issues: write
+      models: read
     env:
       FIX_BRANCH: auto-fix/python-check
-      RUFF_RULES: F541,F632,W605
+      RUFF_RULES: F401,F541,F632,W605
     steps:
       # Credentials are kept so the fix branch can be pushed. Safe here: this job
       # only runs on main/schedule/dispatch, and nothing from the repo is executed
@@ -305,6 +347,13 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: true
+
+      - name: Acknowledge /ai-fix
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: gh api -X POST "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID/reactions" -f content=rocket > /dev/null || true
 
       - uses: actions/setup-python@v5
         with:
@@ -350,6 +399,20 @@ jobs:
           PY
           python3 .github/scripts/ai_syntax_fix.py "$RUNNER_TEMP/failures.jsonl" "$RUNNER_TEMP/ai.md"
 
+      - name: Fix the remaining errors with GitHub Models / Gemini
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MODELS_MODEL: ${{ vars.MODELS_MODEL }}
+          # Fallback when GitHub Models doesn't answer (same free key as the T2 status bot)
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          # Trusted copies: the fixer must not run a check it could have edited
+          s="$RUNNER_TEMP/scripts"; mkdir -p "$s"
+          cp .github/scripts/check_python.py .github/scripts/ai_check_fix.py .github/scripts/ai_python_fix.py "$s/"
+          python3 "$s/check_python.py" --root . --json "$RUNNER_TEMP/remaining.json" > /dev/null || true
+          python3 "$s/ai_python_fix.py" --check "$s/check_python.py" \
+            --problems "$RUNNER_TEMP/remaining.json" --notes "$RUNNER_TEMP/ai_models.md"
+
       - name: Verify the fixes
         id: verify
         run: |
@@ -388,13 +451,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BASE: ${{ github.event.repository.default_branch }}
           FIXED: ${{ steps.verify.outputs.fixed }}
+          MODELS_MODEL: ${{ vars.MODELS_MODEL }}
           REVIEWERS: ${{ vars.AUTO_FIX_REVIEWERS || 'Medelcartelinc gandolf243' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -C "$FIX_BRANCH"
           git commit -aq -m "Fix Python check findings automatically" \
-            -m "Mechanical fixes by ruff ($RUFF_RULES) and/or syntax repairs by Claude, verified with .github/scripts/check_python.py. Generated by the python-check workflow from ${GITHUB_SHA::7}."
+            -m "Mechanical fixes by ruff ($RUFF_RULES), syntax repairs by Claude and/or error fixes by GitHub Models, verified with .github/scripts/check_python.py. Generated by the python-check workflow from ${GITHUB_SHA::7}."
           git push --force origin "$FIX_BRANCH"
 
           short=${GITHUB_SHA::7}
@@ -413,6 +477,13 @@ jobs:
             echo "</details>"
             echo
             [ -f "$RUNNER_TEMP/ai.md" ] && cat "$RUNNER_TEMP/ai.md" && echo
+            if [ -f "$RUNNER_TEMP/ai_models.md" ]; then
+              echo "> [!WARNING]"
+              echo "> Some fixes below were written by an AI model (GitHub Models or Gemini). They remove the reported errors and add none, but whether they do the *right* thing needs a human - review them like any other change."
+              echo
+              head -c 20000 "$RUNNER_TEMP/ai_models.md" | sed 's/@/@\xe2\x80\x8b/g; s/</\&lt;/g'
+              echo
+            fi
             echo "Please review before merging - the fixes are automatic. This PR is updated on every push to \`$BASE\` and closed automatically once nothing is left to fix."
             echo
             echo "<details><summary>Deutsch</summary>"
@@ -440,6 +511,15 @@ jobs:
               echo "::warning::Couldn't request a review from @$r on #$pr - they need to be a collaborator on this repository"
             fi
           done
+
+      - name: Tell /ai-fix when there was nothing to fix
+        if: github.event_name == 'issue_comment' && steps.verify.outputs.changed == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          run="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          gh issue comment "$ISSUE" --body "🤖 \`/ai-fix\` ran at ${GITHUB_SHA::7} ([run]($run)) but found nothing it can fix safely, so no PR was opened. / \`/ai-fix\` lief bei ${GITHUB_SHA::7}, fand aber nichts, was sich sicher automatisch beheben lässt - kein PR erstellt."
 
       - name: Close the auto-fix PR when nothing is left to fix
         if: steps.verify.outputs.changed == 'false'

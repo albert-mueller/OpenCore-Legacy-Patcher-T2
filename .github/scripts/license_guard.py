@@ -34,7 +34,8 @@ LICENSE_FILE_RE = re.compile(r"(^|/)(LICEN[CS]E|COPYING|NOTICE)(\.(txt|md|rst))?
 # The guards' own files (this script and the workflows, incl. attribution-guard.yml) quote
 # copyright notices in their patterns and docs - don't scan them.
 def is_self(path):
-    return path == ".github/scripts/license_guard.py" or path.startswith(".github/workflows/")
+    return (path in (".github/scripts/license_guard.py", RELOCATED_FILE)
+            or path.startswith(".github/workflows/"))
 
 
 # Reviewed deletions: paths (glob patterns) listed here don't raise the "file with an upstream
@@ -49,6 +50,28 @@ def load_allow():
             return [l.split("#", 1)[0].strip() for l in fh if l.split("#", 1)[0].strip()]
     except FileNotFoundError:
         return []
+# Relocated notices: files deleted here because they (and their notices) now live elsewhere,
+# e.g. the website that moved to its own repo. "<glob> -> <destination>" per line. Only full
+# deletions of matching files are accepted; edits to notices are still checked as usual.
+RELOCATED_FILE = ".github/relocated-notices.txt"
+
+
+def load_relocated():
+    entries = []
+    try:
+        with open(RELOCATED_FILE, encoding="utf-8") as fh:
+            for raw in fh:
+                line = raw.split("#", 1)[0].strip()
+                if "->" not in line:
+                    continue
+                pattern, dest = (part.strip() for part in line.split("->", 1))
+                if pattern and dest:
+                    entries.append((pattern, dest))
+    except FileNotFoundError:
+        pass
+    return entries
+
+
 YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
 
 
@@ -103,6 +126,7 @@ def main():
     diff = git("diff", "-M", "-U0", "--no-color", "--no-ext-diff", DIFF_RANGE)
     findings = []  # (severity, path, title, [detail lines])
     allow = load_allow()
+    relocated = load_relocated()
 
     def add(sev, path, title, details=()):
         findings.append((sev, path, title, list(details)))
@@ -116,6 +140,11 @@ def main():
         add_cr = [l for l in f["add"] if COPYRIGHT_RE.search(l)]
 
         if f["deleted"]:
+            dest = next((d for p, d in relocated if fnmatch.fnmatch(path, p)), None)
+            if dest:
+                if is_license or rem_cr:
+                    add("info", path, "Deleted here, notices relocated", [f"  Now at: {dest}"])
+                continue
             if is_license:
                 add("violation", path, "License file deleted")
             elif rem_cr and not any(fnmatch.fnmatch(path, a) for a in allow):
@@ -181,9 +210,9 @@ def main():
         if items:
             out += ["", f"### {emoji} {sev}", *section(items)]
     if i:
-        # Info is just your own additions next to kept notices - collapsed, nothing to fix.
+        # Info is your own additions next to kept notices and relocated files - collapsed, nothing to fix.
         out += ["", f"<details><summary>ℹ️ Info ({len(i)}): copyright lines you added next to kept "
-                "upstream notices - nothing to fix</summary>", "", *section(i), "", "</details>"]
+                "upstream notices, relocated files - nothing to fix</summary>", "", *section(i), "", "</details>"]
     out += ["", "<details><summary>Why this matters</summary>", "",
             f"{HOLDER}'s code is under licenses that require keeping every existing copyright notice and "
             "the license text in redistributed source (e.g. BSD 3-Clause, clause 1). Adding your own "

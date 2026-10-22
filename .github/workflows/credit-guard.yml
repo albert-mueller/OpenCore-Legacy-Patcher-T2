@@ -7,6 +7,8 @@
 #       an issue is opened as a reminder
 #   - PR or push that removes someone from Credits:
 #       PR gets a warning comment, a push opens an issue (nothing is closed)
+#   - Intended removals (contribution reverted/replaced, or at the contributor's request)
+#       are listed in .github/retired-credits.txt and not reported.
 # Code is only read through the API, never checked out or executed.
 
 name: Credit guard
@@ -60,6 +62,31 @@ jobs:
               const set = new Set();
               for (const m of section.matchAll(/github\.com\/([A-Za-z0-9-]+)/g)) set.add(m[1].toLowerCase());
               for (const m of section.matchAll(/@([A-Za-z0-9-]+)/g)) set.add(m[1].toLowerCase());
+              return set;
+            }
+
+            // Credits removed on purpose (e.g. the contribution was reverted). Read from trusted refs only
+            // (PR base / commit before the push), plus - in a fork - the original repo's default branch,
+            // so a fork syncing an intended removal from upstream isn't reported. Add the entry first,
+            // then remove the credit.
+            const RETIRED_FILE = '.github/retired-credits.txt';
+            async function loadRetired(ref) {
+              const set = new Set();
+              const sources = [{ o: owner, r: repo, ref }];
+              try {
+                const { data } = await github.rest.repos.get({ owner, repo });
+                const src = data.fork && (data.source || data.parent);
+                if (src) sources.push({ o: src.owner.login, r: src.name, ref: src.default_branch });
+              } catch (e) { core.warning(`Could not read repository info: ${e.message}`); }
+              for (const s of sources) {
+                try {
+                  const { data } = await github.rest.repos.getContent({ owner: s.o, repo: s.r, path: RETIRED_FILE, ref: s.ref });
+                  for (const raw of Buffer.from(data.content, 'base64').toString('utf8').split('\n')) {
+                    const login = raw.split('#')[0].trim().replace(/^@/, '').toLowerCase();
+                    if (login) set.add(login);
+                  }
+                } catch (e) { if (e.status !== 404) core.warning(`Could not read ${s.o}/${s.r}:${RETIRED_FILE}: ${e.message}`); }
+              }
               return set;
             }
 
@@ -136,7 +163,8 @@ jobs:
               }
 
               // Someone credited at the merge base would be removed by this PR
-              const removed = [...baseCredits].filter(l => !headCredits.has(l) && relevant(l));
+              const retired = await loadRetired(pr.base.sha);
+              const removed = [...baseCredits].filter(l => !headCredits.has(l) && relevant(l) && !retired.has(l));
               await upsertComment(pr.number, MARK_REMOVED, removed.length ? [
                 MARK_REMOVED,
                 '> [!WARNING]',
@@ -178,7 +206,8 @@ jobs:
             if (/^0+$/.test(before) || /^0+$/.test(after)) return;
             const oldCredits = creditedLogins(creditsSection(await readFile(owner, repo, before)));
             const newCredits = creditedLogins(creditsSection(await readFile(owner, repo, after)));
-            const removed = [...oldCredits].filter(l => !newCredits.has(l) && relevant(l));
+            const retired = await loadRetired(before);
+            const removed = [...oldCredits].filter(l => !newCredits.has(l) && relevant(l) && !retired.has(l));
             if (!removed.length) return;
 
             await openIssueOnce(`Contributors removed from Credits (${after.slice(0, 7)})`, [

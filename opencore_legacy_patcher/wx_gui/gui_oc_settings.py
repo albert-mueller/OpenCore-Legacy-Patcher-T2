@@ -435,10 +435,15 @@ class OCSettingsFrame(wx.Frame):
                         "Hide the internal SSD from macOS",
                         "(AppleANS2Disabler) to boot and",
                         "install from an external USB SSD.",
-                        "T2 Macs only.",
+                        "Only applied to T2 Mac builds.",
                     ],
                     "warning": "This hides the internal SSD from macOS whenever it is booted through this OpenCore build, including the macOS Installer and Recovery started from it.\n\nThe internal SSD itself is not erased or modified. To use it again, boot it without OpenCore (hold Option at startup and pick the internal disk), or turn this option off and rebuild OpenCore.\n\nMake sure OpenCore is installed on the external drive, not on the internal SSD's EFI partition.\n\nContinue?",
-                    "condition": target_is_t2_mac,
+                    # Deliberately no "condition": the checkbox used to be greyed out whenever
+                    # the app didn't see a T2 build target (e.g. running on a VM/Hackintosh or a
+                    # non-T2 Mac with "Host Model" selected), so the option couldn't be prepared
+                    # there at all. It is harmless to leave selectable: efi_builder/misc.py only
+                    # injects AppleANS2Disabler inside _t2_handling(), i.e. for T2 targets, and
+                    # logs a note when it is set for a non-T2 target.
                 },
                 "wrap_around 2": {
                     "type": "wrap_around",
@@ -793,6 +798,25 @@ class OCSettingsFrame(wx.Frame):
                         "Always disabled on T2 targets.",
                     ],
                     "condition": not target_is_t2_mac,
+                },
+                "T2 Installer Workaround": {
+                    "type": "checkbox",
+                    "value": self.constants.t2_installer_workaround,
+                    "variable": "t2_installer_workaround",
+                    "warning": "You are enabling the T2 Installer Workaround. This forces software rendering (-igfxvesa, or -wegoff on dual-GPU models), bypasses AMFI (-amfipassbeta) and forces T2TahoeFixup active (-t2tahoeforce) to allow the macOS Tahoe installer to boot without freezing on T2 Macs.\n\nOnly enable this if you are creating a USB installer or running the initial installer pass. You must uncheck this and rebuild OpenCore after installing macOS and root patching!",
+                    "description": [
+                        "Enables workarounds to fix freezing",
+                        "in the macOS Tahoe installer on T2 Macs.",
+                    ],
+                    # Only gated on a T2 build target, since efi_builder/security.py
+                    # applies it exclusively in the T2 branch. It was briefly also
+                    # gated on Experimental Features (91e14c6), which greyed it out
+                    # for every regular user on a T2 Mac - exactly the people who
+                    # need it to get the Tahoe installer to boot. Matteo's original
+                    # intent (aefc93c) was "available on any T2 Mac".
+                    # Uses the regular _update_setting() path (GUI:t2_installer_workaround),
+                    # so the value reaches self.constants and therefore the build.
+                    "condition": target_is_t2_mac,
                 },
                 "System Integrity Protection": {
                     "type": "title",

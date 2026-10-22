@@ -1,0 +1,7 @@
+# Retired credits: contributors removed from the Credits section of README.md on purpose,
+# e.g. because their contribution was reverted or replaced, or at their own request.
+# The Credit guard doesn't report the removal of anyone listed here.
+# One GitHub login per line, optionally followed by a comment with the reason.
+#
+# Read from the base branch (pull requests) or from the commit before a push, and in forks
+# also from the original repository's default branch. Add the entry first, then remove the credit.

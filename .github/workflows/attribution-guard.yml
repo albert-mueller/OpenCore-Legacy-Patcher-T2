@@ -56,14 +56,46 @@ jobs:
               return set;
             }
 
-            async function scan(files) {
+            // Relocated notices: files deleted here because they now live elsewhere (see the file).
+            // Read from trusted refs only (PR base / commit before the push), never from the change itself.
+            // In a fork, the original repository's default branch counts as trusted too: entries there
+            // were already reviewed upstream. Without it, a fork syncing an upstream relocation reads the
+            // list from its own older commit (where the entry doesn't exist yet) and reports the deletion.
+            const RELOCATED_FILE = '.github/relocated-notices.txt';
+            const globRe = g => new RegExp('^' + g.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*+/g, '.*').replace(/\?/g, '.') + '$');
+            async function trustedSources(ref) {
+              const list = [{ o: owner, r: repo, ref }];
+              try {
+                const { data } = await github.rest.repos.get({ owner, repo });
+                const src = data.fork && (data.source || data.parent);
+                if (src) list.push({ o: src.owner.login, r: src.name, ref: src.default_branch });
+              } catch (e) { core.warning(`Could not read repository info: ${e.message}`); }
+              return list;
+            }
+            async function loadRelocated(ref) {
+              const entries = [];
+              for (const s of await trustedSources(ref)) {
+                try {
+                  const { data } = await github.rest.repos.getContent({ owner: s.o, repo: s.r, path: RELOCATED_FILE, ref: s.ref });
+                  entries.push(...Buffer.from(data.content, 'base64').toString('utf8').split('\n')
+                    .map(l => l.split('#')[0].trim()).filter(l => l.includes('->'))
+                    .map(l => { const [p, d] = l.split('->').map(x => x.trim()); return { re: globRe(p), dest: d }; })
+                    .filter(e => e.dest));
+                } catch (e) { if (e.status !== 404) core.warning(`Could not read ${s.o}/${s.r}:${RELOCATED_FILE}: ${e.message}`); }
+              }
+              return entries;
+            }
+
+            async function scan(files, relocated = []) {
               const findings = [];
               for (const f of files) {
                 // Workflow files contain the detection patterns themselves (false positives).
                 // PRs can't weaken the guard this way: pull_request_target always runs the
                 // version from the base branch, not the one in the PR.
                 // Same for License Guard's script and allowlist, which quote copyright notices in comments/regexes.
-                if (/^\.github\/workflows\//.test(f.filename) || ['.github/scripts/license_guard.py', '.github/license-guard-allow.txt'].includes(f.filename)) continue;
+                if (/^\.github\/workflows\//.test(f.filename) || ['.github/scripts/license_guard.py', '.github/license-guard-allow.txt', RELOCATED_FILE].includes(f.filename)) continue;
+                // Deleted on purpose because the file and its notices now live elsewhere
+                if (f.status === 'removed' && relocated.some(r => r.re.test(f.filename))) continue;
                 if (LICENSE_FILE.test(f.filename) && f.status === 'removed') {
                   findings.push({ file: f.filename, reason: 'Licence file deleted', removed: [], added: [] });
                   continue;
@@ -166,7 +198,7 @@ jobs:
               const files = await github.paginate(github.rest.pulls.listFiles, {
                 owner, repo, pull_number: pr.number, per_page: 100,
               });
-              const findings = await scan(files);
+              const findings = await scan(files, await loadRelocated(pr.base.sha));
               if (files.some(f => f.filename === 'README.md')) {
                 const { data: c } = await github.rest.repos.compareCommitsWithBasehead({
                   owner, repo, basehead: `${pr.base.sha}...${pr.head.sha}`,
@@ -210,7 +242,7 @@ jobs:
             const { data: cmp } = await github.rest.repos.compareCommitsWithBasehead({
               owner, repo, basehead: `${base}...${after}`,
             });
-            const findings = await scan(cmp.files || []);
+            const findings = await scan(cmp.files || [], await loadRelocated(base));
             if ((cmp.files || []).some(f => f.filename === 'README.md')) {
               findings.push(...await readmeFindings(cmp.merge_base_commit.sha, owner, repo, after));
             }

@@ -62,6 +62,20 @@ class InitializeLoggingSupport:
         self._clean_prior_version_logs()
 
 
+    # Per-user log folder, mirroring the install directory of the patcher
+    # ('/Library/Application Support/albert-mueller/OpenCore-Patcher-T2').
+    # Lives in ~/Library/Logs rather than next to the app, as the GUI runs
+    # unprivileged and cannot write to /Library.
+    LOG_DIRECTORY: Path = Path("~/Library/Logs/albert-mueller/OpenCore-Patcher-T2")
+
+    # Shared with Dortania's patcher, only read to move our own logs out of it.
+    LEGACY_LOG_DIRECTORY: Path = Path("~/Library/Logs/Dortania")
+
+    # Every log this fork writes starts with this, Dortania's start with
+    # "OpenCore-Patcher_" - so logs of their patcher are never touched.
+    LOG_PREFIX: str = "OpenCore-Patcher-T2_"
+
+
     def _initialize_logging_path(self) -> None:
         """
         Initialize logging framework storage path
@@ -72,17 +86,40 @@ class InitializeLoggingSupport:
             # Likely in an installer environment, store in /Users/Shared
             base_path = Path("/Users/Shared")
         else:
-            # create Dortania folder if it doesn't exist
-            base_path = base_path / "Dortania"
-            if not base_path.exists():
-                try:
-                    base_path.mkdir()
-                except Exception as e:
-                    print(f"Failed to create Dortania folder: {e}")
-                    base_path = Path("/Users/Shared")
+            base_path = self.LOG_DIRECTORY.expanduser()
+            try:
+                base_path.mkdir(parents=True, exist_ok=True)
+                self._migrate_legacy_logs(base_path)
+            except Exception as e:
+                print(f"Failed to create log folder {base_path}: {e}")
+                base_path = Path("/Users/Shared")
 
         self.log_filepath = Path(f"{base_path}/{self.log_filename}").expanduser()
         self.constants.log_filepath = self.log_filepath
+
+
+    def _migrate_legacy_logs(self, destination: Path) -> None:
+        """
+        Move our logs out of ~/Library/Logs/Dortania
+
+        Only files carrying our prefix are moved, and the folder is only removed
+        once empty, so Dortania's own patcher keeps its logs.
+        """
+        legacy = self.LEGACY_LOG_DIRECTORY.expanduser()
+        if not legacy.is_dir():
+            return
+
+        for file in legacy.glob(f"{self.LOG_PREFIX}*.log"):
+            try:
+                file.rename(destination / file.name)
+            except Exception as e:
+                print(f"Failed to move {file} to {destination}: {e}")
+
+        try:
+            legacy.rmdir() # Refuses non-empty folders
+        except OSError:
+            pass
+
 
     def _clean_prior_version_logs(self) -> None:
         """
@@ -92,14 +129,17 @@ class InitializeLoggingSupport:
         """
 
         paths = [
-            self.log_filepath.parent,        # ~/Library/Logs/Dortania
-            self.log_filepath.parent.parent, # ~/Library/Logs (old location)
+            self.log_filepath.parent,                       # ~/Library/Logs/albert-mueller/OpenCore-Patcher-T2
+            Path("~/Library/Logs").expanduser(),            # Old location
+            self.LEGACY_LOG_DIRECTORY.expanduser(),         # Previous location, if moving failed
         ]
 
         logs = []
 
         for path in paths:
-            for file in path.glob("OpenCore-Patcher*"):
+            if not path.is_dir():
+                continue
+            for file in path.glob(f"{self.LOG_PREFIX}*"):
                 if not file.is_file():
                     continue
 

@@ -28,7 +28,7 @@ from ..support import (
 )
 from ..datasets import (
     smbios_data,
-    os_data
+    os_data,
 )
 
 
@@ -484,21 +484,6 @@ class SettingsFrame(wx.Frame):
                         "Wipes the KDK cache and Rebuilds it.",
                         "This is useful if you have a broken KDK.",
                     ],
-                },
-                "T2 Settings": {
-                    "type": "title",
-                },
-                "T2 Installer Workaround": {
-                    "type": "checkbox",
-                    "override_function": self._update_global_settings,
-                    "variable": "t2_installer_workaround",
-                    "value": self.constants.t2_installer_workaround,
-                    "warning": "You are enabling the T2 Installer Workaround. This forces software rendering (-radvesa, -igfxvesa) and disables AMFI (amfi=0x80) to allow the macOS Tahoe installer to boot without freezing on T2 Macs.\n\nOnly enable this if you are creating a USB installer. You must uncheck this and rebuild OpenCore after installing macOS and root patching!",
-                    "description": [
-                        "Enables workarounds to fix freezing",
-                        "in the macOS Tahoe installer on T2 Macs."
-                    ],
-                    "condition": self.constants.True_Developer_Mode
                 },
                 "Application security": {
                     "type": "title",
