@@ -11,7 +11,7 @@
 
 ---
 
-> [!CAUTION]
+> [!CAUTION / WARNUNG ]
 > **OpenCore Legacy Patcher T2 is an independent community fork and is not
 > affiliated with, maintained by, or endorsed by Dortania. Authentic releases are
 > exclusively published on GitHub:
