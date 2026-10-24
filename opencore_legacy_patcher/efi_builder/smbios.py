@@ -370,7 +370,13 @@ class BuildSMBIOS:
 
             # Board Serial Number
             self.config["PlatformInfo"]["SMBIOS"]["BoardSerialNumber"] = mlb
-            self.config["PlatformInfo"]["PlatformNVRAM"]["BoardSerialNumber"] = mlb
+            if self.constants.opencore_build_for_t2 is True:
+                # T2 Macs (own OpenCorePkg fork): unchanged behaviour
+                self.config["PlatformInfo"]["PlatformNVRAM"]["BoardSerialNumber"] = mlb
+            else:
+                # Non-T2 Macs (OpenCore 1.0.8): PlatformNVRAM has no "BoardSerialNumber" key,
+                # the board serial is written to NVRAM via "MLB" instead
+                self.config["PlatformInfo"]["PlatformNVRAM"]["MLB"] = mlb
             self.config["NVRAM"]["Add"]["4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102"]["OCLP-Spoofed-MLB"] = mlb
 
 
@@ -404,8 +410,26 @@ class BuildSMBIOS:
         """
 
         if self.constants.custom_serial_number == "" or self.constants.custom_board_serial_number == "":
-            macserial_result = subprocess.run([self.constants.macserial_path, "--generate", "--model", self.spoofed_model, "--num", "1"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            macserial_output = macserial_result.stdout.decode().strip().split(" | ")
+            macserial_path = self.constants.macserial_path
+            try:
+                macserial_result = subprocess.run(
+                    [macserial_path, "--generate", "--model", self.spoofed_model, "--num", "1"],
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60
+                )
+            except subprocess.TimeoutExpired:
+                raise RuntimeError(
+                    f"macserial ({macserial_path.name}) did not respond within 60 seconds. "
+                    "macOS may be blocking it (Gatekeeper/quarantine) - try running "
+                    f"'xattr -dr com.apple.quarantine' on the patcher, then build again."
+                )
+            macserial_output = macserial_result.stdout.decode(errors="replace").strip().split(" | ")
+            if macserial_result.returncode < 0:
+                # Killed by a signal: Gatekeeper/code signing refused to run the binary
+                raise RuntimeError(
+                    f"macOS refused to run macserial ({macserial_path.name}, signal {-macserial_result.returncode}). "
+                    "This usually means the downloaded patcher is still under Gatekeeper quarantine - try running "
+                    "'xattr -dr com.apple.quarantine' on the patcher, then build again."
+                )
             if macserial_result.returncode != 0 or len(macserial_output) < 2:
                 raise RuntimeError(
                     f"macserial could not generate a serial number/MLB pair for SMBIOS model '{self.spoofed_model}' "
@@ -425,7 +449,12 @@ class BuildSMBIOS:
         self.config["PlatformInfo"]["UpdateNVRAM"] = True
         self.config["PlatformInfo"]["UpdateSMBIOS"] = True
         self.config["UEFI"]["ProtocolOverrides"]["DataHub"] = True
-        self.config["PlatformInfo"]["Generic"]["ROM"] = binascii.unhexlify("112233000000")
+        if self.constants.opencore_build_for_t2 is True:
+            # T2 Macs: unchanged behaviour
+            self.config["PlatformInfo"]["Generic"]["ROM"] = binascii.unhexlify("112233000000")
+        else:
+            # Non-T2 Macs: same as Dortania (Apple OUI 00:16:CB)
+            self.config["PlatformInfo"]["Generic"]["ROM"] = binascii.unhexlify("0016CB445566")
         self.config["PlatformInfo"]["Generic"]["SystemProductName"] = self.spoofed_model
         self.config["PlatformInfo"]["Generic"]["SystemSerialNumber"] = sn
         self.config["PlatformInfo"]["Generic"]["MLB"] = mlb

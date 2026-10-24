@@ -1,0 +1,84 @@
+name: Upstream typosquat watch
+
+# Looks for websites and GitHub repositories imitating Dortania's OpenCore Legacy
+# Patcher and keeps one pinned warning issue in THIS repo up to date, so users
+# know what to avoid. Nobody else is contacted. Close the issue to pause.
+
+on:
+  schedule:
+    # Twice a day: GitHub delays scheduled runs by hours under load and sometimes
+    # drops them, so a single daily slot can leave the list stale for two days.
+    - cron: "29 7 * * *"    # 07:29 UTC
+    - cron: "29 19 * * *"   # 19:29 UTC
+  # Refresh right away when the scan settings or scripts change, instead of
+  # waiting for the next scheduled slot
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/upstream-typosquat-watch.yml
+      - .github/scripts/upstream_typosquat_watch.py
+      - .github/scripts/typosquat_sites.py
+      - .github/scripts/typosquat_watch.py
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only report findings in the run summary, don't touch the issue"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: upstream-typosquat-watch
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Scan for lookalikes of Dortania's OpenCore Legacy Patcher
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_REPO: dortania/OpenCore-Legacy-Patcher
+          ISSUE_REPO: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry_run == true && 'true' || 'false' }}
+          PROJECT_NAME: "OpenCore Legacy Patcher"
+          # Mentioned once, in a comment when the warning issue is first created
+          MENTIONS: "Jazzzny albert-mueller gandolf243"
+          # --- GitHub repositories ---
+          # Repo names whose lookalikes (and non-fork copies) are checked
+          REPO_NAMES: "OpenCore-Legacy-Patcher"
+          # Owners / repos (owner/name) that are never listed
+          ALLOWLIST_OWNERS: "albert-mueller"
+          ALLOWLIST_REPOS: ""
+          # --- Websites ---
+          # Names whose typo variants are checked as domains under each TLD
+          KEYWORDS: "opencore-legacy-patcher opencorelegacypatcher oclp opencore-patcher"
+          TLDS: "com net org io app dev info site xyz top online shop pro co cc"
+          # Substrings searched for in certificate-transparency logs (crt.sh)
+          CT_KEYWORDS: "opencore-legacy-patcher opencorelegacypatcher legacy-patcher legacypatcher"
+          # Newly registered domains: days to look back, names to match, and how long
+          # an empty one keeps being re-checked before it's dropped
+          NRD_DAYS: "7"
+          NRD_KEYWORDS: "opencorelegacypatcher legacypatcher"
+          WATCH_DAYS: "60"
+          # A site is only listed if its page mentions one of these (case-insensitive, | separated)
+          CONTENT_MARKERS: "opencore legacy patcher|opencore-legacy-patcher|opencorelegacypatcher"
+          # Hosts (and their subdomains) that are never listed
+          # oclp.net: possibly a Chinese community site, not verified as a fake
+          ALLOWLIST: "github.com githubusercontent.com dortania.github.io albert-mueller.github.io oclp.net"
+          # Entries not seen for this many days are removed from the list
+          FORGET_DAYS: "365"
+          OFFICIAL_SOURCES: |
+            - **OpenCore Legacy Patcher** by Dortania: https://github.com/dortania/OpenCore-Legacy-Patcher and https://dortania.github.io/OpenCore-Legacy-Patcher/
+            - **OpenCore Legacy Patcher T2** (this project): https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2 and https://albert-mueller.github.io/
+        run: python .github/scripts/upstream_typosquat_watch.py

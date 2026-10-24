@@ -5,6 +5,7 @@ and open a tracking issue in this repository for each one."""
 import base64
 import concurrent.futures as cf
 import datetime
+import html
 import io
 import json
 import os
@@ -33,11 +34,43 @@ ALLOWLIST = {h.lower() for h in os.environ.get("ALLOWLIST", "").split()}
 # names to look for in them (compared without dots, dashes or underscores)
 NRD_DAYS = int(os.environ.get("NRD_DAYS", "3"))
 NRD_KEYWORDS = [re.sub(r"[^a-z0-9]", "", k.lower()) for k in os.environ.get("NRD_KEYWORDS", "").split()]
+# Content farms: sites under any domain name that scrape this project's releases, issues
+# and PRs, often with fake "official" Dortania branding and ad overlays. They're found
+# through a web search API (Brave Search), since their domains look nothing like ours.
+# Without BRAVE_SEARCH_API_KEY this part is skipped.
+SEARCH_QUERIES = [q.strip() for q in os.environ.get("SEARCH_QUERIES", "").split("|") if q.strip()]
+BRAVE_KEY = os.environ.get("BRAVE_SEARCH_API_KEY", "").strip()
+SEARCH_RESULTS = min(int(os.environ.get("SEARCH_RESULTS", "20")), 20)
+# Forums, news and video sites that discuss the project legitimately; never flagged as farms
+FARM_ALLOWLIST = {h.lower() for h in os.environ.get("FARM_ALLOWLIST", "").split()}
+# Script and iframe sources of ad networks typical for scraped "download" pages
+AD_NETWORKS = ("googlesyndication.com", "adsbygoogle", "doubleclick.net", "adservice.google",
+               "propellerads", "popads.net", "popcash.net", "adsterra", "monetag", "a-ads.com",
+               "hilltopads", "clickadu", "exoclick", "juicyads", "ezoic", "mediavine", "taboola",
+               "outbrain", "revcontent", "mgid.com", "adcash", "onclickads", "galaksion")
+# Text that an honest page about this fork would contain
+DISCLAIMERS = ("not affiliated", "unofficial", "independent community fork", "nicht mit dortania",
+               "nicht offiziell", "inoffiziell")
 LABEL = "typosquat-site"
 MARKER = "<!-- typosquat-site:{} -->"
 UA = f"Mozilla/5.0 (compatible; typosquat-site-watch; +https://github.com/{ORIGINAL})"
 HOST_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
 DOWNLOAD_EXT = re.compile(r"\.(dmg|pkg|zip|app|exe|iso)(\?|#|$)", re.I)
+# A link or button also counts as a download when its label says so, even if the URL has
+# no file extension (e.g. a "Download macOS" button pointing to a GitHub releases page,
+# a file host or the site's own /download page)
+DOWNLOAD_WORDS = re.compile(
+    r"download|herunterladen|t[ée]l[ée]charger|descargar|scaricare|baixar|pobierz|indir|"
+    r"скачать|завантажити|下载|下載|ダウンロード|다운로드", re.I)
+DOWNLOAD_PATH = re.compile(r"/(?:releases|downloads?)(?:/|$)", re.I)
+DOWNLOAD_ATTR = re.compile(r"(?:^|\s)download(?:\s*=|\s|/|$)", re.I)
+CLICKABLE = re.compile(r"<(a|button)\b([^>]*)>(.*?)</\1\s*>", re.I | re.S)
+URL_ATTR = re.compile(r"""\b(?:href|data-href|data-url|data-link|data-download|formaction)\s*=\s*(["'])(.*?)\1""",
+                      re.I | re.S)
+JS_URL = re.compile(r"""(?:location(?:\.href)?\s*=|location\.(?:assign|replace)\s*\(|window\.open\s*\()\s*["'`]([^"'`]+)["'`]""",
+                    re.I)
+LABEL_ATTR = re.compile(r"""\b(?:title|aria-label|alt|class|id|value)\s*=\s*(["'])(.*?)\1""", re.I | re.S)
+TAG = re.compile(r"<[^>]+>")
 
 socket.setdefaulttimeout(10)
 
@@ -199,6 +232,50 @@ def nrd_match(domain):
 
 # ------------------------------------------------------------ inspection --
 
+def link_target(url, base):
+    """Absolute URL of a link, or None for in-page, mail and script-only links."""
+    url = html.unescape(url).strip()
+    if not url or url.lower().startswith(("#", "mailto:", "tel:", "javascript:", "data:")):
+        return None
+    return urllib.parse.urljoin(base, url)
+
+
+def describe_host(url):
+    """Where a link leads: its host, plus the account for GitHub links."""
+    parts = urllib.parse.urlsplit(url)
+    host = (parts.hostname or "?").lower()
+    if host in ("github.com", "www.github.com"):
+        owner = parts.path.strip("/").split("/")[0]
+        return f"github.com/{owner}" if owner else "github.com"
+    return host
+
+
+def download_links(page, base):
+    """URLs of the links and buttons on a page that offer a download.
+
+    A link counts if it points at an installer file, carries the `download`
+    attribute, leads to a releases/download page, or is labelled as a download
+    ("Download macOS", an icon with alt="Download", class="btn-download", ...),
+    wherever it points to, GitHub included."""
+    found = set()
+    for _tag, attrs, inner in CLICKABLE.findall(page):
+        urls = [u for _q, u in URL_ATTR.findall(attrs)] + JS_URL.findall(html.unescape(attrs))
+        urls = [u for u in (link_target(u, base) for u in urls) if u]
+        if not urls:
+            continue
+        label = " ".join([TAG.sub(" ", inner)] + [v for _q, v in LABEL_ATTR.findall(attrs + " " + inner)])
+        labelled = bool(DOWNLOAD_WORDS.search(fold(html.unescape(label))) or DOWNLOAD_ATTR.search(attrs))
+        for u in urls:
+            if labelled or DOWNLOAD_EXT.search(u) or DOWNLOAD_PATH.search(urllib.parse.urlsplit(u).path):
+                found.add(u)
+    # Anything else on the page that points straight at an installer file
+    for _q, u in URL_ATTR.findall(page):
+        u = link_target(u, base)
+        if u and DOWNLOAD_EXT.search(u):
+            found.add(u)
+    return found
+
+
 def allowed(host, site_host):
     return host == site_host or any(host == a or host.endswith("." + a) for a in ALLOWLIST)
 
@@ -207,19 +284,17 @@ def inspect(host, path):
     ips = resolve(host)
     if not ips:
         return None
-    status, final, html = fetch(f"https://{host}{path}")
-    if not html:
-        status, final, html = fetch(f"http://{host}{path}")
-    if not html:
+    status, final, page = fetch(f"https://{host}{path}")
+    if not page:
+        status, final, page = fetch(f"http://{host}{path}")
+    if not page:
         return None
-    low = fold(html)
+    low = fold(page)
     hits = [m for m in MARKERS if m in low]
     if not hits:
         return None  # resolves, but doesn't present itself as this project
-    title = re.search(r"<title[^>]*>(.*?)</title>", html, re.I | re.S)
-    links = re.findall(r"""href\s*=\s*["']([^"']+)""", html, re.I)
-    dl_hosts = sorted({urllib.parse.urlsplit(urllib.parse.urljoin(final, link)).hostname or "?"
-                       for link in links if DOWNLOAD_EXT.search(link)})
+    title = re.search(r"<title[^>]*>(.*?)</title>", page, re.I | re.S)
+    dl_hosts = sorted({describe_host(u) for u in download_links(page, final)})
     return {
         "host": host, "url": final, "status": status, "ips": ips,
         "title": re.sub(r"\s+", " ", title.group(1)).strip()[:150] if title else "",
@@ -255,7 +330,114 @@ def rdap(host):
     return info
 
 
+# --------------------------------------------------------- content farms --
+
+def brave_search(query):
+    """Result URLs for one query from the Brave Search API."""
+    q = urllib.parse.urlencode({"q": query, "count": SEARCH_RESULTS, "safesearch": "off"})
+    req = urllib.request.Request(f"https://api.search.brave.com/res/v1/web/search?{q}", headers={
+        "Accept": "application/json", "X-Subscription-Token": BRAVE_KEY, "User-Agent": UA})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            data = json.loads(r.read())
+    except Exception as e:
+        print(f"::warning::Web search for '{query}' failed: {e}")
+        return []
+    return [res.get("url") for res in (data.get("web") or {}).get("results", []) if res.get("url")]
+
+
+def farm_candidates(site_host):
+    """One result URL per host from the web search, minus allowlisted hosts."""
+    if not SEARCH_QUERIES:
+        return {}
+    if not BRAVE_KEY:
+        print("::notice::BRAVE_SEARCH_API_KEY not set; content-farm search skipped.")
+        return {}
+    urls = {}
+    for query in SEARCH_QUERIES:
+        for url in brave_search(query):
+            host = (urllib.parse.urlsplit(url).hostname or "").lower()
+            if not host or allowed(host, site_host) or any(
+                    host == a or host.endswith("." + a) for a in FARM_ALLOWLIST):
+                continue
+            urls.setdefault(host, url)
+        time.sleep(1.2)  # free plan: about one request per second
+    print(f"{len(urls)} hosts from web search to check for scraped content")
+    return urls
+
+
+def inspect_farm(host, url):
+    """A search hit counts as a content farm when it shows this project's name AND at
+    least one sign of misleading users: fake Dortania branding without a disclaimer,
+    ad networks, or download buttons that lead away from GitHub."""
+    status, final, page = fetch(url)
+    if not page:
+        return None
+    low = fold(page)
+    hits = [m for m in MARKERS if m in low]
+    if not hits:
+        return None
+    ads = sorted({a for a in AD_NETWORKS if a in low})
+    brand_claim = "dortania" in low and not any(d in low for d in DISCLAIMERS)
+    dl_hosts = sorted({describe_host(u) for u in download_links(page, final)})
+    foreign_dl = [h for h in dl_hosts if not (h.startswith("github.com") or h == host)]
+    if not (ads or brand_claim or foreign_dl):
+        return None  # mentions the project, but nothing points to deception
+    title = re.search(r"<title[^>]*>(.*?)</title>", page, re.I | re.S)
+    return {
+        "host": host, "url": final, "status": status, "ips": resolve(host),
+        "title": re.sub(r"\s+", " ", html.unescape(title.group(1))).strip()[:150] if title else "",
+        "markers": hits, "download_hosts": dl_hosts,
+        "links_official": f"github.com/{ORIGINAL}".lower() in low,
+        "farm": True, "ads": ads, "brand_claim": brand_claim,
+    }
+
+
 # ----------------------------------------------------------------- texts --
+
+def farm_issue_body(r, reg):
+    contact = f" ({reg['abuse']})" if reg.get("abuse") else ""
+    signs = []
+    if r["brand_claim"]:
+        signs.append("mentions **Dortania** without saying this is an independent, unofficial fork "
+                     "(possible fake official branding)")
+    if r["ads"]:
+        signs.append("loads ad networks: " + ", ".join(f"`{a}`" for a in r["ads"]))
+    off = [h for h in r["download_hosts"] if not h.startswith("github.com")]
+    if off:
+        signs.append("download links lead away from GitHub: " + ", ".join(off))
+    lines = [
+        "Found a page that republishes content about this project and shows signs of misleading users: "
+        f"**{r['host']}**",
+        "",
+        f"- **URL:** {r['url']} (HTTP {r['status']})" if r["status"] else f"- **URL:** {r['url']}",
+        f"- **Page title:** {r['title'] or '—'}",
+        f"- **Matched text:** {', '.join(f'`{m}`' for m in r['markers'])}",
+        f"- **Links to the official repo:** {'yes' if r['links_official'] else 'no'}",
+        f"- **Download links point to:** {', '.join(r['download_hosts']) or 'no download links'}",
+        f"- **IP addresses:** {', '.join(r['ips']) or '—'}",
+    ]
+    if reg:
+        lines += [
+            f"- **Registrar:** {reg.get('registrar') or '—'}",
+            f"- **Registrar abuse contact:** {reg.get('abuse') or '—'}",
+            f"- **Registered:** {reg.get('registered') or '—'}",
+        ]
+    lines += ["", "**Signs found:**"] + [f"- {x}" for x in signs] + [
+        "",
+        "These checks are heuristics: a blog post or mirror can trip them too. Please look at the page first.",
+        "",
+        "**If it's a deceptive content farm:** if downloads on it are malicious, report it to "
+        "[Google Safe Browsing](https://safebrowsing.google.com/safebrowsing/report_badware/); "
+        f"report fake branding or scraped content to the hosting provider and the registrar's abuse contact{contact}, "
+        "and policy violations to the ad network it uses.",
+        "",
+        "Closing this issue marks the site as handled, and the workflow won't file it again.",
+        "",
+        MARKER.format(r["host"]),
+    ]
+    return "\n".join(lines)
+
 
 def issue_body(r, reg):
     if r["host"].endswith(".github.io"):
@@ -334,6 +516,12 @@ def main():
     with cf.ThreadPoolExecutor(max_workers=48) as ex:
         results = [r for r in ex.map(lambda hp: inspect(*hp), targets.items()) if r]
 
+    # Content farms under unrelated domain names, found through web search
+    farm_urls = {h: u for h, u in farm_candidates(site_host).items()
+                 if h not in {r["host"] for r in results}}
+    with cf.ThreadPoolExecutor(max_workers=16) as ex:
+        results += [r for r in ex.map(lambda hu: inspect_farm(*hu), farm_urls.items()) if r]
+
     # A lookalike domain registered in the last few days counts even before it shows
     # any content, so it's caught before it goes live.
     found_hosts = {r["host"] for r in results}
@@ -365,9 +553,10 @@ def main():
         if DRY_RUN:
             continue
         reg = {} if r["host"].endswith(".github.io") else rdap(r["host"])
+        farm = r.get("farm")
         status, _ = post(f"/repos/{ORIGINAL}/issues", {
-            "title": f"Lookalike site: {r['host']}",
-            "body": issue_body(r, reg),
+            "title": f"{'Content farm' if farm else 'Lookalike site'}: {r['host']}",
+            "body": farm_issue_body(r, reg) if farm else issue_body(r, reg),
             "labels": [LABEL],
         })
         if status >= 300:

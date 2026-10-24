@@ -72,15 +72,12 @@ class OCSettingsFrame(wx.Frame):
 
         tabs = list(self.settings.keys())
         for tab in tabs:
-            if tab == "Security":
-                # The Security tab's SIP checkbox matrix (_populate_sip_settings)
-                # is sized dynamically and can exceed the fixed dialog height,
-                # clipping the bottom rows off screen. Make this page scrollable
-                # so the extra content stays reachable instead of being cut off.
-                panel = wx.ScrolledWindow(notebook)
-                panel.SetScrollRate(0, 20)
-            else:
-                panel = wx.Panel(notebook)
+            # Every page is scrollable: General (e.g. "Disable internal SSD") and the
+            # Security tab's SIP checkbox matrix (_populate_sip_settings) both outgrow
+            # the fixed dialog height, and anything below the bottom edge was simply
+            # cut off. Vertical scrolling only; columns are laid out to fit the width.
+            panel = wx.ScrolledWindow(notebook, style=wx.VSCROLL)
+            panel.SetScrollRate(0, 20)
             notebook.AddPage(panel, tab)
 
         sizer.Add(notebook, 1, wx.EXPAND | wx.ALL, 10)
@@ -137,7 +134,7 @@ class OCSettingsFrame(wx.Frame):
         # wx.Notebook only lays out its currently active page, so a hidden
         # page's scrolled window can end up with stale scrollbar metrics
         # from before it had its final size. Re-adjust on every tab switch
-        # to keep the Security tab's scrollbar correct.
+        # to keep each page's scrollbar correct.
         notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.on_oc_settings_tab_changed)
         self._oc_settings_notebook = notebook
 
@@ -207,7 +204,7 @@ class OCSettingsFrame(wx.Frame):
 
                 if setting_info["type"] == "wrap_around":
                     height = highest_height_reached
-                    # On a scrollable page (currently only Security), a vertical
+                    # On a scrollable page (now every page), a vertical
                     # scrollbar eats into the panel's own width from the right
                     # edge. The right column is otherwise positioned as if the
                     # full frame width were available, which ran right-column
@@ -319,11 +316,15 @@ class OCSettingsFrame(wx.Frame):
                 lowest_height_reached = height
 
             if isinstance(panel, wx.ScrolledWindow):
-                # Finalise the scrollable Security tab now that its full content
-                # height (including populate-function widgets) is known, so the
-                # SIP checkbox matrix and everything above it stay reachable
-                # instead of being clipped by the fixed dialog height.
-                panel.SetVirtualSize((int(horizontal_center * 2), lowest_height_reached + 50))
+                # Finalise the page's scroll area now that its full content height is
+                # known. The running 'height' is only an estimate of how tall wrapped
+                # descriptions render, so also measure the real bottom edge of every
+                # child; otherwise the last lines of a page could still end up clipped.
+                for child in panel.GetChildren():
+                    child_bottom = child.GetPosition()[1] + child.GetSize()[1]
+                    if child_bottom > lowest_height_reached:
+                        lowest_height_reached = child_bottom
+                panel.SetVirtualSize((int(horizontal_center * 2), lowest_height_reached + 30))
                 panel.AdjustScrollbars()
 
 
@@ -379,6 +380,17 @@ class OCSettingsFrame(wx.Frame):
             "General": {
                 "General": {
                     "type": "title",
+                },
+                "T2 Installer Workaround": {
+                    "type": "checkbox",
+                    "value": self.constants.t2_installer_workaround,
+                    "variable": "t2_installer_workaround",
+                    "warning": "You are enabling the T2 Installer Workaround. This forces software rendering (-igfxvesa, or -wegoff on dual-GPU models), bypasses AMFI (-amfipassbeta) and forces T2TahoeFixup active (-t2tahoeforce) to allow the macOS Tahoe installer to boot without freezing on T2 Macs.\n\nOnly enable this if you are creating a USB installer or running the initial installer pass. You must uncheck this and rebuild OpenCore after installing macOS and root patching!",
+                    "description": [
+                        "Enables workarounds to fix freezing",
+                        "in the macOS Tahoe installer on T2 Macs.",
+                    ],
+                    "condition": target_is_t2_mac,
                 },
                 "Allow native models": {
                     "type": "checkbox",
@@ -799,25 +811,6 @@ class OCSettingsFrame(wx.Frame):
                     ],
                     "condition": not target_is_t2_mac,
                 },
-                "T2 Installer Workaround": {
-                    "type": "checkbox",
-                    "value": self.constants.t2_installer_workaround,
-                    "variable": "t2_installer_workaround",
-                    "warning": "You are enabling the T2 Installer Workaround. This forces software rendering (-igfxvesa, or -wegoff on dual-GPU models), bypasses AMFI (-amfipassbeta) and forces T2TahoeFixup active (-t2tahoeforce) to allow the macOS Tahoe installer to boot without freezing on T2 Macs.\n\nOnly enable this if you are creating a USB installer or running the initial installer pass. You must uncheck this and rebuild OpenCore after installing macOS and root patching!",
-                    "description": [
-                        "Enables workarounds to fix freezing",
-                        "in the macOS Tahoe installer on T2 Macs.",
-                    ],
-                    # Only gated on a T2 build target, since efi_builder/security.py
-                    # applies it exclusively in the T2 branch. It was briefly also
-                    # gated on Experimental Features (91e14c6), which greyed it out
-                    # for every regular user on a T2 Mac - exactly the people who
-                    # need it to get the Tahoe installer to boot. Matteo's original
-                    # intent (aefc93c) was "available on any T2 Mac".
-                    # Uses the regular _update_setting() path (GUI:t2_installer_workaround),
-                    # so the value reaches self.constants and therefore the build.
-                    "condition": target_is_t2_mac,
-                },
                 "System Integrity Protection": {
                     "type": "title",
                 },
@@ -1062,8 +1055,15 @@ class OCSettingsFrame(wx.Frame):
         if dlg.ShowModal() != wx.ID_YES:
             return
 
-        macserial_output = subprocess.run([self.constants.macserial_path, "--generate", "--model", self.constants.custom_model or self.constants.computer.real_model, "--num", "1"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        macserial_output = macserial_output.stdout.decode().strip().split(" | ")
+        target_model = self.constants.custom_model or self.constants.computer.real_model
+        # No EFI build has run yet, so opencore_build_for_t2 may not match this model - pick macserial explicitly
+        macserial_path = self.constants.macserial_path_for(target_model in model_array.T2Macs)
+        try:
+            macserial_output = subprocess.run([macserial_path, "--generate", "--model", target_model, "--num", "1"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
+        except subprocess.TimeoutExpired:
+            wx.MessageBox("Failed to generate serial number:\n\nmacserial did not respond (it may be blocked by Gatekeeper).", "Error", wx.OK | wx.ICON_ERROR)
+            return
+        macserial_output = macserial_output.stdout.decode(errors="replace").strip().split(" | ")
         if len(macserial_output) == 2:
             self.custom_serial_number_textbox.SetValue(macserial_output[0])
             self.custom_board_serial_number_textbox.SetValue(macserial_output[1])
@@ -1177,8 +1177,8 @@ class OCSettingsFrame(wx.Frame):
         """
         wx.Notebook only lays out its currently active page, so a scrolled
         page's virtual size/scrollbars can be stale until it's actually
-        shown. Re-adjust the Security tab's scrollbars each time it's
-        selected to avoid this.
+        shown. Re-adjust the page's scrollbars each time it's selected to
+        avoid this.
         """
         page = self._oc_settings_notebook.GetPage(event.GetSelection())
         if isinstance(page, wx.ScrolledWindow):

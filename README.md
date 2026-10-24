@@ -11,9 +11,21 @@
 
 ---
 
-> **Unofficial fork.** OCLP-T2 is an independent community project and is not
-> affiliated with, endorsed by, or supported by Dortania or the OpenCore Legacy
-> Patcher team. Please don't report OCLP-T2 issues to Dortania.
+> [!CAUTION]
+> **OpenCore Legacy Patcher T2 is an independent community fork and is not
+> affiliated with, maintained by, or endorsed by Dortania. Authentic releases are
+> exclusively published on GitHub:
+> [github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/releases](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/releases).**
+> Websites that present OCLP-T2 as an official Dortania product, or offer it for
+> download anywhere else, are not ours — don't download from them.
+>
+> **OpenCore Legacy Patcher T2 ist ein unabhängiger Community-Fork und steht in keiner
+> Verbindung zu Dortania, wird nicht von Dortania betreut oder unterstützt. Echte
+> Releases gibt es ausschließlich auf GitHub.** Seiten, die OCLP-T2 als offizielles
+> Dortania-Produkt ausgeben oder woanders zum Download anbieten, gehören nicht zu
+> diesem Projekt.
+
+> **Unofficial fork.** Please don't report OCLP-T2 issues to Dortania.
 >
 > This product includes software developed by Dortania and OpenCore Legacy
 > Patcher contributors. See [LICENSE.txt](LICENSE.txt).
