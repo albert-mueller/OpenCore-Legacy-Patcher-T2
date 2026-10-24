@@ -42,11 +42,22 @@ jobs:
             const AUTO_CLOSE_BEHIND = 1500;      // failed check + more commits behind than this → close
             const KEEP_OPEN_LABEL   = 'keep-open'; // label that stops the auto-close
             const NO_AUTO_CLOSE     = ['albert-mueller', 'gandolf243']; // PRs by these users are never auto-closed
+            const PING_MAINTAINERS  = ['albert-mueller', 'gandolf243']; // always mentioned in the warning
             // ------------------------------------------------------------------
 
             const { owner, repo } = context.repo;
             const pr = context.payload.pull_request;
             const headOwner = pr.head.repo.owner.login, headRepo = pr.head.repo.name;
+
+            // Mention the maintainers plus the owner of the fork the PR comes from,
+            // so the person who has to update the fork is notified too. Skipped when
+            // the PR comes from this repo itself or the owner is already in the list.
+            const pingList = [...PING_MAINTAINERS];
+            if (headOwner.toLowerCase() !== owner.toLowerCase()
+                && !pingList.some(u => u.toLowerCase() === headOwner.toLowerCase())) {
+              pingList.push(headOwner);
+            }
+            const mentions = pingList.map(u => `@${u}`).join(', ');
             const findings = []; // { score, en, de, link? }
 
             // ---- Read files through the API (no checkout) --------------------
@@ -528,7 +539,7 @@ jobs:
                 MARKER,
                 '### ⚠️ Possible use of an outdated version with known vulnerabilities / Mögliche Verwendung einer veralteten Version mit bekannten Sicherheitslücken',
                 '',
-                `**English:** @albert-mueller, @gandolf243 This PR appears to be based on an outdated version that may contain known, already fixed vulnerabilities that attackers could exploit. The check of commit \`${short}\` found:`,
+                `**English:** ${mentions} This PR appears to be based on an outdated version that may contain known, already fixed vulnerabilities that attackers could exploit. The check of commit \`${short}\` found:`,
                 '',
                 list(false),
                 '',
