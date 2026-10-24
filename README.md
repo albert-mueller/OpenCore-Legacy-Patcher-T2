@@ -18,7 +18,7 @@
 > [github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/releases](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/releases).**
 > Websites that present OCLP-T2 as an official Dortania product, or offer it for
 > download anywhere else, are not ours — don't download from them.
-> [!WARNUNG]
+> **WARNUNG!**
 > **OpenCore Legacy Patcher T2 ist ein unabhängiger Community-Fork und steht in keiner
 > Verbindung zu Dortania, wird nicht von Dortania betreut oder unterstützt. Echte
 > Releases gibt es ausschließlich auf GitHub.** Seiten, die OCLP-T2 als offizielles
