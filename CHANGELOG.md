@@ -1,4 +1,6 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.1900012 - 4.0.0 alpha 19.12
+- on T2 Macs, updates T2TahoeFixup.kext to 1.0.12, fixing dyld shared cache vnode matching in performStage2Replacements to ensure OSInstaller.framework elements (OSIMSUInstallElement, OSIUpdateFirmwareElement) are patched in memory, bypassing the MobileSoftwareUpdate Error -81 prepare failure on dropped T2 Macs
 ## 4.0.0.1900011 - 4.0.0 alpha 19.11
 - on T2 Macs, updates T2TahoeFixup.kext to 1.0.11, adding factory board-id aliasing (Mac-937A206F2EE63C01 -> Mac-5F9802EFE386AA28) to shouldAliasManifest, injecting BridgeOSHardwareModel/bridge-model as OSString into /options, and enabling zero-overhead Stage 2 OSInstaller code page patching to resolve MobileSoftwareUpdate Error -81 (missing system root hash / mtree manifest)
 - the dark app icon inside the app (main menu logo and About window) is no longer exclusive to macOS 26 Tahoe: it is now used in Dark Mode on every macOS from 10.14 Mojave on. The Dock icon and the app's dialogs keep using the dark icon on Tahoe and newer only.
