@@ -77,7 +77,7 @@ class Constants:
         #   payloads/OpenCore/OpenCore-NON-T2-{DEBUG,RELEASE}.zip
         # Which one is used is decided per build by the EFI builder (opencore_build_for_t2),
         # opencore_version / opencore_zip_source / opencore_zip_copied follow it.
-        self.opencore_version_t2:     str  = "2.0.4" #T2
+        self.opencore_version_t2:     str  = "2.0.7" #T2
         self.opencore_version_non_t2: str  = "1.0.8" #Non-T2
         self.opencore_build_for_t2:   bool = True    # Set by efi_builder/build.py for the target model
 
