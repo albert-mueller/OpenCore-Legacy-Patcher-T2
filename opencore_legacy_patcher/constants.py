@@ -91,7 +91,7 @@ class Constants:
         self.nvmefix_version:            str = "1.1.3"  #      NVMeFix
         self.applealc_version:           str = "1.9.8"  #      AppleALC
         self.restrictevents_version:     str = "1.1.6"  #      RestrictEvents
-        self.t2tahoefixup_version:       str = "1.0.12" #      T2TahoeFixup
+        self.t2tahoefixup_version:       str = "1.0.13" #      T2TahoeFixup
         self.appleans2disabler_version:  str = "1.0.0"  #      AppleANS2Disabler (T2 internal SSD)
         self.featureunlock_version:      str = "1.1.8"  #      FeatureUnlock
         self.debugenhancer_version:      str = "1.1.0"  #      DebugEnhancer
