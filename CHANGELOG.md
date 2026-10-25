@@ -3,6 +3,8 @@
 This release:
 - fixes a social engineering vulnerability where in Help, it was saying "View official GitHub Repository", "View official GitHub issues" and "Join official GitHub Discussions", where an attacker could claim that Dortania has added official support for T2 Macs.
 Impact: an attacker could impersonate this project as Dortania's own on a malicious website that contains AI generated content to launch SEO poisoning attacks using FraudGPT. This vulnerability is fixed by ensuring that it says View official OpenCore Legacy Patcher T2 GitHub repository to contain the name of the patcher and repository to minimize the risk of SEO poisoning.
+Severity: high
+
 - fixes a vulnerability where an attacker could point to any of the buttons inside Help to an arbitary website, including a typosquatting site:
 
       ("View official OpenCore Legacy Patcher T2 GitHub repository", getattr(self.constants, "github_official_link", "https://share.google/wPHFvNb9hJ86pGJg0")),
@@ -10,7 +12,9 @@ Impact: an attacker could impersonate this project as Dortania's own on a malici
                   ("Join GitHub Discussions", getattr(self.constants, "github_discussions_link", "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/discussions"))
 
 Impact: an attacker could swap for example https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues to a lookalike typosquatting site that looks like GitHub to launch SEO poisoning attacks to impersonate Albert Müller, Gandalf, Matteo or any of the contributors on this repository or worse, install malware. This vulnerability has been fixed by ensuring that the gui_help.py doesn't contain hardcoded links and allow opening only trusted domains and nothing else. 
+Severity: high
 Proof of concept: https://youtu.be/IJ_wMjHIbJs
+
 
 ## 4.0.0.1900013 - 4.0.0 alpha 19.13
 I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://albert-mueller.github.io/issues/599.html on this patcher's page or https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
