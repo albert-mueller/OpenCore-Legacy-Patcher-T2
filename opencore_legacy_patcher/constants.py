@@ -32,6 +32,9 @@ class Constants:
         self.url_patcher_support_pkg:         str = "https://github.com/albert-mueller/PatcherSupportPkg/releases/download/"
         self.guide_link:                      str = "https://albert-mueller.github.io/"
         self.repo_link:                       str = "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/"
+        self.github_issues_link:              str = "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues"
+        self.github_discussions_link:         str = "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/discussions"
+        self.gemini_link:                     str = "https://gemini.google.com"
 
         # Update channels (Settings > App > "Update Channel")
         # Decide which GitHub repository the in-app updater pulls releases from.
@@ -70,15 +73,8 @@ class Constants:
         self.installer_pkg_url:               str = f"{self.repo_link.rstrip('/')}/releases/download/{self.patcher_version}/AutoPkg-Assets-T2.pkg"
 
         # OpenCore Versioning
-        # T2 Macs use our own OpenCorePkg fork with T2 support:
-        # https://github.com/albert-mueller/OpenCorePkg-add-T2-support
-        #   payloads/OpenCore/OpenCore-{DEBUG,RELEASE}.zip
-        # Non-T2 Macs use OpenCore 1.0.8:
-        #   payloads/OpenCore/OpenCore-NON-T2-{DEBUG,RELEASE}.zip
-        # Which one is used is decided per build by the EFI builder (opencore_build_for_t2),
-        # opencore_version / opencore_zip_source / opencore_zip_copied follow it.
-        self.opencore_version_t2:     str  = "2.0.7" #T2
-        self.opencore_version_non_t2: str  = "1.0.8" #Non-T2
+        self.opencore_version_t2:     str  = "2.0.7" #T2 Macs
+        self.opencore_version_non_t2: str  = "1.0.8" #Non-T2 Macs
         self.opencore_build_for_t2:   bool = True    # Set by efi_builder/build.py for the target model
 
 
