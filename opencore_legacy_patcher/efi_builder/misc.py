@@ -379,21 +379,12 @@ class BuildMiscellaneous:
                     obj = builder.get_kext_by_bundle_path(f"USB1.1-Injector.kext/Contents/PlugIns/{injector}")
                     if obj: obj["Enabled"] = True
 
-                # The 'Legacy USB 1.1' patchset downgrades the USB stack on these models after root
-                # patching, so the pre-Tahoe port map has to keep applying on XNU 25.0.0+ as well -
-                # hence dropping its MaxKernel (24.99.99) here.
-                #
-                # USB-Map.kext and USB-Map-Tahoe.kext are mutually exclusive: an uncapped USB-Map.kext
-                # next to an enabled USB-Map-Tahoe.kext (MinKernel 25.0.0) injects two sets of port
-                # personalities for the same controllers on Tahoe. So the Tahoe map is disabled for
-                # these models instead of letting both load.
-                m1 = builder.get_kext_by_bundle_path("USB-Map.kext")
-                m2 = builder.get_kext_by_bundle_path("USB-Map-Tahoe.kext")
-                if m1 and m1["Enabled"] is True:
-                    m1["MaxKernel"] = ""
-                    if m2 and m2["Enabled"] is True:
-                        logging.info("- Legacy USB stack detected, using USB-Map.kext on Tahoe as well")
-                        m2["Enabled"] = False
+                # No USB-Map/USB-Map-Tahoe juggling needed here: Info-Tahoe.plist carries both the
+                # Tahoe keys (usb-port-type/usb-port-number) and the legacy keys (UsbConnector/port)
+                # on every port, same as Dortania upstream. So USB-Map-Tahoe.kext (MinKernel 25.0.0)
+                # works with the native Tahoe USB stack (installer, first boot) as well as with the
+                # stack downgraded by the 'Legacy USB 1.1' patchset after root patching, and
+                # USB-Map.kext keeps its MaxKernel 24.99.99.
         else:
             logging.info("Your Mac is affected by Unsupported Mantissa speed kernel panics. Skipping USB port mapping.")
 
