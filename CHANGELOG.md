@@ -10,6 +10,7 @@ This release:
 - updates DebugEnhancer to 1.1.1
 
 - fixes a social engineering vulnerability where in Help, it was saying "View official GitHub Repository", "View official GitHub issues" and "Join official GitHub Discussions", where an attacker could claim that Dortania has added official support for T2 Macs.
+
 Impact: an attacker could impersonate this project as Dortania's own on a malicious website that contains AI generated content to launch SEO poisoning attacks using FraudGPT. This vulnerability is fixed by ensuring that it says View official OpenCore Legacy Patcher T2 GitHub repository to contain the name of the patcher and repository to minimize the risk of SEO poisoning.
 Severity: high
 
