@@ -1,4 +1,6 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.1900014 - 4.0.0 alpha 19.14
+- on T2 Macs, updates T2TahoeFixup.kext to 1.0.14, disabling dyld shared cache patching and gating _cs_validate_page behind -t2cspage (disabled by default) to resolve Stage 1 installer launch and clean install preparation failure ("An error occurred while preparing the installation") while preserving automated in-kernel BuildManifest.plist XML identity cloning
 ## 4.0.0.1900013 - 4.0.0 alpha 19.13
 - on T2 Macs, updates T2TahoeFixup.kext to 1.0.13, implementing automated in-kernel BuildManifest.plist XML identity cloning (injecting j680ap, j174ap, j137ap, and all dropped T2 models from the j214kap template) in hookVnodeLookup, decoupling sysctl hw.model spoofing from hw.target on Intel, and expanding installer target daemons (remoted, eoshostd, bridgeosupdated) to eliminate MobileSoftwareUpdate Error -81 without manual intervention
 ## 4.0.0.1900012 - 4.0.0 alpha 19.12
