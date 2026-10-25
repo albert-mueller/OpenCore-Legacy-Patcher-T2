@@ -52,6 +52,7 @@ jobs:
         env:
           ADVISORY_TOKEN: ${{ secrets.ADVISORY_TOKEN }}
           MODELS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}   # fallback, same key as the T2 status bot
           CHANGELOG_PATH: CHANGELOG.md
           # Stop at this version heading so old/upstream history is ignored, e.g. "2.4.0"
           STOP_AT: ""

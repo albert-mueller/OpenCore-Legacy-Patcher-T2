@@ -7,6 +7,7 @@ Environment:
   GITHUB_REPOSITORY   owner/repo (set by Actions)
   ADVISORY_TOKEN      fine-grained PAT with "Repository security advisories: read & write"
   MODELS_TOKEN        token with models:read (GITHUB_TOKEN works) - optional
+  GEMINI_API_KEY      free Google AI Studio key, fallback when GitHub Models fails - optional
   CHANGELOG_PATH      default: CHANGELOG.md
   STOP_AT             stop parsing at this version heading (skip older / upstream history)
   DRY_RUN             "true" -> only report, create nothing
@@ -34,7 +35,8 @@ CHANGELOG = os.environ.get("CHANGELOG_PATH", "CHANGELOG.md")
 STOP_AT = os.environ.get("STOP_AT", "").strip().lstrip("v")
 DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
 PUBLISH = os.environ.get("PUBLISH", "false").lower() == "true"
-USE_AI = os.environ.get("USE_AI", "true").lower() == "true" and bool(MODELS_TOKEN)
+USE_AI = os.environ.get("USE_AI", "true").lower() == "true" and bool(
+    MODELS_TOKEN or os.environ.get("GEMINI_API_KEY"))
 ECOSYSTEM = os.environ.get("ADVISORY_ECOSYSTEM", "other")
 PACKAGE = os.environ.get("ADVISORY_PACKAGE") or REPO.split("/")[1]
 MODEL = os.environ.get("MODEL", "openai/gpt-4.1-mini")
@@ -203,21 +205,105 @@ SYSTEM_PROMPT = (
 )
 
 
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODELS = [m.strip() for m in (os.environ.get("GEMINI_MODELS") or
+                 "gemini-flash-latest,gemini-2.5-flash,gemini-flash-lite-latest").split(",") if m.strip()]
+MODELS_EXHAUSTED = False  # GitHub Models daily quota used up -> go straight to Gemini
+
+
+class RateLimited(RuntimeError):
+    pass
+
+
+def _chat(url, headers, payload, name):
+    """POST one chat completion (same pattern as ai_check_fix.py); returns the answer text."""
+    body = json.dumps(payload).encode()
+    for attempt in range(4):
+        req = urllib.request.Request(url, data=body, headers={**headers, "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                status, ctype, raw = resp.status, resp.headers.get("content-type", ""), resp.read()
+        except urllib.error.HTTPError as e:
+            detail = e.read()[:300]
+            if e.code == 429:
+                wait = int(e.headers.get("retry-after") or 0)
+                if 0 < wait <= 120 and attempt < 3:  # per-minute limit: wait it out
+                    time.sleep(wait + 1)
+                    continue
+                raise RateLimited(f"{name} rate limit reached: {detail!r}")
+            if e.code in (500, 502, 503) and attempt < 3:
+                time.sleep(10 * (attempt + 1))
+                continue
+            raise RuntimeError(f"{name} error {e.code}: {detail!r}")
+        except (urllib.error.URLError, TimeoutError) as e:
+            if attempt < 3:
+                time.sleep(10 * (attempt + 1))
+                continue
+            raise RuntimeError(f"{name} unreachable: {e}")
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            if attempt < 2:  # empty/garbled body: try again
+                time.sleep(5)
+                continue
+            raise RuntimeError(f"{name} sent no JSON (HTTP {status}, {ctype or 'no content-type'}): {raw[:200]!r}")
+        text = ((data.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+        if not text.strip():
+            if attempt < 2:
+                time.sleep(5)
+                continue
+            raise RuntimeError(f"{name} sent an empty answer: {str(data)[:200]}")
+        return text
+    raise RuntimeError(f"{name}: no answer")
+
+
+def _parse_answer(text):
+    match = re.search(r"\{.*\}", text, re.S)
+    if not match:
+        raise ValueError(f"no JSON in the answer: {text[:200]!r}")
+    return json.loads(match.group(0))
+
+
 def ai_review(entry):
-    body = {
-        "model": MODEL,
-        "temperature": 0,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Project: {REPO}\nVersion: {entry['version']}\n"
-                                        f"Entry:\n{entry['text']}"},
-        ],
-    }
-    data, _ = request("POST", "https://models.github.ai/inference/chat/completions",
-                      body, token=MODELS_TOKEN)
-    content = data["choices"][0]["message"]["content"]
-    content = re.sub(r"^```(?:json)?|```$", "", content.strip(), flags=re.M).strip()
-    return json.loads(content)
+    """GitHub Models first (GITHUB_TOKEN); if it doesn't answer, Gemini (GEMINI_API_KEY)."""
+    global MODELS_EXHAUSTED
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": f"Project: {REPO}\nVersion: {entry['version']}\n"
+                                    f"Entry:\n{entry['text'][:6000]}"},
+    ]
+    errors = []
+    if MODELS_TOKEN and not MODELS_EXHAUSTED:
+        try:
+            text = _chat(
+                "https://models.github.ai/inference/chat/completions",
+                {"Authorization": f"Bearer {MODELS_TOKEN}", "Accept": "application/vnd.github+json",
+                 "X-GitHub-Api-Version": "2022-11-28"},
+                {"model": MODEL, "temperature": 0, "max_tokens": 800, "messages": messages},
+                "GitHub Models",
+            )
+            return _parse_answer(text)
+        except RateLimited as exc:
+            MODELS_EXHAUSTED = True
+            errors.append(str(exc))
+            print(f"::warning::{exc} - using Gemini for the rest of this run")
+        except (RuntimeError, ValueError) as exc:
+            errors.append(str(exc))
+            print(f"::warning::{exc}")
+    if GEMINI_KEY:
+        for model in GEMINI_MODELS:
+            try:
+                text = _chat(
+                    GEMINI_URL, {"Authorization": f"Bearer {GEMINI_KEY}"},
+                    # Gemini's "thinking" counts against max_tokens - leave room for it
+                    {"model": model, "temperature": 0, "max_tokens": 800 + 8192, "messages": messages},
+                    f"Gemini ({model})",
+                )
+                return _parse_answer(text)
+            except (RuntimeError, ValueError) as exc:
+                errors.append(str(exc))
+    raise RuntimeError("; ".join(errors) or "no model available (GITHUB_TOKEN / GEMINI_API_KEY missing)")
 
 
 class AIUnavailable(Exception):
@@ -307,6 +393,7 @@ def main():
 
     rejected = load_rejected()
     report = []
+    ai_failures, created_or_checked = 0, 0
     for entry in entries:
         if not entry["version"]:
             continue  # unreleased: no patched version yet
@@ -316,8 +403,13 @@ def main():
             info = classify(entry)
         except AIUnavailable as exc:
             print(f"  ! AI review failed for [{entry['version']}] {entry['first'][:60]}: {exc}")
+            ai_failures += 1
+            if ai_failures >= 5 and not created_or_checked:
+                print("::error::AI review failed 5 times in a row - stopping; see warnings above.")
+                break
             report.append(f"| {entry['version']} | {entry['first'][:80].replace('|', '/')} | - | skipped (AI unavailable, retried next run) |")
             continue
+        ai_failures, created_or_checked = 0, created_or_checked + 1
         if not info:
             if USE_AI and (entry["security_section"] or KEYWORDS.search(entry["text"])):
                 rejected.add(entry["id"])  # AI said "not a vulnerability": don't ask again
