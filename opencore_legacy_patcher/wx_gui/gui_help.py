@@ -55,6 +55,23 @@ class HelpFrame(wx.Frame):
         """
         frame = self if not frame else frame
 
+        # All external links live in constants.py (single source of truth).
+        # Referenced directly so a missing constant fails loudly instead of
+        # silently falling back to a hardcoded URL.
+        resource_links = [
+            ("Official OpenCore Legacy Patcher T2 guide",                  self.constants.guide_link),
+            ("View official OpenCore Legacy Patcher T2 GitHub repository", self.constants.repo_link),
+            ("View GitHub Issues",                                          self.constants.github_issues_link),
+            ("Join GitHub Discussions",                                     self.constants.github_discussions_link),
+        ]
+
+        # Size buttons to the longest label (plus padding for the bezel) so no
+        # label gets truncated, and widen the dialog to fit them. Done before
+        # any Centre() call, since centring depends on the dialog width.
+        button_labels = [label for label, _ in resource_links] + ["✨ Ask Gemini"]
+        button_width = max(220, max(frame.GetTextExtent(label)[0] for label in button_labels) + 40)
+        frame.SetSize((button_width + 80, frame.GetSize()[1]))
+
         # 1. Main Title Header
         title_label = wx.StaticText(frame, label="Patcher Resources", pos=(-1, 10))
         title_label.SetFont(gui_support.font_factory(19, wx.FONTWEIGHT_BOLD))
@@ -69,24 +86,14 @@ class HelpFrame(wx.Frame):
         current_y = text_label.GetPosition()[1] + text_label.GetSize()[1] + 15
         button_spacing = 35  # Clean pixel tracking padding gaps between buttons
 
-        # All external links live in constants.py (single source of truth).
-        # Referenced directly so a missing constant fails loudly instead of
-        # silently falling back to a hardcoded URL.
-        resource_links = [
-            ("Official OpenCore Legacy Patcher T2 guide",                  self.constants.guide_link),
-            ("View official OpenCore Legacy Patcher T2 GitHub repository", self.constants.repo_link),
-            ("View GitHub Issues",                                          self.constants.github_issues_link),
-            ("Join GitHub Discussions",                                     self.constants.github_discussions_link),
-        ]
-
         # 3. Dynamic External Link Button Generation
         for label, url in resource_links:
-            help_button = wx.Button(frame, label=label, pos=(-1, current_y), size=(220, 30))
+            help_button = wx.Button(frame, label=label, pos=(-1, current_y), size=(button_width, 30))
             help_button.Bind(wx.EVT_BUTTON, lambda event, target_url=url: self._open_link(target_url))
             help_button.Centre(wx.HORIZONTAL)
             current_y += button_spacing
 
-        gemini_button = wx.Button(frame, label="✨ Ask Gemini", pos=(-1, current_y), size=(220, 30))
+        gemini_button = wx.Button(frame, label="✨ Ask Gemini", pos=(-1, current_y), size=(button_width, 30))
         gemini_button.Bind(wx.EVT_BUTTON, self.on_gemini_help)
         gemini_button.Centre(wx.HORIZONTAL)
 
@@ -98,7 +105,7 @@ class HelpFrame(wx.Frame):
         return_button.Centre(wx.HORIZONTAL)
 
         # Automatically wrap structural layout scaling to avoid text truncation on varied OS platforms
-        frame.SetSize((-1, return_button.GetPosition()[1] + return_button.GetSize()[1] + 45))
+        frame.SetSize((frame.GetSize()[0], return_button.GetPosition()[1] + return_button.GetSize()[1] + 45))
 
     # Safety net against typos, URL shorteners or links that later come from
     # less trusted sources (config files, update manifests). Not a defence
