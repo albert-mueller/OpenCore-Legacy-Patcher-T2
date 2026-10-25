@@ -1,6 +1,9 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
 ## 4.0.0.1900014 - 4.0.0 alpha 19.14
 This release:
+- adds a button that opens the official OpenCore Legacy Patcher T2 website called Official OpenCore Legacy Patcher T2 guide
+<img width="812" height="672" alt="Bildschirmfoto 2026-10-25 um 16 12 29" src="https://github.com/user-attachments/assets/ac8da55a-0e54-4f3a-9b2f-e658c411c471" />
+
 - fixes a social engineering vulnerability where in Help, it was saying "View official GitHub Repository", "View official GitHub issues" and "Join official GitHub Discussions", where an attacker could claim that Dortania has added official support for T2 Macs.
 Impact: an attacker could impersonate this project as Dortania's own on a malicious website that contains AI generated content to launch SEO poisoning attacks using FraudGPT. This vulnerability is fixed by ensuring that it says View official OpenCore Legacy Patcher T2 GitHub repository to contain the name of the patcher and repository to minimize the risk of SEO poisoning.
 Severity: high
