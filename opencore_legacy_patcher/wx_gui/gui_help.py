@@ -6,6 +6,8 @@ import wx
 import logging
 import webbrowser
 
+from urllib.parse import urlparse
+
 from .. import constants
 from ..datasets import os_data
 from ..wx_gui import gui_support
@@ -53,6 +55,23 @@ class HelpFrame(wx.Frame):
         """
         frame = self if not frame else frame
 
+        # All external links live in constants.py (single source of truth).
+        # Referenced directly so a missing constant fails loudly instead of
+        # silently falling back to a hardcoded URL.
+        resource_links = [
+            ("Official OpenCore Legacy Patcher T2 guide",                  self.constants.guide_link),
+            ("View official OpenCore Legacy Patcher T2 GitHub repository", self.constants.repo_link),
+            ("View GitHub Issues",                                          self.constants.github_issues_link),
+            ("Join GitHub Discussions",                                     self.constants.github_discussions_link),
+        ]
+
+        # Size buttons to the longest label (plus padding for the bezel) so no
+        # label gets truncated, and widen the dialog to fit them. Done before
+        # any Centre() call, since centring depends on the dialog width.
+        button_labels = [label for label, _ in resource_links] + ["✨ Ask Gemini"]
+        button_width = max(220, max(frame.GetTextExtent(label)[0] for label in button_labels) + 40)
+        frame.SetSize((button_width + 80, frame.GetSize()[1]))
+
         # 1. Main Title Header
         title_label = wx.StaticText(frame, label="Patcher Resources", pos=(-1, 10))
         title_label.SetFont(gui_support.font_factory(19, wx.FONTWEIGHT_BOLD))
@@ -67,25 +86,14 @@ class HelpFrame(wx.Frame):
         current_y = text_label.GetPosition()[1] + text_label.GetSize()[1] + 15
         button_spacing = 35  # Clean pixel tracking padding gaps between buttons
 
-        # Define external target items using structured tuples instead of a dict mapping loop
-        # Pulls from constants.py configuration bindings cleanly
-        resource_links = [
-            ("View official GitHub repository", getattr(self.constants, "github_official_link", "https://share.google/wPHFvNb9hJ86pGJg0")),
-            ("View official GitHub Issues", getattr(self.constants, "github_issues_link", "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues")),
-            ("Join official GitHub Discussions", getattr(self.constants, "github_discussions_link", "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/discussions")),
-        ]
-
         # 3. Dynamic External Link Button Generation
         for label, url in resource_links:
-            help_button = wx.Button(frame, label=label, pos=(-1, current_y), size=(220, 30))
-
-            # Bound the lambda environment execution target safely using fixed parameter signatures
-            help_button.Bind(wx.EVT_BUTTON, lambda event, target_url=url: webbrowser.open(target_url))
+            help_button = wx.Button(frame, label=label, pos=(-1, current_y), size=(button_width, 30))
+            help_button.Bind(wx.EVT_BUTTON, lambda event, target_url=url: self._open_link(target_url))
             help_button.Centre(wx.HORIZONTAL)
-
-            # Step the coordinate down for the next item element sequence
             current_y += button_spacing
-        gemini_button = wx.Button(frame, label="✨ Ask Gemini", pos=(-1, current_y), size=(220, 30))
+
+        gemini_button = wx.Button(frame, label="✨ Ask Gemini", pos=(-1, current_y), size=(button_width, 30))
         gemini_button.Bind(wx.EVT_BUTTON, self.on_gemini_help)
         gemini_button.Centre(wx.HORIZONTAL)
 
@@ -97,45 +105,29 @@ class HelpFrame(wx.Frame):
         return_button.Centre(wx.HORIZONTAL)
 
         # Automatically wrap structural layout scaling to avoid text truncation on varied OS platforms
-        frame.SetSize((-1, return_button.GetPosition()[1] + return_button.GetSize()[1] + 45))
+        frame.SetSize((frame.GetSize()[0], return_button.GetPosition()[1] + return_button.GetSize()[1] + 45))
+
+    # Safety net against typos, URL shorteners or links that later come from
+    # less trusted sources (config files, update manifests). Not a defence
+    # against someone who can edit the source itself.
+    ALLOWED_HOSTS = {"github.com", "albert-mueller.github.io", "gemini.google.com"}
+
+    def _open_link(self, url: str) -> None:
+        parsed = urlparse(url)
+        if parsed.scheme != "https" or parsed.hostname not in self.ALLOWED_HOSTS:
+            logger.error(f"Refusing to open untrusted link: {url}")
+            return
+        webbrowser.open(url)
 
     # es gab zu viel Platz frei (16 Symbole frei statt 8)
     def on_gemini_help(self, event: wx.Event):
-        # Ask Gemini in an embedded WebView on macOS Big Sur (11.0) or
-        # newer; on anything older, open Gemini in the user's default web
-        # browser instead. GeminiWebView (wx.html2.WebView, itself a thin
-        # wrapper around the host's own system WebKit) already sidesteps
-        # the pywebview crash documented in its docstring, which only
-        # ever affected macOS < 11.3 - but the WebKit actually shipped
-        # with genuinely older releases (High Sierra/Mojave/Catalina) is
-        # too old to render Gemini's web app at all regardless of which
-        # embedding library is used, so those hosts are better served by
-        # their real, up-to-date default browser than a broken embedded
-        # view.
-        #
-        # self.constants.detected_os is this codebase's own Darwin-major
-        # OS enum (see datasets/os_data.py) rather than platform.mac_ver(),
-        # which is what the rest of the app already uses for OS gating
-        # (see e.g. gui_support.py's host_is_non_metal())
-        # - and it sidesteps mac_ver()'s well-known Big Sur "10.16"
-        # misreport quirk entirely.
         if self.constants.detected_os >= os_data.os_data.big_sur:
             logging.info("- Launching Gemini AI Assistant (wx.html2 WebView)")
-
-            # Uses gui_support.GeminiWebView (wx.html2.WebView) instead of
-            # the third-party 'pywebview' package: pywebview's Cocoa
-            # backend crashes the navigation delegate on macOS hosts
-            # older than 11.3 (e.g. 10.13 High Sierra), see GeminiWebView
-            # docstring for details.
-            #
-            # Parented to self.parent_frame (the real top-level app window),
-            # NOT self.dialog (the modal sheet this button lives in) - see
-            # the comment on self.parent_frame in __init__ for why.
             window = gui_support.GeminiWebView(self.parent_frame, size=(500, 850))
             window.Show()
         elif self.constants.detected_os < os_data.os_data.big_sur: # behebt eine Sicherheitslücke, die erlaubt Angreifern, Legacy-Fallback durch falsches Wert durchzuführen
             logging.info("- Launching Gemini AI Assistant (default web browser, host predates Big Sur)")
             logging.info("macOS Catalina, Mojave and High Sierra can't load Gemini in Safari and WebKit because they're too old.")
-            webbrowser.open("https://gemini.google.com")
+            self._open_link(self.constants.gemini_link)
         else:
             logging.error("Failed to detect which macOS version is currently running.")
