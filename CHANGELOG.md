@@ -18,6 +18,10 @@ Impact: an attacker could swap for example https://github.com/albert-mueller/Ope
 Severity: high
 Proof of concept: https://youtu.be/IJ_wMjHIbJs
 
+- fixes USB port mapping on MacPro4,1, MacPro5,1, Xserve3,1 and Penryn Macs on macOS 26 Tahoe: the Tahoe USB map (USB-Map-Tahoe.kext) contained only the new Tahoe port keys, so it was disabled on these Macs in favour of the pre-Tahoe map. That left them without a usable port map in the Tahoe installer and on the first boot before root patching. The Tahoe map now contains both the Tahoe and the legacy port keys again (same as Dortania upstream), so it works both before and after the 'Legacy USB 1.1' patchset is applied.
+
+- fixes the MacPro4,1 USB port map never being applied: its EHCI entries used AppleUSBMergeNub, a driver class Apple removed in OS X El Capitan. They now use AppleUSBHostMergeProperties like every other model.
+
 
 ## 4.0.0.1900013 - 4.0.0 alpha 19.13
 I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://albert-mueller.github.io/issues/599.html on this patcher's page or https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
