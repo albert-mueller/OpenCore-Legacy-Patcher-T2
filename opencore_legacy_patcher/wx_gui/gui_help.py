@@ -70,9 +70,10 @@ class HelpFrame(wx.Frame):
         # Define external target items using structured tuples instead of a dict mapping loop
         # Pulls from constants.py configuration bindings cleanly
         resource_links = [
-            ("View official GitHub repository", getattr(self.constants, "github_official_link", "https://share.google/wPHFvNb9hJ86pGJg0")),
-            ("View official GitHub Issues", getattr(self.constants, "github_issues_link", "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues")),
-            ("Join official GitHub Discussions", getattr(self.constants, "github_discussions_link", "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/discussions")),
+            ("Official OpenCore Legacy Patcher T2 guide", )
+            ("View official OpenCore Legacy Patcher T2 GitHub repository", getattr(self.constants, "github_official_link", "https://share.google/wPHFvNb9hJ86pGJg0")),
+            ("View GitHub Issues", getattr(self.constants, "github_issues_link", "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues")),
+            ("Join GitHub Discussions", getattr(self.constants, "github_discussions_link", "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/discussions")),
         ]
 
         # 3. Dynamic External Link Button Generation
@@ -101,36 +102,8 @@ class HelpFrame(wx.Frame):
 
     # es gab zu viel Platz frei (16 Symbole frei statt 8)
     def on_gemini_help(self, event: wx.Event):
-        # Ask Gemini in an embedded WebView on macOS Big Sur (11.0) or
-        # newer; on anything older, open Gemini in the user's default web
-        # browser instead. GeminiWebView (wx.html2.WebView, itself a thin
-        # wrapper around the host's own system WebKit) already sidesteps
-        # the pywebview crash documented in its docstring, which only
-        # ever affected macOS < 11.3 - but the WebKit actually shipped
-        # with genuinely older releases (High Sierra/Mojave/Catalina) is
-        # too old to render Gemini's web app at all regardless of which
-        # embedding library is used, so those hosts are better served by
-        # their real, up-to-date default browser than a broken embedded
-        # view.
-        #
-        # self.constants.detected_os is this codebase's own Darwin-major
-        # OS enum (see datasets/os_data.py) rather than platform.mac_ver(),
-        # which is what the rest of the app already uses for OS gating
-        # (see e.g. gui_support.py's host_is_non_metal())
-        # - and it sidesteps mac_ver()'s well-known Big Sur "10.16"
-        # misreport quirk entirely.
         if self.constants.detected_os >= os_data.os_data.big_sur:
             logging.info("- Launching Gemini AI Assistant (wx.html2 WebView)")
-
-            # Uses gui_support.GeminiWebView (wx.html2.WebView) instead of
-            # the third-party 'pywebview' package: pywebview's Cocoa
-            # backend crashes the navigation delegate on macOS hosts
-            # older than 11.3 (e.g. 10.13 High Sierra), see GeminiWebView
-            # docstring for details.
-            #
-            # Parented to self.parent_frame (the real top-level app window),
-            # NOT self.dialog (the modal sheet this button lives in) - see
-            # the comment on self.parent_frame in __init__ for why.
             window = gui_support.GeminiWebView(self.parent_frame, size=(500, 850))
             window.Show()
         elif self.constants.detected_os < os_data.os_data.big_sur: # behebt eine Sicherheitslücke, die erlaubt Angreifern, Legacy-Fallback durch falsches Wert durchzuführen
