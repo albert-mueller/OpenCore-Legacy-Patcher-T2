@@ -21,6 +21,7 @@ Proof of concept: https://youtu.be/IJ_wMjHIbJs
 - fixes USB port mapping on MacPro4,1, MacPro5,1, Xserve3,1 and Penryn Macs on macOS 26 Tahoe: the Tahoe USB map (USB-Map-Tahoe.kext) contained only the new Tahoe port keys, so it was disabled on these Macs in favour of the pre-Tahoe map. That left them without a usable port map in the Tahoe installer and on the first boot before root patching. The Tahoe map now contains both the Tahoe and the legacy port keys again (same as Dortania upstream), so it works both before and after the 'Legacy USB 1.1' patchset is applied.
 
 - fixes the MacPro4,1 USB port map never being applied: its EHCI entries used AppleUSBMergeNub, a driver class Apple removed in OS X El Capitan. They now use AppleUSBHostMergeProperties like every other model.
+- updates DebugEnhancer to 1.1.1
 
 
 ## 4.0.0.1900013 - 4.0.0 alpha 19.13
