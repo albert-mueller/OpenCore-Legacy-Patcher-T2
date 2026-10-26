@@ -24,7 +24,7 @@ Severity: high
 
 Impact: an attacker could swap for example https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues to a lookalike typosquatting site that looks like GitHub to launch SEO poisoning attacks to impersonate Albert Müller, Gandalf, Matteo or any of the contributors on this repository or worse, install malware. This vulnerability has been fixed by ensuring that the gui_help.py doesn't contain hardcoded links and allow opening only trusted domains and nothing else. 
 Severity: high
-Proof of concept: https://youtu.be/IJ_wMjHIbJs
+Proof of concept: https://youtu.be/IJ_wMjHIbJs?si=nciL0exX5Iab0b0S
 
 
 ## 4.0.0.1900013 - 4.0.0 alpha 19.13
