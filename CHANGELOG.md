@@ -1,7 +1,18 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
 ## 4.0.0.1900014 - 4.0.0 alpha 19.14
+I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://albert-mueller.github.io/issues/599.html on this patcher's page or https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
+
 This release:
+- adds a button that opens the official OpenCore Legacy Patcher T2 website called Official OpenCore Legacy Patcher T2 guide
+<img width="812" height="672" alt="Bildschirmfoto 2026-10-25 um 16 12 29" src="https://github.com/user-attachments/assets/ac8da55a-0e54-4f3a-9b2f-e658c411c471" />
+
+- fixes USB port mapping on MacPro4,1, MacPro5,1, Xserve3,1 and Penryn Macs on macOS 26 Tahoe: the Tahoe USB map (USB-Map-Tahoe.kext) contained only the new Tahoe port keys, so it was disabled on these Macs in favour of the pre-Tahoe map. That left them without a usable port map in the Tahoe installer and on the first boot before root patching. The Tahoe map now contains both the Tahoe and the legacy port keys again (same as Dortania upstream), so it works both before and after the 'Legacy USB 1.1' patchset is applied.
+
+- fixes the MacPro4,1 USB port map never being applied: its EHCI entries used AppleUSBMergeNub, a driver class Apple removed in OS X El Capitan. They now use AppleUSBHostMergeProperties like every other model.
+- updates DebugEnhancer to 1.1.1
+
 - fixes a social engineering vulnerability where in Help, it was saying "View official GitHub Repository", "View official GitHub issues" and "Join official GitHub Discussions", where an attacker could claim that Dortania has added official support for T2 Macs.
+
 Impact: an attacker could impersonate this project as Dortania's own on a malicious website that contains AI generated content to launch SEO poisoning attacks using FraudGPT. This vulnerability is fixed by ensuring that it says View official OpenCore Legacy Patcher T2 GitHub repository to contain the name of the patcher and repository to minimize the risk of SEO poisoning.
 Severity: high
 
@@ -13,7 +24,7 @@ Severity: high
 
 Impact: an attacker could swap for example https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues to a lookalike typosquatting site that looks like GitHub to launch SEO poisoning attacks to impersonate Albert Müller, Gandalf, Matteo or any of the contributors on this repository or worse, install malware. This vulnerability has been fixed by ensuring that the gui_help.py doesn't contain hardcoded links and allow opening only trusted domains and nothing else. 
 Severity: high
-Proof of concept: https://youtu.be/IJ_wMjHIbJs
+Proof of concept: https://youtu.be/IJ_wMjHIbJs?si=nciL0exX5Iab0b0S
 
 
 ## 4.0.0.1900013 - 4.0.0 alpha 19.13

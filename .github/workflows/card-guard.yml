@@ -1,0 +1,154 @@
+# .github/workflows/card-guard.yml
+# Removes issues/comments that contain or ask for payment card details
+# (text or images) and posts a fraud warning instead.
+
+name: Card fraud guard
+
+on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  issues: write
+  pull-requests: write   # needed to delete comments on PRs
+  models: read           # free GitHub Models for image checks
+
+jobs:
+  scan:
+    if: github.event.sender.type != 'Bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/github-script@v7
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Optional: PAT of a repo admin (Issues: read/write) so whole issues
+          # can be deleted instead of just redacted.
+          ADMIN_TOKEN: ${{ secrets.CARD_GUARD_ADMIN_TOKEN }}
+        with:
+          script: |
+            const isComment = context.eventName === 'issue_comment';
+            const issue = context.payload.issue;
+            const item = isComment ? context.payload.comment : issue;
+            const author = item.user.login;
+            const text = isComment ? (item.body || '') : `${issue.title}\n${issue.body || ''}`;
+            const { owner, repo } = context.repo;
+
+            // ---------- 1. Card numbers in text (prefix + Luhn checksum) ----------
+            const luhn = d => {
+              let sum = 0;
+              for (let i = 0; i < d.length; i++) {
+                let n = +d[d.length - 1 - i];
+                if (i % 2) { n *= 2; if (n > 9) n -= 9; }
+                sum += n;
+              }
+              return sum % 10 === 0;
+            };
+            const cardPrefix = /^(4|5[1-5]|2[2-7]|3[47]|35|6011|64[4-9]|65)/;
+            const cardRe = /(?<![\w-])(?:\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{1,7}|\d{4}[ -]?\d{6}[ -]?\d{5})(?![\w-])/g;
+            const hasCardNumber = (text.match(cardRe) || [])
+              .map(m => m.replace(/\D/g, ''))
+              .some(d => d.length >= 13 && d.length <= 19 &&
+                         cardPrefix.test(d) && !/^(\d)\1+$/.test(d) && luhn(d));
+
+            // ---------- 2. Requests for card details (EN + DE) ----------
+            const terms = '(credit ?card|debit ?card|card ?(number|details|info|data)|cvv2?|cvc|security code|expir(y|ation) date|kreditkarte\\w*|kartennummer|prüfnummer)';
+            const verbs = '(send|share|give|provide|post|dm|tell|enter|need|schick\\w*|gib|teil\\w*|brauch\\w*)';
+            const askRe = new RegExp(`\\b${verbs}\\b.{0,60}${terms}|${terms}.{0,40}\\b(please|pls|bitte)\\b`, 'i');
+            const negation = /\b(never|don'?t|do not|not|nie|niemals|nicht|keine?)\b/i;
+            const asksForCard = text.split(/[.?!\n]+/).some(s => askRe.test(s) && !negation.test(s));
+
+            // ---------- 3. Images (photos/screenshots of cards) ----------
+            const imgUrls = [...text.matchAll(
+              /https:\/\/(?:github\.com\/user-attachments\/assets\/[\w-]+|(?:private-)?user-images\.githubusercontent\.com\/[^\s)"'>]+)/g
+            )].map(m => m[0]).slice(0, 5);
+
+            async function imageHasCard(url) {
+              try {
+                const res = await fetch(url, { redirect: 'follow' });
+                const type = res.headers.get('content-type') || '';
+                if (!res.ok || !type.startsWith('image/')) return false;
+                const buf = Buffer.from(await res.arrayBuffer());
+                if (buf.length > 4_000_000) { core.warning(`Image too large to scan: ${url}`); return false; }
+
+                const ai = await fetch('https://models.github.ai/inference/chat/completions', {
+                  method: 'POST',
+                  headers: { Authorization: `Bearer ${process.env.GH_TOKEN}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    model: 'openai/gpt-4o-mini',
+                    temperature: 0,
+                    response_format: { type: 'json_object' },
+                    messages: [
+                      { role: 'system', content:
+                        'You are a fraud-safety classifier. Reply only with JSON {"card": true} or {"card": false}. ' +
+                        'card=true if the image shows a physical payment card (front or back), readable card details ' +
+                        '(card number, CVV/CVC, expiry date), or a chat/form asking someone for them. Otherwise false.' },
+                      { role: 'user', content: [
+                        { type: 'text', text: 'Classify this image.' },
+                        { type: 'image_url', image_url: { url: `data:${type};base64,${buf.toString('base64')}`, detail: 'low' } }
+                      ] }
+                    ]
+                  })
+                });
+                if (!ai.ok) { core.warning(`GitHub Models error ${ai.status}: ${await ai.text()}`); return false; }
+                const data = await ai.json();
+                return JSON.parse(data.choices[0].message.content).card === true;
+              } catch (e) {
+                core.warning(`Image check failed for ${url}: ${e.message}`);
+                return false; // fail open, never block on errors
+              }
+            }
+
+            let imageFlag = false;
+            for (const url of imgUrls) {
+              if (await imageHasCard(url)) { imageFlag = true; break; }
+            }
+
+            if (!hasCardNumber && !asksForCard && !imageFlag) {
+              core.info('Nothing suspicious found.');
+              return;
+            }
+
+            const reason = asksForCard && !hasCardNumber && !imageFlag
+              ? 'request payment card details'
+              : 'contain payment card details';
+            const warning =
+              `⚠️ @${author}, a message here was removed automatically because it appeared to ${reason}.\n\n` +
+              `Asking for or sharing credit card details in this repository could be related to fraud activity. ` +
+              `Never post card numbers, CVV codes or photos of cards publicly. The maintainers will never ask you for them.\n\n` +
+              `If you already shared real card details, contact your bank right away and have the card blocked.`;
+
+            // ---------- 4. Take action ----------
+            if (isComment) {
+              await github.rest.issues.deleteComment({ owner, repo, comment_id: item.id });
+              await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: warning });
+              core.notice(`Deleted comment ${item.id} by ${author}`);
+              return;
+            }
+
+            // Whole issue: delete if an admin token exists, otherwise redact + close + lock
+            if (process.env.ADMIN_TOKEN) {
+              try {
+                const admin = github.getOctokit(process.env.ADMIN_TOKEN);
+                await admin.graphql(
+                  'mutation($id: ID!) { deleteIssue(input: {issueId: $id}) { clientMutationId } }',
+                  { id: issue.node_id }
+                );
+                core.notice(`Deleted issue #${issue.number} by ${author}`);
+                return;
+              } catch (e) {
+                core.warning(`Issue deletion failed, falling back to redaction: ${e.message}`);
+              }
+            }
+
+            await github.rest.issues.update({
+              owner, repo, issue_number: issue.number,
+              title: '[removed: possible fraud]',
+              body: '_Content removed automatically._',
+              state: 'closed', state_reason: 'not_planned'
+            });
+            await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: warning });
+            await github.rest.issues.lock({ owner, repo, issue_number: issue.number, lock_reason: 'spam' });
+            core.notice(`Redacted and locked issue #${issue.number} by ${author}`);

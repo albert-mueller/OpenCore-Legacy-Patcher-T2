@@ -91,7 +91,7 @@ class Constants:
         self.t2tahoefixup_version:       str = "1.0.6"  #      T2TahoeFixup
         self.appleans2disabler_version:  str = "1.0.0"  #      AppleANS2Disabler (T2 internal SSD)
         self.featureunlock_version:      str = "1.1.8"  #      FeatureUnlock
-        self.debugenhancer_version:      str = "1.1.0"  #      DebugEnhancer
+        self.debugenhancer_version:      str = "1.1.1"  #      DebugEnhancer
         self.cpufriend_version:          str = "1.3.0"  #      CPUFriend
         self.bluetool_version:           str = "2.7.2"  #      BlueToolFixup (BrcmPatchRAM)
         self.autopkg_version:            str = "1.0.4"  #      AutoPkgInstaller

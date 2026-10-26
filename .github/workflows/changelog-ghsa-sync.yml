@@ -1,0 +1,62 @@
+name: Sync CHANGELOG security fixes to GHSA
+
+# Requires repo secret ADVISORY_TOKEN:
+#   fine-grained PAT -> this repository ->
+#   Permissions: "Repository security advisories: Read and write"
+#   (GITHUB_TOKEN cannot create security advisories.)
+
+on:
+  push:
+    branches: [main]
+    paths: [CHANGELOG.md]
+  schedule:
+    - cron: "17 3 * * *"   # daily: picks up entries skipped when the free AI quota ran out
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only list what would be created"
+        type: boolean
+        default: true
+      publish:
+        description: "Publish advisories immediately (otherwise drafts)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  models: read   # free GitHub Models review via GITHUB_TOKEN
+
+concurrency:
+  group: changelog-ghsa-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Restore cache of entries the AI already rejected
+        uses: actions/cache@v4
+        with:
+          path: .ghsa-sync-cache
+          key: ghsa-rejected-${{ github.run_id }}
+          restore-keys: ghsa-rejected-
+
+      - name: Create missing advisories
+        run: python .github/scripts/changelog_to_ghsa.py
+        env:
+          ADVISORY_TOKEN: ${{ secrets.ADVISORY_TOKEN }}
+          MODELS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}   # fallback, same key as the T2 status bot
+          CHANGELOG_PATH: CHANGELOG.md
+          # Stop at this version heading so old/upstream history is ignored, e.g. "2.4.0"
+          STOP_AT: ""
+          AI_DELAY: "4"
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          PUBLISH: ${{ inputs.publish || 'false' }}
+          USE_AI: "true"
