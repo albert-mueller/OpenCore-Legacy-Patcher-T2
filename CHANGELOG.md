@@ -2,8 +2,6 @@
 ## 4.0.0.1900014 - 4.0.0 alpha 19.14
 I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://albert-mueller.github.io/issues/599.html on this patcher's page or https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
 
-Another warning: all GHSAs that are written by GitHub Actions are actually disclosed by humans, not AI. The reason for doing this is the lack of time for writing GHSAs ourselves, and that's why I'm automating the process.
-
 This release:
 - adds a button that opens the official OpenCore Legacy Patcher T2 website called Official OpenCore Legacy Patcher T2 guide
 <img width="812" height="672" alt="Bildschirmfoto 2026-10-25 um 16 12 29" src="https://github.com/user-attachments/assets/ac8da55a-0e54-4f3a-9b2f-e658c411c471" />
