@@ -33,7 +33,10 @@ jobs:
       - name: Checkout (trusted base code)
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.sha || github.sha }}
+          # Base branch tip, not pull_request.base.sha: that SHA is frozen at the
+          # PR's last update, so allow-list entries added to main later were
+          # ignored. Still trusted code - only the base branch is checked out.
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || github.sha }}
           fetch-depth: 0
 
       - name: Determine audit range (upstream vs. fork)
