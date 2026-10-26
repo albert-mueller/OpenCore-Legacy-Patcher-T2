@@ -1,3 +1,7 @@
 # License Guard: reviewed deletions (glob patterns, one per line).
 # Listed paths don't raise the "file with an upstream copyright notice was deleted" warning.
 # This only silences that warning - removed or replaced notices are still violations.
+
+# USB-Map.kext Info.plist moved to payloads/Kexts/Plists/AppleUSBMaps/Info.plist
+# (+ Info-Tahoe.plist); "Copyright © Dortania" notice is kept there.
+payloads/Kexts/Plists/USB-Map.kext/Contents/Info.plist
