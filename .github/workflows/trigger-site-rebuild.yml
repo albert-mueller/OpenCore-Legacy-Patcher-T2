@@ -45,8 +45,10 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
         run: |
           if [ -z "$SITE_DISPATCH_TOKEN" ]; then
-            echo "::warning::Secret SITE_DISPATCH_TOKEN is not set, the website will only update on its hourly schedule."
-            exit 0
+            # Fail loudly: a silent exit 0 here hid for hours that the
+            # automatic rebuild never actually fired.
+            echo "::error::Secret SITE_DISPATCH_TOKEN is not set (or not visible to this run), so the website was NOT rebuilt. Add it under Settings > Secrets and variables > Actions."
+            exit 1
           fi
           status=$(curl -sS -o response.txt -w '%{http_code}' -X POST \
             -H "Accept: application/vnd.github+json" \
