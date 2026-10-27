@@ -1,4 +1,6 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.1900016 - 4.0.0 alpha 19.16
+- on T2 Macs, updates T2TahoeFixup.kext to 1.0.16, adding lifecycle gating to AppleCredentialManager hooks (hookGetEOSDeviceType and hookShouldJoinPMtreeOnSEPManager) and boot-arg -t2noacmfix to restore native T2 SEP communication post-install and resolve Issue #602 ("Activation lock status could not be determined")
 ## 4.0.0.1900015 - 4.0.0 alpha 19.15
 - on T2 Macs, updates T2TahoeFixup.kext to 1.0.15, adding AppleImage4 _image4_trust_evaluate interception to resolve the post-Stage 2 sealed APFS root snapshot mount panic ("Needs authenticator (81)"), overriding ENEEDAUTH to KERN_SUCCESS (0) and restoring payload bytes and length from the Image4 trust context to avoid "The global payload bytes pointer is NULL"
 ## 4.0.0.1900014 - 4.0.0 alpha 19.14
