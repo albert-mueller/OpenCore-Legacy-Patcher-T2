@@ -16,7 +16,7 @@ class Constants:
     def __init__(self) -> None:
         # Patcher Versioning
         # Wenn eine Version mit s endet, es heißt, dass sie noch nicht fertig ist.
-        self.patcher_version:                 str = "4.0.0.1900015"
+        self.patcher_version:                 str = "4.0.0.1900016"
         self.patcher_version_label=self.patcher_version
         self.patcher_support_pkg_version:     str = "2.10"  # PatcherSupportPkg
         self.copyright_date:                  str = "Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors · T2 fork © 2026 Albert Müller"
@@ -88,7 +88,7 @@ class Constants:
         self.nvmefix_version:            str = "1.1.3"  #      NVMeFix
         self.applealc_version:           str = "1.9.8"  #      AppleALC
         self.restrictevents_version:     str = "1.1.6"  #      RestrictEvents
-        self.t2tahoefixup_version:       str = "1.0.6"  #      T2TahoeFixup
+        self.t2tahoefixup_version:       str = "1.0.16" #      T2TahoeFixup
         self.appleans2disabler_version:  str = "1.0.0"  #      AppleANS2Disabler (T2 internal SSD)
         self.featureunlock_version:      str = "1.1.8"  #      FeatureUnlock
         self.debugenhancer_version:      str = "1.1.1"  #      DebugEnhancer
