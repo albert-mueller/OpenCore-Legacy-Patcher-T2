@@ -2,7 +2,9 @@
 ## 4.0.0.1900016 - 4.0.0 alpha 19.16
 I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://albert-mueller.github.io/issues/599.html on this patcher's page or https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
 
-This release brings the T2 changes from #606 by @Medelcartelinc (only the T2 changes, on top of the current main):
+This release:
+- fixes an issue where if a user desired to receive pre-release builds may no longer receive any updates by ensuring the Check for pre-release updates is now a check box instead of a button to ensure the user gets these updates from the desired channel instead of stopping to receive updates altogether until a stable release is out
+- brings some T2 changes from #606 by @Medelcartelinc (only the T2 changes, on top of the current main):
 - on T2 Macs, updates T2TahoeFixup.kext from 1.0.6 to 1.0.16. Changes in between:
   - 1.0.7: Stage 2 element bypass and VFS manifest aliasing, board-id (Mac-5F9802EFE386AA28) injection into the DeviceTree for Stage 2 personalization, Stage 2 active mode on by default on dropped T2 Macs
   - 1.0.8: gates the _cs_validate_page hook behind the boot-arg -t2cspage to fix the Stage 1 Recovery freeze
