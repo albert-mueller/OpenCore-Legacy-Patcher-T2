@@ -91,33 +91,6 @@ class BuildSMBIOS:
             logging.info("- Adding -no_compat_check")
             self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += " -no_compat_check"
 
-    def _strip_usb_map(self, map_path, model, spoofed_model, serial_settings):
-        target_path = Path(map_path)
-
-        # Guard clause to handle missing staged USB maps during cross-model spoofing
-        if not target_path.exists():
-            logging.info(f"- Staged map asset not found at {target_path}, skipping strip operation.")
-            logging.info("Don't worry, this means that no USB port mapping is being injected and as such nothing is available to strip.")
-            return
-
-        config = plistlib.load(target_path.open("rb"))
-        for entry in list(config["IOKitPersonalities_x86_64"]):
-            if not entry.startswith(model):
-                config["IOKitPersonalities_x86_64"].pop(entry)
-            else:
-                try:
-                    config["IOKitPersonalities_x86_64"][entry]["model"] = spoofed_model
-                    if serial_settings in ["Minimal", "None"]:
-                        if config["IOKitPersonalities_x86_64"][entry]["IONameMatch"] == "EH01":
-                            config["IOKitPersonalities_x86_64"][entry]["IONameMatch"] = "EHC1"
-                        if config["IOKitPersonalities_x86_64"][entry]["IONameMatch"] == "EH02":
-                            config["IOKitPersonalities_x86_64"][entry]["IONameMatch"] = "EHC2"
-                        if config["IOKitPersonalities_x86_64"][entry]["IONameMatch"] == "SHC1":
-                            config["IOKitPersonalities_x86_64"][entry]["IONameMatch"] = "XHC1"
-                except KeyError:
-                    continue
-        plistlib.dump(config, target_path.open("wb"), sort_keys=True)
-
     def set_smbios(self) -> None:
         """
         SMBIOS Handler
@@ -247,16 +220,22 @@ class BuildSMBIOS:
         if self.model in model_array.T2Macs:
             self.config.setdefault("PlatformInfo", {}).setdefault("Generic", {})["SpoofVendor"] = True
 
-        # USB Map and CPUFriend Patching
-        if (
-            self.constants.allow_oc_everywhere is False
-            and self.model not in ["Xserve2,1", "Dortania1,1", "MacBookAir8,1", "MacBookAir8,2", "MacBookAir9,1", "MacBookPro16,3"]
-            and ((self.model in model_array.Missing_USB_Map or self.model in model_array.Missing_USB_Map_Ventura) or self.constants.serial_settings in ["Moderate", "Advanced"])
-        ):
-            new_map_ls = Path(self.constants.map_contents_folder) / Path("Info.plist")
-            new_map_ls_tahoe = Path(self.constants.map_contents_folder_tahoe) / Path("Info.plist")
-            self._strip_usb_map(new_map_ls, self.model, self.spoofed_model, self.constants.serial_settings)
-            self._strip_usb_map(new_map_ls_tahoe, self.model, self.spoofed_model, self.constants.serial_settings)
+        # USB Map: misc.py already reduced the maps to this model; point them at the spoofed model.
+        # Gated on whether misc.py actually enabled the kexts instead of repeating its conditions
+        # (the duplicated conditions had drifted apart, leaving enabled but unstripped maps).
+        builder = support.BuildSupport(self.model, self.constants, self.config)
+        for bundle_name, contents_folder in [
+            ("USB-Map.kext", self.constants.map_contents_folder),
+            ("USB-Map-Tahoe.kext", self.constants.map_contents_folder_tahoe),
+        ]:
+            try:
+                kext_entry = builder.get_kext_by_bundle_path(bundle_name)
+            except IndexError:
+                continue
+            if kext_entry.get("Enabled") is True:
+                support.prepare_usb_map(Path(contents_folder) / Path("Info.plist"), self.model, self.spoofed_model, self.constants.serial_settings)
+
+        # CPUFriend Patching
 
         if self.constants.allow_oc_everywhere is False and self.model not in ["iMac7,1", "Xserve2,1", "Dortania1,1"] and self.constants.disallow_cpufriend is False and self.constants.serial_settings != "None":
             # Adjust CPU Friend Data to correct SMBIOS

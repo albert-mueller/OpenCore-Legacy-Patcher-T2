@@ -1,4 +1,16 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.1900015 - 4.0.0 alpha 19.15
+I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://albert-mueller.github.io/issues/599.html on this patcher's page or https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
+
+This release fixes several USB port mapping bugs:
+- fixes the iMac13,3 never getting a USB port map on macOS Ventura and newer unless Moderate or Advanced SMBIOS spoofing was used. The model was missing from the list of Macs whose native USB map Apple removed in Ventura.
+- fixes USB-Map.kext and USB-Map-Tahoe.kext being enabled without working: the bundled maps contain the ports of every supported Mac with deliberately disabled entries, and they were only reduced to the current Mac during SMBIOS spoofing, under different conditions than the ones that add the kexts. With "Allow native models" and "Allow spoofing native Macs" both enabled (and in the test_c/test_d build profiles), the kexts were injected but matched nothing. The maps are now prepared as soon as they are added.
+- fixes the USB 2.0 ports of the iMac7,1 being unmapped with Moderate or Advanced SMBIOS spoofing: its controllers kept their original names in the map while the ACPI patches renamed them to EH01/EH02.
+- no longer injects a USB map on the iMac16,1, which provides its USB port data through ACPI (same as Dortania upstream).
+- no longer enables an empty USB-Map.kext when SMBIOS spoofing is used on a Mac without a bundled map.
+- without SMBIOS spoofing, USB-Map.kext is now only loaded from the macOS version that dropped the Mac's native map (Sierra or Mojave, same as Dortania upstream).
+- fixes the iMac8,1 USB 1.1 entries carrying the iMac9,1 model name in the bundled maps.
+
 ## 4.0.0.1900014 - 4.0.0 alpha 19.14
 I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://albert-mueller.github.io/issues/599.html on this patcher's page or https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
 

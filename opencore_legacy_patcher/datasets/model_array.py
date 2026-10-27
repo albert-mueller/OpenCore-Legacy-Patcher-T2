@@ -343,6 +343,28 @@ Missing_USB_Map = [
     "Xserve3,1",
 ]
 
+# Subset of Missing_USB_Map whose native USB map was already dropped in macOS Sierra.
+# Every other Missing_USB_Map model lost its map in macOS Mojave. Used for USB-Map.kext's
+# MinKernel, same split as Dortania upstream (datasets/usb_map_data.py).
+Missing_USB_Map_Since_Sierra = [
+    "MacBook5,1",
+    "MacBook5,2",
+    "MacBookAir2,1",
+    "MacBookPro4,1",
+    "MacBookPro5,1",
+    "MacBookPro5,2",
+    "MacBookPro5,3",
+    "MacBookPro5,4",
+    "MacBookPro5,5",
+    "Macmini3,1",
+    "iMac7,1",
+    "iMac8,1",
+    "iMac9,1",
+    "MacPro3,1",
+    "Xserve2,1",
+    "Xserve3,1",
+]
+
 Missing_USB_Map_Ventura = [
     "MacBook8,1",
     "MacBookAir5,1",
@@ -368,13 +390,13 @@ Missing_USB_Map_Ventura = [
     "Macmini7,1",
     "iMac13,1",
     "iMac13,2",
+    "iMac13,3",
     "iMac14,1",
     "iMac14,2",
     "iMac14,3",
     "iMac14,4",
     "iMac15,1",
     "iMac15,2",
-    "iMac16,1",
     "iMac16,2",
     "iMac17,1",
 ]
