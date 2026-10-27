@@ -387,22 +387,23 @@ class SettingsFrame(wx.Frame):
                         "are downloaded from.",
                     ],
                 },
+                "Include pre-releases": {
+                    "type": "checkbox",
+                    "value": global_settings.GlobalEnviromentSettings().read_property("IncludePrereleases") is True,
+                    "variable": "IncludePrereleases",
+                    "description": [
+                        "When enabled, \"Check for updates\" also looks for",
+                        "alpha/beta builds. These may be unstable.",
+                    ],
+                    "override_function": self._update_global_settings,
+                },
                 "Check for updates": {
                     "type": "button",
                     "variable": "",
                     "function": self.on_check_for_updates,
                     "description": [
-                        "Manually check for stable updates so you have",
+                        "Manually check for updates so you have",
                         "the latest features and bug fixes."
-                    ],
-                },
-                "Check for pre-releases": {
-                    "type": "button",
-                    "variable": "",
-                    "function": self.on_check_for_prereleases,
-                    "description": [
-                        "Also look for alpha/beta builds marked as",
-                        "pre-release. These may be unstable.",
                     ],
                 },
                 "Snooze Updates": {
@@ -661,23 +662,21 @@ Hardware Information:
         if global_setting is not None:
             self._update_setting(global_setting, value)
 
-    def on_check_for_prereleases(self, event: wx.Event = None) -> None:
+    def on_check_for_updates(self, event: wx.Event = None) -> None:
         """
-        Manual "Check for pre-releases" button: same as "Check for updates",
-        but GitHub releases marked as pre-release are considered too.
-        """
-        self.on_check_for_updates(event, include_prerelease=True)
-
-    def on_check_for_updates(self, event: wx.Event = None, include_prerelease: bool = False) -> None:
-        """
-        Manual "Check for updates" button (stable releases only), also used by
-        "Check for pre-releases" with include_prerelease=True.
+        Manual "Check for updates" button. Whether GitHub releases marked as
+        pre-release are considered is decided by the "Include pre-releases"
+        checkbox (persisted as global setting 'IncludePrereleases').
 
         Unlike the startup check this ignores constants.has_checked_updates and
         always reports back - a user who clicks the button gets an answer even
         when there is nothing new. Runs on a worker thread so the GitHub request
         cannot freeze the GUI.
         """
+        # Read the stored value at click time - the checkbox writes it
+        # immediately via _update_global_settings, so this is always current.
+        include_prerelease = global_settings.GlobalEnviromentSettings().read_property("IncludePrereleases") is True
+
         thread = getattr(self, "update_thread", None)
         if thread is not None and thread.is_alive():
             logging.info("An update check is already running.")
@@ -688,23 +687,13 @@ Hardware Information:
         # Previously this looked for 'self.update_button', which never existed -
         # '_generate_elements()' only kept its buttons as locals, so the lookup
         # always returned None and the progress feedback silently did nothing.
-        button = self._buttons.get("Check for pre-releases" if include_prerelease else "Check for updates")
-        # Both buttons share one worker thread - disable the other one too so
-        # the user can't start a second check while the first is still running.
-        other_button = self._buttons.get("Check for updates" if include_prerelease else "Check for pre-releases")
-        if other_button is not None:
-            other_button.Disable()
+        button = self._buttons.get("Check for updates")
         original_label = button.GetLabel() if button is not None else None
         if button is not None:
             button.SetLabel("Checking...")
             button.Disable()
 
         def _restore_button() -> None:
-            if other_button is not None and other_button:
-                try:
-                    other_button.Enable()
-                except RuntimeError:
-                    pass
             # The user can hit Return while the check is still in flight, which
             # destroys the dialog and the button with it. The Python wrapper
             # outlives the C++ object, so verify it is still alive first -
@@ -899,7 +888,7 @@ Hardware Information:
             message = (
                 f"Updates will now be downloaded from:\n{self.constants.update_repo_link}\n\n"
                 "Use \"Check for updates\" to switch to the newest stable build of this channel, "
-                "or \"Check for pre-releases\" to also consider alpha/beta builds. "
+                "(tick \"Include pre-releases\" first to also consider alpha/beta builds). "
                 "You will always be asked before a build from another channel is installed, "
                 "since it may have a lower version number than the one you are running."
             )

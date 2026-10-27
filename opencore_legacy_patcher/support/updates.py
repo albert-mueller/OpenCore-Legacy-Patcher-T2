@@ -131,7 +131,7 @@ class CheckBinaryUpdates:
 
         Pre-releases (alphas/betas, "prerelease": true on GitHub) are only
         considered when include_prerelease is True, i.e. when the user
-        explicitly clicked "Check for pre-releases" in Settings. Previously any
+        ticked "Include pre-releases" in Settings and clicked "Check for updates". Previously any
         manual check (manual=True) included them, so the plain "Check for
         updates" button offered pre-release builds to users who only wanted
         stable releases. The same applies to a pending channel switch: switching
@@ -139,7 +139,7 @@ class CheckBinaryUpdates:
         another channel (and the automatic check that follows it, since
         has_checked_updates is reset) offered that channel's newest pre-release
         instead of its newest stable build. A channel that only publishes
-        pre-releases can still be switched to via "Check for pre-releases".
+        pre-releases can still be switched to via "Include pre-releases" + "Check for updates".
 
         constants.auto_update is deliberately NOT checked here. It only decides
         whether a found update is installed silently or offered through the
@@ -202,7 +202,7 @@ class CheckBinaryUpdates:
 
         # API URL of the selected update channel
         # Use /releases instead of /releases/latest: /releases/latest never returns
-        # pre-releases, which "Check for pre-releases" and channel switches need.
+        # pre-releases, which "Include pre-releases" and channel switches need.
         # Stable-only checks filter them out below.
         # If the selected fork's account is gone, this switches back to
         # "official" first (cached per session - the launch check usually
@@ -253,7 +253,7 @@ class CheckBinaryUpdates:
                 continue
 
             # Skip pre-releases unless the user explicitly asked for them
-            # ("Check for pre-releases"). Independent of 'manual' and of a
+            # ("Include pre-releases" checkbox). Independent of 'manual' and of a
             # pending channel switch: neither the regular "Check for updates"
             # button nor switching channels may land on a pre-release.
             if not include_prerelease and release.get("prerelease", False):
@@ -279,7 +279,7 @@ class CheckBinaryUpdates:
                     # plain "up to date" (manual checks show last_error).
                     self.last_error = (
                         f"The {self.constants.update_channel_label} channel has no stable releases yet, only pre-releases. "
-                        "Use \"Check for pre-releases\" in Settings to switch to its newest pre-release."
+                        "Tick \"Include pre-releases\" in Settings, then \"Check for updates\", to switch to its newest pre-release."
                     )
                 return None
             logging.error("Could not find any valid versions in the repository releases.")
