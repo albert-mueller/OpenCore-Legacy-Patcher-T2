@@ -165,6 +165,49 @@ jobs:
               return Math.max(titleScore, (titleScore + bodyScore) / 2);
             };
 
+            // ---- Versions from the issue form --------------------------------
+            // A CLOSED issue reported again on a different patcher or macOS version is a
+            // new report (e.g. a regression in a newer build), not a duplicate.
+            const formField = (body, heading) => {
+              for (const part of (body || '').split(/^###\s+/m)) {
+                const nl = part.indexOf('\n');
+                if (nl > 0 && part.slice(0, nl).toLowerCase().startsWith(heading.toLowerCase())) {
+                  return part.slice(nl + 1).trim();
+                }
+              }
+              return '';
+            };
+            const VERSION_FIELDS = [
+              // [form heading, label, version pattern]
+              ['OpenCore Legacy Patcher T2 version', 'OCLP-T2', /\d+\.\d+\.\d+(?:\.\d+)*/],
+              ['Target macOS version',               'macOS',   /\b\d{2}(?:\.\d+)*/],
+            ];
+            // "4.0.0" vs "4.0.0.18001" or "26" vs "26.7.1": one is just less precise -> same.
+            // Unknown on either side ("latest", "-", old issue without the form) -> same.
+            const sameVersion = (a, b) => {
+              if (!a || !b) return true;
+              const A = a.split('.'), B = b.split('.');
+              for (let k = 0; k < Math.min(A.length, B.length); k++) {
+                if (Number(A[k]) !== Number(B[k])) return false;
+              }
+              return true;
+            };
+            // Returns e.g. "OCLP-T2 4.0.0.1900016 (closed issue: 4.0.0.18001)", or null if not different
+            const versionDifference = (issue, other) => {
+              for (const [heading, label, re] of VERSION_FIELDS) {
+                const a = (formField(issue.body, heading).match(re) || [])[0];
+                const b = (formField(other.body, heading).match(re) || [])[0];
+                if (!sameVersion(a, b)) return `${label} ${a} (closed issue: ${b})`;
+              }
+              return null;
+            };
+            const keepUnlessNewVersion = (issue, matches) => matches.filter(m => {
+              if (m.i.state !== 'closed') return true;
+              const diff = versionDifference(issue, m.i);
+              if (diff) core.info(`#${issue.number}: #${m.i.number} is closed and this is on a different version (${diff}), not a duplicate.`);
+              return !diff;
+            });
+
             // ---- AI check: finds duplicates written in another language ------
             const clip = (s, n) => (s || '').replace(/\s+/g, ' ').trim().slice(0, n);
 
@@ -305,6 +348,7 @@ jobs:
               let matches = candidates
                 .map(i => ({ i, s: score(issue, i), how: 'text' }))
                 .filter(m => m.s >= THRESHOLD);
+              matches = keepUnlessNewVersion(issue, matches);
 
               // 2) If nothing was found, ask the AI (catches other languages)
               if (matches.length === 0 && useAi && aiEnabled && candidates.length > 0) {
@@ -312,6 +356,7 @@ jobs:
                 matches = candidates
                   .filter(i => aiFound.has(i.number))
                   .map(i => ({ i, s: aiFound.get(i.number), how: 'ai' }));
+                matches = keepUnlessNewVersion(issue, matches);
               }
 
               matches = matches.sort((a, b) => b.s - a.s).slice(0, MAX_MATCHES);
