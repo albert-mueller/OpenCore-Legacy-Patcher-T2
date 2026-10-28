@@ -439,6 +439,9 @@ class OCSettingsFrame(wx.Frame):
                     ],
                     "condition": not gui_support.CheckProperties(self.constants).host_has_cpu_gen(cpu_data.CPUGen.ivy_bridge) # Sandy Bridge and older do not natively support NVMe booting
                 },
+                "wrap_around 2": {
+                    "type": "wrap_around",
+                },
                 "Disable internal SSD": {
                     "type": "checkbox",
                     "value": self.constants.disable_internal_ssd,
@@ -456,9 +459,6 @@ class OCSettingsFrame(wx.Frame):
                     # there at all. It is harmless to leave selectable: efi_builder/misc.py only
                     # injects AppleANS2Disabler inside _t2_handling(), i.e. for T2 targets, and
                     # logs a note when it is set for a non-T2 target.
-                },
-                "wrap_around 2": {
-                    "type": "wrap_around",
                 },
                 "OpenCore Vaulting": {
                     "type": "checkbox",

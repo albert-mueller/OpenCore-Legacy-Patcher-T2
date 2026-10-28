@@ -557,7 +557,7 @@ class MainFrame(wx.Frame):
         if include_prerelease:
             message = f"You are running the latest version ({self.constants.patcher_version_label}), pre-releases included."
         else:
-            message += "\n\nPre-releases were not included. Use \"Check for pre-releases\" in Settings to look for alpha/beta builds."
+            message += "\n\nPre-releases were not included. Tick \"Include pre-releases\" in Settings to also look for alpha/beta builds."
         wx.MessageBox(
             message,
             "No updates available",

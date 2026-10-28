@@ -110,7 +110,7 @@ class HelpFrame(wx.Frame):
     # Safety net against typos, URL shorteners or links that later come from
     # less trusted sources (config files, update manifests). Not a defence
     # against someone who can edit the source itself.
-    ALLOWED_HOSTS = {"github.com", "albert-mueller.github.io", "gemini.google.com"}
+    ALLOWED_HOSTS = {"github.com", "oclp-t2.github.io", "gemini.google.com"}
 
     def _open_link(self, url: str) -> None:
         parsed = urlparse(url)

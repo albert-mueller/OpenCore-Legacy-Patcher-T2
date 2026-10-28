@@ -16,7 +16,7 @@ class Constants:
     def __init__(self) -> None:
         # Patcher Versioning
         # Wenn eine Version mit s endet, es heißt, dass sie noch nicht fertig ist.
-        self.patcher_version:                 str = "4.0.0.1900014"
+        self.patcher_version:                 str = "4.0.0.1900016"
         self.patcher_version_label=self.patcher_version
         self.patcher_support_pkg_version:     str = "2.10"  # PatcherSupportPkg
         self.copyright_date:                  str = "Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors · T2 fork © 2026 Albert Müller"
@@ -29,11 +29,11 @@ class Constants:
         self.bundle_identifier:               str = "io.github.albert-mueller.opencore-legacy-patcher-t2"
 
         # URLs
-        self.url_patcher_support_pkg:         str = "https://github.com/albert-mueller/PatcherSupportPkg/releases/download/"
-        self.guide_link:                      str = "https://albert-mueller.github.io/"
-        self.repo_link:                       str = "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/"
-        self.github_issues_link:              str = "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues"
-        self.github_discussions_link:         str = "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/discussions"
+        self.url_patcher_support_pkg:         str = "https://github.com/oclp-t2/PatcherSupportPkg/releases/download/"
+        self.guide_link:                      str = "https://oclp-t2.github.io/albert-mueller.github.io/"
+        self.repo_link:                       str = "https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/"
+        self.github_issues_link:              str = "https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues"
+        self.github_discussions_link:         str = "https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/discussions"
         self.gemini_link:                     str = "https://gemini.google.com"
 
         # Update channels (Settings > App > "Update Channel")
@@ -46,7 +46,7 @@ class Constants:
         self.update_channels: dict = {
             "official": {
                 "label": "Albert Müller - Official (T2 - recommended)",
-                "repo":  "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/",
+                "repo":  "https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/",
             },
             "medelcartelinc": {
                 "label": "Medelcartelinc (Fork)",
@@ -88,7 +88,7 @@ class Constants:
         self.nvmefix_version:            str = "1.1.3"  #      NVMeFix
         self.applealc_version:           str = "1.9.8"  #      AppleALC
         self.restrictevents_version:     str = "1.1.6"  #      RestrictEvents
-        self.t2tahoefixup_version:       str = "1.0.6"  #      T2TahoeFixup
+        self.t2tahoefixup_version:       str = "1.0.16" #      T2TahoeFixup
         self.appleans2disabler_version:  str = "1.0.0"  #      AppleANS2Disabler (T2 internal SSD)
         self.featureunlock_version:      str = "1.1.8"  #      FeatureUnlock
         self.debugenhancer_version:      str = "1.1.1"  #      DebugEnhancer

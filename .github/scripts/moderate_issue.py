@@ -49,7 +49,7 @@ CATEGORY_LABEL = {HATE: "Hate speech", ABUSE: "Abuse", MALWARE: "Malware"}
 
 # Fallback malware heuristics (only used when the Claude check is unavailable).
 # Deliberately narrow: ordinary diagnostic commands in bug reports must never match.
-TRUSTED_OWNERS = {"albert-mueller", "dortania", "acidanthera"}
+TRUSTED_OWNERS = {"oclp-t2", "albert-mueller", "dortania", "acidanthera"}
 URL_RE = re.compile(r"https?://([^\s/\"'<>)]+)(/[^\s\"'<>)]*)?", re.I)
 PIPE_TO_SHELL_RE = re.compile(
     r"\b(curl|wget)\b[^\n|]*?(https?://[^\s|\"'<>]+)[^\n|]*\|\s*(sudo\s+)?(ba|z|da)?sh\b", re.I)
@@ -127,7 +127,7 @@ def is_trusted_url(url):
     first = (m.group(2) or "/").strip("/").split("/")[0].lower()
     if host in ("github.com", "raw.githubusercontent.com", "objects.githubusercontent.com"):
         return first in TRUSTED_OWNERS
-    return host in ("albert-mueller.github.io", "dortania.github.io")
+    return host in ("oclp-t2.github.io", "dortania.github.io")
 
 
 def host_matches(host, domains):

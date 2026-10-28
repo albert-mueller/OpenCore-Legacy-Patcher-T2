@@ -1,12 +1,12 @@
 name: Trigger website rebuild
 
-# The website (albert-mueller/albert-mueller.github.io) mirrors this repo's
+# The website (oclp-t2/albert-mueller.github.io) mirrors this repo's
 # open issues, discussions and announcements. Without this workflow it only
 # picked up changes on its hourly schedule (which GitHub often delays or
 # skips), so new issues and comments didn't show up on the site.
 #
 # Needs the repository secret SITE_DISPATCH_TOKEN: a fine-grained personal
-# access token with access to ONLY albert-mueller/albert-mueller.github.io
+# access token with access to ONLY oclp-t2/albert-mueller.github.io
 # and the permission "Contents: Read and write" (required for
 # repository_dispatch). Nothing from the issue/comment is used here; the
 # website fetches everything itself.
@@ -32,7 +32,7 @@ concurrency:
 
 jobs:
   dispatch:
-    if: github.repository_owner == 'albert-mueller'
+    if: github.repository_owner == 'oclp-t2'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -45,14 +45,16 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
         run: |
           if [ -z "$SITE_DISPATCH_TOKEN" ]; then
-            echo "::warning::Secret SITE_DISPATCH_TOKEN is not set, the website will only update on its hourly schedule."
-            exit 0
+            # Fail loudly: a silent exit 0 here hid for hours that the
+            # automatic rebuild never actually fired.
+            echo "::error::Secret SITE_DISPATCH_TOKEN is not set (or not visible to this run), so the website was NOT rebuilt. Add it under Settings > Secrets and variables > Actions."
+            exit 1
           fi
           status=$(curl -sS -o response.txt -w '%{http_code}' -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $SITE_DISPATCH_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/albert-mueller/albert-mueller.github.io/dispatches \
+            https://api.github.com/repos/oclp-t2/albert-mueller.github.io/dispatches \
             -d "{\"event_type\":\"announcements-updated\",\"client_payload\":{\"source_event\":\"$EVENT_NAME\"}}")
           if [ "$status" != "204" ]; then
             echo "::error::repository_dispatch failed with HTTP $status"

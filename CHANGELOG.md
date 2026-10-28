@@ -1,4 +1,36 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.1900016 - 4.0.0 alpha 19.16
+I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://albert-mueller.github.io/issues/599.html on this patcher's page or https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
+
+This release:
+- fixes an issue where if a user desired to receive pre-release builds may no longer receive any updates by ensuring the Check for pre-release updates is now a check box instead of a button to ensure the user gets these updates from the desired channel instead of stopping to receive updates altogether until a stable release is out
+- brings some T2 changes from #606 by @Medelcartelinc (only the T2 changes, on top of the current main):
+- on T2 Macs, updates T2TahoeFixup.kext from 1.0.6 to 1.0.16. Changes in between:
+  - 1.0.7: Stage 2 element bypass and VFS manifest aliasing, board-id (Mac-5F9802EFE386AA28) injection into the DeviceTree for Stage 2 personalization, Stage 2 active mode on by default on dropped T2 Macs
+  - 1.0.8: gates the _cs_validate_page hook behind the boot-arg -t2cspage to fix the Stage 1 Recovery freeze
+  - 1.0.9: prevents false dormancy under OpenCore SMBIOS spoofing
+  - 1.0.10: IOService plane manifest identity, reports MacBookPro16,2 on the hw.model sysctl in Stage 2
+  - 1.0.11: factory board-id aliasing (Mac-937A206F2EE63C01 -> Mac-5F9802EFE386AA28), BridgeOSHardwareModel/bridge-model injection into /options and Stage 2 OSInstaller code page patching to resolve MobileSoftwareUpdate Error -81 (missing system root hash / mtree manifest)
+  - 1.0.12: dyld shared cache vnode matching so OSInstaller.framework elements (OSIMSUInstallElement, OSIUpdateFirmwareElement) are patched in memory
+  - 1.0.13: automated in-kernel BuildManifest.plist identity cloning (j680ap, j174ap, j137ap and the other dropped T2 models from the j214kap template), hw.model spoofing decoupled from hw.target on Intel, more installer target daemons (remoted, eoshostd, bridgeosupdated)
+  - 1.0.14: disables dyld shared cache patching and keeps _cs_validate_page behind -t2cspage (off by default) to fix the Stage 1 error "An error occurred while preparing the installation"
+  - 1.0.15: intercepts AppleImage4 _image4_trust_evaluate to resolve the post-Stage 2 sealed APFS root snapshot mount panic ("Needs authenticator (81)")
+  - 1.0.16: lifecycle gating for the AppleCredentialManager hooks (hookGetEOSDeviceType, hookShouldJoinPMtreeOnSEPManager) and the new boot-arg -t2noacmfix to restore native T2 SEP communication after the installation (#602, "Activation lock status could not be determined")
+- on T2 Macs, no longer sets aks-endpoint=0, as it breaks APFS volume key decryption on the internal T2 SSD
+- on T2 Macs, injects BridgeOSHardwareModel = j214kap into NVRAM so UpdateBrain and MobileSoftwareUpdate can resolve the Tahoe BuildManifest identity
+- adds payloads/Tools/patch_t2_manifest.py, a manual tool that injects the dropped T2 build identities into a Tahoe BuildManifest.plist
+- adds the libT2Stage2Bypass-1.0.0 release binary (payloads/Kexts/T2)
+- removes the T2TahoeFixup 1.0.6 archive, which is no longer used
+- - fixes the iMac13,3 never getting a USB port map on macOS Ventura and newer unless Moderate or Advanced SMBIOS spoofing was used. The model was missing from the list of Macs whose native USB map Apple removed in Ventura.
+- fixes USB-Map.kext and USB-Map-Tahoe.kext being enabled without working: the bundled maps contain the ports of every supported Mac with deliberately disabled entries, and they were only reduced to the current Mac during SMBIOS spoofing, under different conditions than the ones that add the kexts. With "Allow native models" and "Allow spoofing native Macs" both enabled (and in the test_c/test_d build profiles), the kexts were injected but matched nothing. The maps are now prepared as soon as they are added.
+- fixes the USB 2.0 ports of the iMac7,1 being unmapped with Moderate or Advanced SMBIOS spoofing: its controllers kept their original names in the map while the ACPI patches renamed them to EH01/EH02.
+- no longer injects a USB map on the iMac16,1, which provides its USB port data through ACPI (same as Dortania upstream).
+- no longer enables an empty USB-Map.kext when SMBIOS spoofing is used on a Mac without a bundled map.
+- without SMBIOS spoofing, USB-Map.kext is now only loaded from the macOS version that dropped the Mac's native map (Sierra or Mojave, same as Dortania upstream).
+- fixes the iMac8,1 USB 1.1 entries carrying the iMac9,1 model name in the bundled maps.
+- restores the CPUFriend power management data (PlatformPlugin) for MacBook1,1 to MacBook4,1, MacBookAir1,1, MacBookPro1,1 to MacBookPro3,1, MacPro1,1 and MacPro2,1, unchanged from Dortania upstream and with their original copyright notices. These files had been removed from the repository.
+- adds the USB map's former location (USB-Map.kext/Contents/Info.plist) to the License Guard allow-list: the file now lives on as AppleUSBMaps/Info.plist with its Dortania copyright notice intact. Together with the restored files, this resolves the 13 License Guard warnings about deleted files with an upstream copyright notice.
+
 ## 4.0.0.1900014 - 4.0.0 alpha 19.14
 I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://albert-mueller.github.io/issues/599.html on this patcher's page or https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
 

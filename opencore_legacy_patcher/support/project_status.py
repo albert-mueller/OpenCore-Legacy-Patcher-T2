@@ -35,7 +35,7 @@ import requests
 from . import network_handler
 
 
-# GitHub's ID of albert-mueller/OpenCore-Legacy-Patcher-T2. Survives renames and transfers, but
+# GitHub's ID of oclp-t2/OpenCore-Legacy-Patcher-T2. Survives renames and transfers, but
 # a repository created later under the same name always gets a new one.
 MAIN_PROJECT_REPOSITORY_ID = 1207616246
 

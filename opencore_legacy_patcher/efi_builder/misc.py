@@ -343,30 +343,55 @@ class BuildMiscellaneous:
             usb_map_path = Path(self.constants.plist_folder_path) / Path("AppleUSBMaps/Info.plist")
             usb_map_tahoe_path = Path(self.constants.plist_folder_path) / Path("AppleUSBMaps/Info-Tahoe.plist")
 
+            spoofing = self.constants.serial_settings in ["Moderate", "Advanced"]
             if (
                 usb_map_path.exists() and usb_map_tahoe_path.exists()
                 and (self.constants.allow_oc_everywhere is False or self.constants.allow_native_spoofs is True)
                 and self.model not in ["Xserve2,1", "Dortania1,1"]
                 and ((self.model in model_array.Missing_USB_Map or self.model in model_array.Missing_USB_Map_Ventura)
-                     or self.constants.serial_settings in ["Moderate", "Advanced"])
+                     or spoofing)
             ):
-                logging.info("- Adding USB-Map.kext and USB-Map-Tahoe.kext")
-                Path(self.constants.map_kext_folder).mkdir(parents=True, exist_ok=True)
-                Path(self.constants.map_kext_folder_tahoe).mkdir(parents=True, exist_ok=True)
-                Path(self.constants.map_contents_folder).mkdir(parents=True, exist_ok=True)
-                Path(self.constants.map_contents_folder_tahoe).mkdir(parents=True, exist_ok=True)
+                if support.usb_map_personality_count(usb_map_path, self.model) == 0:
+                    # e.g. Moderate/Advanced spoofing on a model the combined maps don't cover
+                    logging.info(f"- No USB map available for {self.model}, skipping USB-Map.kext")
+                else:
+                    logging.info("- Adding USB-Map.kext and USB-Map-Tahoe.kext")
+                    Path(self.constants.map_kext_folder).mkdir(parents=True, exist_ok=True)
+                    Path(self.constants.map_kext_folder_tahoe).mkdir(parents=True, exist_ok=True)
+                    Path(self.constants.map_contents_folder).mkdir(parents=True, exist_ok=True)
+                    Path(self.constants.map_contents_folder_tahoe).mkdir(parents=True, exist_ok=True)
 
-                shutil.copy(usb_map_path, self.constants.map_contents_folder)
-                shutil.copy(usb_map_tahoe_path, self.constants.map_contents_folder_tahoe / Path("Info.plist"))
+                    shutil.copy(usb_map_path, self.constants.map_contents_folder)
+                    shutil.copy(usb_map_tahoe_path, self.constants.map_contents_folder_tahoe / Path("Info.plist"))
 
-                builder = support.BuildSupport(self.model, self.constants, self.config)
-                m1 = builder.get_kext_by_bundle_path("USB-Map.kext")
-                m2 = builder.get_kext_by_bundle_path("USB-Map-Tahoe.kext")
-                if m1: m1["Enabled"] = True
-                if m2: m2["Enabled"] = True
+                    # Reduce the maps to this model right away. Previously only BuildSMBIOS.set_smbios()
+                    # did this, under its own (different) conditions, and set_smbios() is skipped for
+                    # e.g. test_c/test_d or "Allow native models" + "Allow spoofing native Macs". Every
+                    # personality in the combined maps carries a mangled "model" value, so an unstripped
+                    # map was an enabled kext that matched nothing. set_smbios() re-targets the
+                    # personalities at the spoofed model afterwards when spoofing.
+                    for map_plist in [
+                        Path(self.constants.map_contents_folder) / Path("Info.plist"),
+                        Path(self.constants.map_contents_folder_tahoe) / Path("Info.plist"),
+                    ]:
+                        support.prepare_usb_map(map_plist, self.model, self.model, self.constants.serial_settings)
 
-                if self.model in model_array.Missing_USB_Map_Ventura and self.constants.serial_settings not in ["Moderate", "Advanced"]:
-                    if m1: m1["MinKernel"] = "22.0.0"
+                    builder = support.BuildSupport(self.model, self.constants, self.config)
+                    m1 = builder.get_kext_by_bundle_path("USB-Map.kext")
+                    m2 = builder.get_kext_by_bundle_path("USB-Map-Tahoe.kext")
+                    if m1: m1["Enabled"] = True
+                    if m2: m2["Enabled"] = True
+
+                    # Without spoofing the map is only needed from the macOS version that dropped the
+                    # model's native map (same as Dortania upstream). With spoofing the native map of
+                    # the spoofed model must be replaced on every version, so MinKernel stays empty.
+                    if m1 and not spoofing:
+                        if self.model in model_array.Missing_USB_Map_Ventura:
+                            m1["MinKernel"] = "22.0.0"
+                        elif self.model in model_array.Missing_USB_Map_Since_Sierra:
+                            m1["MinKernel"] = "16.0.0"
+                        elif self.model in model_array.Missing_USB_Map:
+                            m1["MinKernel"] = "18.0.0"
 
             if self.model in smbios_data.smbios_dictionary and (
                 smbios_data.smbios_dictionary[self.model]["CPU Generation"] <= cpu_data.CPUGen.penryn.value or \
@@ -596,18 +621,15 @@ class BuildMiscellaneous:
                     f"agdpmod={_agdpmod} forceRenderStandby=0 ipc_control_port_options=0 amfi=0x80")
 
                 # SEP/AppleKeyStore boot-args for macOS 26 Tahoe on T2 Macs:
-                # - T2TahoeFixup unblocks the display in AppleCredentialManager, but
-                #   AppleKeyStore still waits for the SEP handshake. aks-endpoint=0 makes
-                #   AppleKeyStore skip it entirely, which avoids the
-                #   "AppleSEPManager panic for AppleKeyStore: sks request timeout" (strike 5).
+                # - T2TahoeFixup v1.0.12 handles credential manager fallback in kernel.
+                #   aks-endpoint=0 must NOT be set on internal T2 SSD (AppleANS2Controller)
+                #   as it breaks APFS volume key decryption.
                 # - acm_panic_on_sep_response_timeout=0: AppleCredentialManager doesn't panic
                 #   on a SEP response timeout.
                 # - TSC_sync_margin=0: no TSC sync margin check panic.
                 # - debug=0x100 keepsyms=1: no reboot on panic and symbolicated backtraces.
-                #   They usually come from the template already; _update_nvram_string()
-                #   skips tokens that are already present, so nothing is duplicated.
                 self._update_nvram_string(APPLE_NVRAM_UUID, "boot-args",
-                    "debug=0x100 keepsyms=1 TSC_sync_margin=0 aks-endpoint=0 "
+                    "debug=0x100 keepsyms=1 TSC_sync_margin=0 "
                     "acm_panic_on_sep_response_timeout=0")
             except Exception as e:
                 logging.error("Injecting T2 specific boot arguments failed due to the following error:")
@@ -621,6 +643,18 @@ class BuildMiscellaneous:
                 self.config["NVRAM"]["Delete"][APPLE_NVRAM_UUID] = []
             if "boot-args" not in self.config["NVRAM"]["Delete"][APPLE_NVRAM_UUID]:
                 self.config["NVRAM"]["Delete"][APPLE_NVRAM_UUID].append("boot-args")
+
+            # Inject BridgeOSHardwareModel = j214kap into NVRAM for dropped T2 Macs
+            # This allows UpdateBrain and MobileSoftwareUpdate to resolve Tahoe BuildManifest identity
+            HW_NVRAM_UUID = "4D1EDE05-38C7-4A6A-9CC6-4BCCA8B38C14"
+            self._set_nvram_value(HW_NVRAM_UUID, "BridgeOSHardwareModel", "j214kap", overwrite=True)
+            self._set_nvram_value(APPLE_NVRAM_UUID, "BridgeOSHardwareModel", "j214kap", overwrite=True)
+            if HW_NVRAM_UUID not in self.config["NVRAM"]["Delete"]:
+                self.config["NVRAM"]["Delete"][HW_NVRAM_UUID] = []
+            if "BridgeOSHardwareModel" not in self.config["NVRAM"]["Delete"][HW_NVRAM_UUID]:
+                self.config["NVRAM"]["Delete"][HW_NVRAM_UUID].append("BridgeOSHardwareModel")
+            if "BridgeOSHardwareModel" not in self.config["NVRAM"]["Delete"][APPLE_NVRAM_UUID]:
+                self.config["NVRAM"]["Delete"][APPLE_NVRAM_UUID].append("BridgeOSHardwareModel")
 
             try:
                 logging.info("- Set SIP to allow Root Volume patching on T2 Macs (03080000)")
