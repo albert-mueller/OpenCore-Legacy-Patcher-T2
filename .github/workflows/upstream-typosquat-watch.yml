@@ -80,5 +80,5 @@ jobs:
           FORGET_DAYS: "365"
           OFFICIAL_SOURCES: |
             - **OpenCore Legacy Patcher** by Dortania: https://github.com/dortania/OpenCore-Legacy-Patcher and https://dortania.github.io/OpenCore-Legacy-Patcher/
-            - **OpenCore Legacy Patcher T2** (this project): https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2 and https://oclp-t2.github.io/albert-mueller.github.io/
+            - **OpenCore Legacy Patcher T2** (this project): https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2 and https://oclp-t2.github.io/
         run: python .github/scripts/upstream_typosquat_watch.py

@@ -11,4 +11,4 @@
 # Patcher website (VitePress), moved out of docs/ in Oct 2026. Dortania's licence page and
 # the copyright footers are kept in that repo: LICENSE.md, de/LICENSE.md, README.md,
 # de/index.md and .vitepress/config.mts.
-docs/**  ->  https://github.com/oclp-t2/albert-mueller.github.io
+docs/**  ->  https://github.com/oclp-t2/oclp-t2.github.io
