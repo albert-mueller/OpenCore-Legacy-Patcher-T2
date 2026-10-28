@@ -29,11 +29,11 @@ class Constants:
         self.bundle_identifier:               str = "io.github.albert-mueller.opencore-legacy-patcher-t2"
 
         # URLs
-        self.url_patcher_support_pkg:         str = "https://github.com/albert-mueller/PatcherSupportPkg/releases/download/"
-        self.guide_link:                      str = "https://albert-mueller.github.io/"
-        self.repo_link:                       str = "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/"
-        self.github_issues_link:              str = "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues"
-        self.github_discussions_link:         str = "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/discussions"
+        self.url_patcher_support_pkg:         str = "https://github.com/oclp-t2/PatcherSupportPkg/releases/download/"
+        self.guide_link:                      str = "https://oclp-t2.github.io/albert-mueller.github.io/"
+        self.repo_link:                       str = "https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/"
+        self.github_issues_link:              str = "https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues"
+        self.github_discussions_link:         str = "https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/discussions"
         self.gemini_link:                     str = "https://gemini.google.com"
 
         # Update channels (Settings > App > "Update Channel")
@@ -46,7 +46,7 @@ class Constants:
         self.update_channels: dict = {
             "official": {
                 "label": "Albert Müller - Official (T2 - recommended)",
-                "repo":  "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/",
+                "repo":  "https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/",
             },
             "medelcartelinc": {
                 "label": "Medelcartelinc (Fork)",
