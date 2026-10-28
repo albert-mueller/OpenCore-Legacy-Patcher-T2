@@ -517,7 +517,12 @@ class MainFrame(wx.Frame):
             # check still runs, but the result is only offered via the same dialog
             # instead of being downloaded and installed without asking.
             ask_first = manual or channel_switch or self.constants.auto_update is False
-            wx.CallAfter(self.on_update, update_dict["Link"], remote_version_str, update_dict["Github Link"], changelog, ask_first, channel_switch)
+            # Automatic check after the snooze ran out: the update may not be
+            # postponed again by cancelling it (see updates.snooze_has_expired()).
+            mandatory = not ask_first and updates.snooze_has_expired()
+            if mandatory:
+                logging.info("Snooze period has ended, this update is mandatory")
+            wx.CallAfter(self.on_update, update_dict["Link"], remote_version_str, update_dict["Github Link"], changelog, ask_first, channel_switch, mandatory)
 
     def _report_manual_check(self, manual: bool, new_version, error, include_prerelease: bool = False) -> None:
         """
@@ -564,7 +569,7 @@ class MainFrame(wx.Frame):
             wx.OK | wx.ICON_INFORMATION, self
         )
 
-    def on_update(self, oclp_url: str, oclp_version: str, oclp_github_url: str, changelog_text: str, manual: bool = False, channel_switch: bool = False):
+    def on_update(self, oclp_url: str, oclp_version: str, oclp_github_url: str, changelog_text: str, manual: bool = False, channel_switch: bool = False, mandatory: bool = False):
         if not self or gui_support.is_app_exiting():
             return
         host_space = utilities.get_free_space()
@@ -583,7 +588,8 @@ class MainFrame(wx.Frame):
                 screen_location=self.GetPosition(),
                 url=oclp_url,
                 version_label=oclp_version,
-                changelog=changelog_text
+                changelog=changelog_text,
+                mandatory=mandatory
             )
             return
 

@@ -26,6 +26,41 @@ from .. import constants
 # update channel selected in Settings (official T2 repository or a fork).
 
 
+def snooze_has_expired() -> bool:
+    """
+    True once the user snoozed updates ("Snooze Updates" in Settings) and that
+    snooze window is over (NextUpdateCheck is today or earlier).
+
+    An update found by the automatic check in that state is mandatory: the user
+    already used up their postponement, so the updater must not offer another
+    way to put it off. Previously cancelling the download ("Cancel" -> "Yes")
+    simply returned to the main menu, which postponed the update again without
+    any limit - the snooze could be extended forever by cancelling.
+
+    Invalid or missing values count as "not snoozed", matching how
+    check_binary_updates() treats them.
+    """
+    next_update_check = global_settings.GlobalEnviromentSettings().read_property("NextUpdateCheck")
+    if next_update_check in [None, "", "None"]:
+        return False
+    try:
+        return date.fromisoformat(str(next_update_check)) <= date.today()
+    except Exception:
+        logging.error("NextUpdateCheck value is invalid and will be ignored: %r", next_update_check)
+        return False
+
+
+def clear_snooze() -> None:
+    """
+    Forget an expired snooze once the mandatory update has been installed, so
+    later updates are not treated as mandatory just because a snooze ran out
+    once in the past. The user can snooze again in Settings afterwards.
+    """
+    settings = global_settings.GlobalEnviromentSettings()
+    settings.delete_property("NextUpdateCheck")
+    settings.write_property("SnoozeUpdates", 0)
+
+
 class CheckBinaryUpdates:
     def __init__(self, global_constants: constants.Constants) -> None:
         self.constants: constants.Constants = global_constants
@@ -305,6 +340,12 @@ class CheckBinaryUpdates:
         # Alternatively, you can also just pass (self.binary_version, latest_remote_version)
         elif not self._check_if_build_newer(latest_remote_version, self.binary_version):
             logging.info("You are already on the latest version.")
+            # An expired snooze only exists to make the next update mandatory.
+            # Nothing to enforce, so release it - otherwise Settings would refuse
+            # a new snooze until some future update was installed.
+            if manual is False and snooze_has_expired():
+                logging.info("Snooze period has ended and no update is pending, clearing it")
+                clear_snooze()
             logging.info("If this meessage appears even if it's not up to date, you should report this issue.")
             logging.info("For most pre-alpha versions, this behavior is normal because various versions are marked as pre-release.")
             return None
