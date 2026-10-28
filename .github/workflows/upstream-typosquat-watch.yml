@@ -53,7 +53,7 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run == true && 'true' || 'false' }}
           PROJECT_NAME: "OpenCore Legacy Patcher"
           # Mentioned once, in a comment when the warning issue is first created
-          MENTIONS: "Jazzzny albert-mueller gandolf243"
+          MENTIONS: "khronokernel dhinakg albert-mueller gandolf243"
           # --- GitHub repositories ---
           # Repo names whose lookalikes (and non-fork copies) are checked
           REPO_NAMES: "OpenCore-Legacy-Patcher"
