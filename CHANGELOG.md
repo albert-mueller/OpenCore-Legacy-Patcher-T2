@@ -1,6 +1,14 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
 ## 4.0.0.1900017 - 4.0.0 alpha 19.17
 I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://oclp-t2.github.io/issues/599.html on this patcher's page or https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
+
+From today onwards, we are migrating over to a new location for this patcher and the old APIs are retired. This means if you don't update soon, you will not be able to:
+- install automatic updates via the OpenCore Legacy Patcher T2 application
+- install root patches
+- open Issues or Discussions from the Help menu in OpenCore Legacy Patcher T2
+- open the OpenCore Legacy Patcher T2 website from the Help menu
+- get automatically instructions on how to disable Secure Boot and SIP on T2 Macs
+
 This release:
 - changes all patcher endpoints to the new GitHub organization endpoint
 - fixes a vulnerability where, after the snoozed update days had passed, the update could be postponed again by clicking Cancel and then Yes in the update download, so the outdated and possibly vulnerable version kept running. Once the snooze period has ended, the update is now mandatory: the download can no longer be cancelled (the Cancel button is gone and Escape or closing the window no longer stops it), and dismissing the administrator password prompt closes the patcher instead of returning to the main menu, so the update is offered again on the next launch
