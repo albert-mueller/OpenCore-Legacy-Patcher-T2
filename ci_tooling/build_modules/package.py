@@ -72,6 +72,8 @@ class GeneratePackage:
         self._files = {
             "./dist/OpenCore-Patcher-T2.app": "/Library/Application Support/albert-mueller/OpenCore-Patcher-T2/OpenCore-Patcher-T2.app",
             "./ci_tooling/privileged_helper_tool/com.albert-mueller.opencore-patcher-t2.privileged-helper": "/Library/PrivilegedHelperTools/com.albert-mueller.opencore-patcher-t2.privileged-helper",
+            # Background update check, see support/arguments.py _check_updates_handler()
+            "./payloads/Launch Services/com.albert-mueller.opencore-legacy-patcher.update-check.plist": "/Library/LaunchAgents/com.albert-mueller.opencore-legacy-patcher.update-check.plist",
         }
         self._autopkg_files = {
             "./payloads/Launch Services/com.albert-mueller.opencore-legacy-patcher.auto-patch.plist": "/Library/LaunchAgents/com.albert-mueller.opencore-legacy-patcher.auto-patch.plist",

@@ -348,6 +348,66 @@ class ZSHFunctions:
         return _script
 
 
+    def generate_load_update_check_agent(self) -> str:
+        """
+        ZSH function to (re)load the background update check for the logged-in user
+
+        LaunchAgents in /Library/LaunchAgents are only picked up at the next login,
+        so without this the first background check would wait until then. Only
+        done when installing to the running system with a user logged in.
+        """
+
+        _script = ""
+
+        _script += "function _loadUpdateCheckAgent() {\n"
+        _script += f"    local label=\"{NEW_DOMAIN}.update-check\"\n"
+        _script += "    local agentPath=\"$pathToTargetVolume/Library/LaunchAgents/$label.plist\"\n\n"
+
+        _script += "    if [[ $pathToTargetVolume != \"/\" || ! -f $agentPath ]]; then\n"
+        _script += "        return 0\n"
+        _script += "    fi\n\n"
+
+        _script += "    /usr/sbin/chown root:wheel \"$agentPath\"\n"
+        _script += "    /bin/chmod 644 \"$agentPath\"\n\n"
+
+        _script += "    local consoleUID=$(/usr/bin/stat -f %u /dev/console 2>/dev/null)\n"
+        _script += "    if [[ -z $consoleUID || $consoleUID == 0 ]]; then\n"
+        _script += "        echo \"No user logged in, update check starts at the next login\"\n"
+        _script += "        return 0\n"
+        _script += "    fi\n\n"
+
+        _script += "    echo \"Loading update check for UID $consoleUID\"\n"
+        _script += "    /bin/launchctl bootout \"gui/$consoleUID/$label\" 2>/dev/null\n"
+        _script += "    /bin/launchctl bootstrap \"gui/$consoleUID\" \"$agentPath\" 2>/dev/null || echo \"Failed to load the update check, it starts at the next login\"\n"
+        _script += "    return 0\n"
+        _script += "}\n"
+
+        return _script
+
+
+    def generate_unload_update_check_agent(self) -> str:
+        """
+        ZSH function to stop the background update check before uninstalling,
+        so launchd doesn't keep a job for a binary that is about to be removed
+        """
+
+        _script = ""
+
+        _script += "function _unloadUpdateCheckAgent() {\n"
+        _script += f"    local label=\"{NEW_DOMAIN}.update-check\"\n"
+        _script += "    if [[ $pathToTargetVolume != \"/\" ]]; then\n"
+        _script += "        return 0\n"
+        _script += "    fi\n"
+        _script += "    local consoleUID=$(/usr/bin/stat -f %u /dev/console 2>/dev/null)\n"
+        _script += "    if [[ -n $consoleUID && $consoleUID != 0 ]]; then\n"
+        _script += "        /bin/launchctl bootout \"gui/$consoleUID/$label\" 2>/dev/null\n"
+        _script += "    fi\n"
+        _script += "    return 0\n"
+        _script += "}\n"
+
+        return _script
+
+
     def generate_postinstall_main(self, is_autopkg: bool = False) -> str:
         """
         ZSH function for postinstall's main
@@ -359,6 +419,7 @@ class ZSHFunctions:
         _script += "    _setSUIDBit \"$pathToTargetVolume/$helperPath\"\n"
         _script += "    _createAlias \"$pathToTargetVolume/$mainAppPath\" \"$pathToTargetVolume/$shimAppPath\"\n"
         _script += "    _prewarmGatekeeper \"$pathToTargetVolume/$mainAppPath\"\n"
+        _script += "    _loadUpdateCheckAgent\n"
         if is_autopkg:
             _script += "    _startPatching \"$pathToTargetVolume/$executablePath\"\n"
             _script += "    _fixSettingsFilePermission\n"
@@ -376,6 +437,7 @@ class ZSHFunctions:
         _script = ""
 
         _script += "function _main() {\n"
+        _script += "    _unloadUpdateCheckAgent\n"
         _script += "    _cleanLaunchService\n"
         _script += "    _cleanLegacyHelper\n"
         _script += "    _cleanLegacyInstallLocation\n"
@@ -395,7 +457,8 @@ class GenerateScripts:
         self.files = [
             "Applications/OpenCore-Patcher-T2.app",
             "Library/Application Support/albert-mueller/OpenCore-Patcher-T2/OpenCore-Patcher-T2.app",
-            "Library/PrivilegedHelperTools/com.albert-mueller.opencore-patcher-t2.privileged-helper"
+            "Library/PrivilegedHelperTools/com.albert-mueller.opencore-patcher-t2.privileged-helper",
+            "Library/LaunchAgents/com.albert-mueller.opencore-legacy-patcher.update-check.plist"
         ]
 
         # Locations used before the app moved out of Dortania's directory and the
@@ -545,6 +608,8 @@ class GenerateScripts:
         _script += "\n"
         _script += self.zsh_functions.generate_prewarm_gatekeeper()
         _script += "\n"
+        _script += self.zsh_functions.generate_load_update_check_agent()
+        _script += "\n"
         if is_autopkg:
             _script += self.zsh_functions.generate_start_patching()
             _script += "\n"
@@ -612,6 +677,8 @@ class GenerateScripts:
         _script += self.zsh_functions.generate_script_remove_file()
         _script += "\n"
         _script += self.zsh_functions.generate_clean_launch_service()
+        _script += "\n"
+        _script += self.zsh_functions.generate_unload_update_check_agent()
         _script += "\n"
         _script += self.zsh_functions.generate_clean_legacy_helper()
         _script += "\n"
