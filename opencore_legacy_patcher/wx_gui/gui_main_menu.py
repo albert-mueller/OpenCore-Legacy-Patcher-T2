@@ -472,7 +472,7 @@ class MainFrame(wx.Frame):
             self._report_manual_check(manual, None, str(e), include_prerelease)
             return
 
-        # Updates were turned back on because a service the patcher depends on is gone
+        # Updates are enforced because a service the patcher depends on is gone
         # (support/endpoint_health.py): tell the user once, before any update dialog.
         notice = endpoint_health.pop_notice()
         if notice and not getattr(self, 'exiting_app', False) and not gui_support.is_app_exiting():
@@ -523,12 +523,16 @@ class MainFrame(wx.Frame):
             # With "Turn Off Auto Updates" enabled (auto_update False) the automatic
             # check still runs, but the result is only offered via the same dialog
             # instead of being downloaded and installed without asking.
-            ask_first = manual or channel_switch or self.constants.auto_update is False
+            # While a service the patcher depends on is gone (endpoint_health.updates_forced()),
+            # "Turn Off Auto Updates" is ignored and the update behaves as if the snooze
+            # deadline had passed - the fix for the dead service can only arrive this way.
+            forced = endpoint_health.updates_forced()
+            ask_first = manual or channel_switch or (self.constants.auto_update is False and not forced)
             # Automatic check after the snooze ran out: the update may not be
             # postponed again by cancelling it (see updates.snooze_has_expired()).
-            mandatory = not ask_first and updates.snooze_has_expired()
+            mandatory = not ask_first and (updates.snooze_has_expired() or forced)
             if mandatory:
-                logging.info("Snooze period has ended, this update is mandatory")
+                logging.info("Snooze period has ended or a required service is gone, this update is mandatory")
             wx.CallAfter(self.on_update, update_dict["Link"], remote_version_str, update_dict["Github Link"], changelog, ask_first, channel_switch, mandatory)
 
     def _report_manual_check(self, manual: bool, new_version, error, include_prerelease: bool = False) -> None:

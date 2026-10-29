@@ -25,6 +25,7 @@ from ..support import (
     subprocess_wrapper,
     kdk_handler,
     update_channel_availability,
+    endpoint_health,
 )
 from ..datasets import (
     smbios_data,
@@ -816,6 +817,19 @@ Hardware Information:
         global_settings.GlobalEnviromentSettings().write_property(variable_name, self.constants.auto_update)
         logging.info(f"Auto-update setting set to: {self.constants.auto_update}")
 
+        # Stored as chosen, but ignored while a service the patcher depends on is gone
+        # (support/endpoint_health.py) - the fix for that can only arrive as an update.
+        if self.constants.auto_update is False and endpoint_health.updates_forced():
+            logging.warning("Auto updates turned off, but ignored while a required service is gone")
+            wx.CallAfter(
+                wx.MessageBox,
+                "Some online services OpenCore Legacy Patcher T2 depends on are no longer reachable, "
+                "so the next update is required and will still be installed automatically.\n\n"
+                "This setting applies again once these services are back.",
+                "Auto Updates Required",
+                wx.OK | wx.ICON_INFORMATION
+            )
+
     def on_update_channel(self, event: wx.Event) -> None:
         """
         Switch the update channel (official T2 repository or a fork).
@@ -946,6 +960,11 @@ Hardware Information:
                     self._snooze_deadline_limit = today
 
         limit = self._snooze_deadline_limit
+        # While a service the patcher depends on is gone the snooze counts as
+        # expired (support/endpoint_health.py), so no new snooze can be set either.
+        if endpoint_health.updates_forced():
+            self._snooze_forced = True
+            limit = today
         settings = global_settings.GlobalEnviromentSettings()
 
         if limit is None:
@@ -1001,7 +1020,13 @@ Hardware Information:
         if getattr(self, "_snooze_limit_notice_shown", False):
             return
         self._snooze_limit_notice_shown = True
-        if limit <= today:
+        if getattr(self, "_snooze_forced", False):
+            message = (
+                "Some online services OpenCore Legacy Patcher T2 depends on are no longer reachable, "
+                "so updates can't be snoozed right now.\n\n"
+                "The next update is required. Snoozing works again once these services are back."
+            )
+        elif limit <= today:
             message = (
                 "The snooze period has already ended, so updates can't be snoozed again.\n\n"
                 "The pending update has to be installed first. After that you can snooze future updates again."

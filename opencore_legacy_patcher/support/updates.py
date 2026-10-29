@@ -209,8 +209,8 @@ class CheckBinaryUpdates:
             return None
 
         # If an external service the patcher depends on is gone for good, a fix can only
-        # arrive as an update - lift the snooze and turn automatic updates back on before
-        # the snooze is evaluated below (see support/endpoint_health.py).
+        # arrive as an update - end the snooze before it is evaluated below; the GUI then
+        # also ignores "Turn Off Auto Updates" (see support/endpoint_health.py).
         if self.constants.special_build is False:
             endpoint_health.check_and_restore_updates(self.constants)
 

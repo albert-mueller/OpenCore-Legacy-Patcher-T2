@@ -25,14 +25,19 @@ mirrors - one dead mirror does not break anything). To make sure the user is not
 offline, github.com itself has to answer first; without that nothing is evaluated.
 
 A group has to stay DOWN for OUTAGE_GRACE_PERIOD (first seen -> seen again) before
-anything happens, so a short outage or DNS hiccup never overrides a user's choice. Then
-the snooze is lifted and automatic updates are turned back on, both stored in the global
-settings, and a notice is saved that the GUI shows once (see pop_notice()).
+anything happens, so a short outage or DNS hiccup never overrides a user's choice. From
+then on, and for as long as the service stays gone, updates behave exactly as if the
+snooze deadline had passed (see updates.snooze_has_expired()):
 
-Each outage is handled once: if the user snoozes or turns automatic updates off again
-after seeing the notice, that choice is respected until the endpoint has recovered and
-goes down again. The main repository itself is excluded on purpose - if it is gone no
-update can be delivered anyway, project_status.py handles that case.
+  - a running snooze is ended (NextUpdateCheck = today), and a new one is ended again
+    on the next check, so the update can no longer be postponed
+  - "Turn Off Auto Updates" is ignored, the stored setting itself is left untouched
+  - the next update is mandatory: it is installed without asking and cannot be cancelled
+
+updates_forced() tells the GUI whether this is the case. The user's own settings apply
+again once every affected service is reachable again. The notice (see pop_notice()) is
+shown once per outage. The main repository itself is excluded on purpose - if it is gone
+no update can be delivered anyway, project_status.py handles that case.
 """
 
 import json
@@ -40,7 +45,7 @@ import socket
 import logging
 import threading
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
 
@@ -147,6 +152,31 @@ def _updates_restricted(global_constants: constants.Constants, settings: global_
     return snoozed or global_constants.auto_update is False
 
 
+def _expire_snooze(global_constants: constants.Constants, settings: global_settings.GlobalEnviromentSettings) -> None:
+    """
+    End a running snooze the same way Settings does when it is set to 0: the
+    deadline becomes today instead of being deleted, so the snooze counts as
+    expired (updates.snooze_has_expired()) and cannot be renewed in Settings.
+    A snooze that already ended, or none at all, is left alone.
+    """
+    stored = settings.read_property("NextUpdateCheck")
+    if stored in [None, "", "None"]:
+        return
+    today = date.today()
+    try:
+        if date.fromisoformat(str(stored)) <= today:
+            return
+    except Exception:
+        # Unreadable: updates.py already treats it as "not snoozed"
+        logging.error("NextUpdateCheck value is invalid and will be ignored: %r", stored)
+        return
+    logging.warning("Endpoint health: ending the update snooze, a service the patcher depends on is gone")
+    settings.write_property("NextUpdateCheck", today.isoformat())
+    settings.write_property("SnoozeUpdates", 0)
+    global_constants.next_update_check = today.isoformat()
+    global_constants.snooze_updates = 0
+
+
 def _load_outages(settings: global_settings.GlobalEnviromentSettings) -> dict:
     raw = settings.read_property(_KEY_OUTAGES)
     if not raw:
@@ -159,31 +189,42 @@ def _load_outages(settings: global_settings.GlobalEnviromentSettings) -> dict:
         return {}
 
 
-def _restore_updates(global_constants: constants.Constants, settings: global_settings.GlobalEnviromentSettings, groups: list) -> None:
+def _announce_outage(settings: global_settings.GlobalEnviromentSettings, groups: list) -> None:
     logging.warning(f"External services unreachable for over {int(OUTAGE_GRACE_PERIOD.total_seconds() // 3600)} hours: {', '.join(groups)}")
-    logging.warning("Lifting the update snooze and turning automatic updates back on, so the fix can be installed")
-
-    settings.delete_property("NextUpdateCheck")
-    settings.write_property("SnoozeUpdates", 0)
-    global_constants.snooze_updates = 0
-
-    global_constants.auto_update = True
-    settings.write_property("AllowAutoUpdates", True)
+    logging.warning("Ignoring the update snooze and \"Turn Off Auto Updates\" until they are back, the next update is mandatory")
 
     settings.write_property(_KEY_NOTICE, (
         "Some online services OpenCore Legacy Patcher T2 depends on are no longer reachable:\n\n"
         + "\n".join(f"- {group}" for group in groups)
         + "\n\nOlder builds may stop working correctly because of this, and an abandoned domain or "
-        "account can be taken over by somebody else. To keep your Mac safe, the update snooze "
-        "was lifted and automatic updates were turned back on, so a fixed version is installed "
-        "as soon as it is released.\n\n"
-        "You can change this again in Settings."
+        "account can be taken over by somebody else. To keep your Mac safe, the update snooze has "
+        "ended and \"Turn Off Auto Updates\" is ignored for now: the next update is required and "
+        "will be installed as soon as it is released.\n\n"
+        "Your update settings apply again once these services are back."
     ))
+
+
+def _forced(outages: dict) -> bool:
+    return any(isinstance(entry, dict) and entry.get("handled") is True for entry in outages.values())
+
+
+def updates_forced() -> bool:
+    """
+    True while a service the patcher depends on has been gone for longer than
+    OUTAGE_GRACE_PERIOD. Updates then behave as if the snooze deadline had
+    passed: "Turn Off Auto Updates" is ignored and the update is mandatory.
+    Only reads the stored state, check_and_restore_updates() keeps it current.
+    """
+    try:
+        return _forced(_load_outages(global_settings.GlobalEnviromentSettings()))
+    except Exception:
+        logging.exception("Failed to read the endpoint outage state")
+        return False
 
 
 def check_and_restore_updates(global_constants: constants.Constants) -> bool:
     """
-    Returns True if updates were turned back on during this call.
+    Returns True while updates are enforced because a service is gone (see updates_forced()).
     Never raises - the update check itself must not depend on this.
     """
     try:
@@ -191,9 +232,8 @@ def check_and_restore_updates(global_constants: constants.Constants) -> bool:
             settings = global_settings.GlobalEnviromentSettings()
             outages = _load_outages(settings)
 
-            if not _updates_restricted(global_constants, settings):
-                # Nothing to restore. Forget handled outages of recovered services
-                # lazily on the next restricted check instead of probing now.
+            if not outages and not _updates_restricted(global_constants, settings):
+                # Nothing to enforce and no outage to follow up on
                 return False
 
             if not _network_is_up():
@@ -231,7 +271,9 @@ def check_and_restore_updates(global_constants: constants.Constants) -> bool:
             settings.write_property(_KEY_OUTAGES, json.dumps(outages))
 
             if expired:
-                _restore_updates(global_constants, settings, expired)
+                _announce_outage(settings, expired)
+            if _forced(outages):
+                _expire_snooze(global_constants, settings)
                 return True
             return False
     except Exception:
@@ -241,7 +283,7 @@ def check_and_restore_updates(global_constants: constants.Constants) -> bool:
 
 def pop_notice() -> str:
     """
-    Notice for the user after updates were turned back on, or "" if there is none.
+    Notice for the user once updates are enforced because a service is gone, or "" if there is none.
     Removed when read, so it is shown once.
     """
     try:

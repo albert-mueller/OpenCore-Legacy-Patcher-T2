@@ -316,7 +316,8 @@ class UpdateFrame(wx.Frame):
         # instead of returning to the main menu; the next launch asks again.
         if is_cancelled and self.mandatory:
             wx.MessageBox(
-                "This update is required because the snooze period has ended.\n\n"
+                "This update is required because the snooze period has ended or an online "
+                "service the patcher depends on is no longer available.\n\n"
                 f"{self.constants.patcher_name} will now close. The update will be offered again the next time you open it.",
                 "Update Required",
                 wx.OK | wx.ICON_WARNING
