@@ -1,4 +1,13 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.1900018 - 4.0.0 alpha 19.18
+I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://oclp-t2.github.io/issues/599.html on this patcher's page or https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
+
+This release brings bug fixes from Dortania's upstream OpenCore Legacy Patcher, thx @Jazzzny, @dhinakg and Dortania:
+- fixes Safari/WebKit crashes on Macs older than Sandy Bridge (no AVX): the JavaScriptCore AVX patch is now applied through RestrictEvents (`revpatch=jsc`), replacing the removed root patch. This also covers Macs without a Wi-Fi card on macOS Sonoma and newer, which never got the old root patch (ported from Dortania aec949a1)
+  - RestrictEvents is updated to 1.1.7 (rolling build of acidanthera/RestrictEvents b70aaa4, `javascriptcore` branch, same build Dortania ships; there is no tagged 1.1.7 release yet). RestrictEvents is still not injected on T2 Macs
+- fixes the dual CPU kernel panic on MacPro3,1 and Xserve2,1 on macOS Sequoia and newer with a new kernel patch that fixes the CPU startup ordering. The "MacPro3,1/Xserve2,1 Workaround" setting (cpus=4) is removed as it is no longer needed, so all CPU threads can be used again (ported from Dortania 5e311e35)
+- enables the PCI bus enumeration patch on all Macs whose last supported macOS is older than OS X El Capitan (ported from Dortania 7eae823f)
+
 ## 4.0.0.1900017 - 4.0.0 alpha 19.17
 I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://oclp-t2.github.io/issues/599.html on this patcher's page or https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
 

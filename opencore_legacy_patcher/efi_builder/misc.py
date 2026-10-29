@@ -183,6 +183,13 @@ class BuildMiscellaneous:
                 logging.info("- Fixing CoreGraphics support on Ivy Bridge")
                 re_patch_args.append("f16c")
 
+            # Patch AVX hardcoding in JavaScriptCore (Safari 18.2+ / WebKit crash on pre-AVX CPUs)
+            # Ported from Dortania aec949a1; replaces the removed cpu_missing_avx root patch.
+            # Needs RestrictEvents built from acidanthera's javascriptcore branch (b70aaa4).
+            if smbios_data.smbios_dictionary[self.model]["CPU Generation"] < cpu_data.CPUGen.sandy_bridge.value:
+                logging.info("- Fixing AVX hardcoding in JavaScriptCore")
+                re_patch_args.append("jsc")
+
         return re_patch_args
 
     def _cpu_friend_handling(self) -> None:

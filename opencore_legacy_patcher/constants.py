@@ -16,7 +16,7 @@ class Constants:
     def __init__(self) -> None:
         # Patcher Versioning
         # Wenn eine Version mit s endet, es heißt, dass sie noch nicht fertig ist.
-        self.patcher_version:                 str = "4.0.0.1900017"
+        self.patcher_version:                 str = "4.0.0.1900018"
         self.patcher_version_label=self.patcher_version
         self.patcher_support_pkg_version:     str = "2.10"  # PatcherSupportPkg
         self.copyright_date:                  str = "Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors · T2 fork © 2026 Albert Müller"
@@ -87,7 +87,7 @@ class Constants:
         self.airportbcrmfixup_version:   str = "2.2.1"  #      AirPortBrcmFixup
         self.nvmefix_version:            str = "1.1.3"  #      NVMeFix
         self.applealc_version:           str = "1.9.8"  #      AppleALC
-        self.restrictevents_version:     str = "1.1.6"  #      RestrictEvents
+        self.restrictevents_version:     str = "1.1.7"  #      RestrictEvents (rolling - acidanthera/RestrictEvents@b70aaa4, javascriptcore branch)
         self.t2tahoefixup_version:       str = "1.0.16" #      T2TahoeFixup
         self.appleans2disabler_version:  str = "1.0.0"  #      AppleANS2Disabler (T2 internal SSD)
         self.featureunlock_version:      str = "1.1.8"  #      FeatureUnlock
@@ -304,7 +304,6 @@ class Constants:
         self.disable_connectdrivers: bool = False  # Disable ConnectDrivers (hibernation)
         self.set_vmm_cpuid:          bool = False  # Set VMM bit inside CPUID
         self.disable_mediaanalysisd: bool = False  # Set mediaanalysisd to spawn
-        self.force_quad_thread:      bool = False #  Force quad thread mode (cpus=4)
         self.set_alc_usage:          bool = True  #  Set AppleALC usage
         self.allow_modern_audio:     bool = True  #  Restore AppleHDA.kext on macOS Tahoe (Apple dropped analog audio for non-T2 audio routing)
         self.allow_3rd_party_drives: bool = True  #  Allow ThirdPartyDrives quirk

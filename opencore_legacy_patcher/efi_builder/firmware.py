@@ -233,11 +233,12 @@ class BuildFirmware:
             logging.info("- Adding IOHIDFamily patch")
             support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Patch"], "Identifier", "com.apple.iokit.IOHIDFamily")["Enabled"] = True
 
-        # MacPro3,1/Xserve2,1 cannot boot with more than 4 threads in Sequoia
-        # Note cpus=4 only overrides if more than 4 threads are present. So same on dual-core units
-        if self.constants.force_quad_thread is True:
-            logging.info("- Adding CPU Thread Limit Patch")
-            self.config["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"] += " cpus=4"
+        # MacPro3,1/Xserve2,1: fix CPU startup ordering in _ml_processor_register (Sequoia+).
+        # Replaces the old cpus=4 thread limit workaround, all threads are usable again.
+        # Ported from Dortania 5e311e35.
+        if self.model in ["MacPro3,1", "Xserve2,1"]:
+            logging.info("- Fixing CPU startup ordering")
+            support.BuildSupport(self.model, self.constants, self.config).get_item_by_kv(self.config["Kernel"]["Patch"], "Comment", "Fix CPU startup ordering")["Enabled"] = True
 
 
     def _firmware_driver_handling(self) -> None:
@@ -321,6 +322,10 @@ class BuildFirmware:
             (
                 smbios_data.smbios_dictionary[self.model]["CPU Generation"] < cpu_data.CPUGen.sandy_bridge.value and \
                 not self.model.startswith("MacBook")
+            ) or
+            (
+                # Pre-El Capitan hardware (ported from Dortania 7eae823f)
+                smbios_data.smbios_dictionary[self.model]["Max OS Supported"] < os_data.os_data.el_capitan.value
             )
         ):
             logging.info("- Adding PCI Bus Enumeration Patch")
