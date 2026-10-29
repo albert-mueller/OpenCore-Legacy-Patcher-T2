@@ -83,36 +83,57 @@ jobs:
             try {
               const models = process.env.GEMINI_MODELS.split(',').map(m => m.trim()).filter(Boolean);
               const errors = [];
+              const sleep = ms => new Promise(r => setTimeout(r, ms));
               for (const model of models) {
-                const res = await fetch(
-                  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-                  {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'x-goog-api-key': process.env.GEMINI_API_KEY,
-                    },
-                    body: JSON.stringify({
-                      systemInstruction: { parts: [{ text: systemText }] },
-                      contents: [{ role: 'user', parts: [{ text: userText }] }],
-                      generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
-                    }),
+                // Up to 3 attempts per model: network errors ("fetch failed"),
+                // timeouts, 429 and 5xx are retried, then the next model is tried.
+                for (let attempt = 1; attempt <= 3 && !answer; attempt++) {
+                  let res, data;
+                  try {
+                    res = await fetch(
+                      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+                      {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'x-goog-api-key': process.env.GEMINI_API_KEY,
+                        },
+                        body: JSON.stringify({
+                          systemInstruction: { parts: [{ text: systemText }] },
+                          contents: [{ role: 'user', parts: [{ text: userText }] }],
+                          generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
+                        }),
+                        signal: AbortSignal.timeout(120000),
+                      }
+                    );
+                    data = await res.json().catch(() => ({}));
+                  } catch (e) {
+                    // Node hides the real reason in e.cause (DNS, reset, timeout...)
+                    const why = e.cause?.code || e.cause?.message || e.name || e.message;
+                    const msg = `${e.message} (${why})`;
+                    core.warning(`${model} attempt ${attempt}: ${msg}`);
+                    errors.push(`${model}#${attempt}: ${msg}`);
+                    await sleep(2000 * attempt);
+                    continue;
                   }
-                );
-                const data = await res.json().catch(() => ({}));
-                const text = (data.candidates?.[0]?.content?.parts || [])
-                  .map(p => p.text || '').join('').trim();
-                if (res.ok && text) { answer = text; usedModel = model; break; }
-                const msg = data.error?.message || (res.ok ? 'empty response' : `HTTP ${res.status}`);
-                core.warning(`${model}: ${msg}`);
-                errors.push(`${model}: ${msg}`);
+                  const text = (data.candidates?.[0]?.content?.parts || [])
+                    .map(p => p.text || '').join('').trim();
+                  if (res.ok && text) { answer = text; usedModel = model; break; }
+                  const msg = data.error?.message || (res.ok ? 'empty response' : `HTTP ${res.status}`);
+                  core.warning(`${model} attempt ${attempt}: ${msg}`);
+                  errors.push(`${model}#${attempt}: ${msg}`);
+                  // Retry only transient errors; otherwise go to the next model
+                  if (res.status === 429 || res.status >= 500) { await sleep(3000 * attempt); continue; }
+                  break;
+                }
+                if (answer) break;
               }
               if (!answer) throw new Error(errors.join(' | '));
             } catch (err) {
               core.error(err.message);
               await github.rest.issues.createComment({
                 owner, repo, issue_number,
-                body: `⚠️ Sorry @${comment.user.login}, the AI request failed: \`${err.message}\``,
+                body: `⚠️ Sorry @${comment.user.login}, the AI request failed: \`${err.message.slice(0, 1500)}\``,
               });
               return;
             }
