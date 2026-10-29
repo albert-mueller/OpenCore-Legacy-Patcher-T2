@@ -400,7 +400,11 @@ class BuildGraphicsAudio:
                             "use-apple-layout-id": 1,
                             "use-layout-id": 1,
                         }
-                    support.BuildSupport(self.model, self.constants, self.config).enable_kext("AppleALC.kext", self.constants.applealc_version, self.constants.applealc_path)
+                    if self.model == "MacBook4,1":
+                        # MacBook4,1's codec is only supported by Dortania's modified AppleALC build (ported from ad5b5df7)
+                        support.BuildSupport(self.model, self.constants, self.config).enable_kext("AppleALC.kext", self.constants.applealc_jazzzny_version, self.constants.applealc_jazzzny_path)
+                    else:
+                        support.BuildSupport(self.model, self.constants, self.config).enable_kext("AppleALC.kext", self.constants.applealc_version, self.constants.applealc_path)
             elif (self.model.startswith("MacPro") and self.model != "MacPro6,1") or self.model.startswith("Xserve"):
                 # Used to enable Audio support for non-standard dGPUs
                 support.BuildSupport(self.model, self.constants, self.config).enable_kext("AppleALC.kext", self.constants.applealc_version, self.constants.applealc_path)

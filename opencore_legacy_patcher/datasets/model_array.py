@@ -5,6 +5,7 @@ model_array.py: Datasets for different models
 
 SupportedSMBIOS = [
     # MacBook
+    "MacBook4,1",
     "MacBook5,1",
     "MacBook5,2",
     "MacBook6,1",
@@ -116,6 +117,7 @@ SupportedSMBIOS = [
 # Audio
 
 LegacyAudio = [
+    "MacBook4,1",
     "MacBook5,1",
     "MacBook5,2",
     "MacBook6,1",
@@ -201,6 +203,7 @@ ModernGPU = [
 ]
 
 LegacyGPU = [
+    "MacBook4,1",  # Intel X3100
     "MacBook5,1",  # Nvidia 9000
     "MacBook5,2",  # Nvidia 9000
     "MacBook6,1",  # Nvidia 9000
@@ -240,6 +243,7 @@ LegacyGPU = [
 ]
 
 LegacyBrightness = [
+    "MacBook4,1",
     "MacBook5,2",
     "iMac7,1",
     "iMac8,1",
@@ -277,7 +281,7 @@ MacPro = ["MacPro3,1", "MacPro4,1", "MacPro5,1", "Xserve2,1", "Xserve3,1", "Dort
 # MXM iMac
 MXMiMac = ["iMac11,1", "iMac11,2", "iMac11,3", "iMac10,1", "iMac12,1", "iMac12,2", "Dortania1,1"]
 
-NoAGPMSupport = ["MacBookPro4,1", "iMac7,1", "iMac8,1", "MacPro3,1", "Xserve2,1", "Dortania1,1"]
+NoAGPMSupport = ["MacBook4,1", "MacBookPro4,1", "iMac7,1", "iMac8,1", "MacPro3,1", "Xserve2,1", "Dortania1,1"]
 
 AGDPSupport = [
     "MacBookPro9,1",
@@ -302,6 +306,7 @@ AGDPSupport = [
 ]
 
 Missing_USB_Map = [
+    "MacBook4,1",
     "MacBook5,1",
     "MacBook5,2",
     "MacBook6,1",
@@ -341,6 +346,13 @@ Missing_USB_Map = [
     "MacPro4,1",
     "Xserve2,1",
     "Xserve3,1",
+]
+
+# Subset of Missing_USB_Map that never had a real native USB map (dropped before the
+# OS X El Capitan IOUSBHostFamily rewrite, or only a stub map there). Same as Dortania
+# upstream's el_capitan bucket (datasets/usb_map_data.py), USB-Map.kext's MinKernel 15.0.0.
+Missing_USB_Map_Since_El_Capitan = [
+    "MacBook4,1",
 ]
 
 # Subset of Missing_USB_Map whose native USB map was already dropped in macOS Sierra.

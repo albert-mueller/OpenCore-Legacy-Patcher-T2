@@ -300,7 +300,7 @@ class BuildMiscellaneous:
                     builder.enable_kext("AppleUSBMultitouch.kext", self.constants.multitouch_version, self.constants.multitouch_path)
                     self._enable_topcase_panic_patch()
 
-            if self.model == "MacBook5,2":
+            if self.model in ["MacBook4,1", "MacBook5,2"]:
                 builder = support.BuildSupport(self.model, self.constants, self.config)
                 builder.enable_kext("AppleUSBTrackpad.kext", self.constants.apple_trackpad, self.constants.apple_trackpad_path)
                 builder.enable_kext("LegacyKeyboardInjector.kext", self.constants.legacy_keyboard, self.constants.legacy_keyboard_path)
@@ -395,6 +395,8 @@ class BuildMiscellaneous:
                     if m1 and not spoofing:
                         if self.model in model_array.Missing_USB_Map_Ventura:
                             m1["MinKernel"] = "22.0.0"
+                        elif self.model in model_array.Missing_USB_Map_Since_El_Capitan:
+                            m1["MinKernel"] = "15.0.0"
                         elif self.model in model_array.Missing_USB_Map_Since_Sierra:
                             m1["MinKernel"] = "16.0.0"
                         elif self.model in model_array.Missing_USB_Map:
