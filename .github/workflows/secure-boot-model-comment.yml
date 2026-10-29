@@ -50,9 +50,13 @@ jobs:
             const dir = `${process.env.RUNNER_TEMP}/result`;
 
             // --- Find the PR through the API, never from the artifact ---
+            // run.pull_requests can also list PRs from *other* repos (forks, the
+            // pre-move repo) that share this head SHA - their numbers 404 here.
+            const repoId = context.payload.repository.id;
             let number = null;
             for (const p of run.pull_requests || []) {
-              if (p.head && p.head.sha === headSha) number = p.number;
+              if (p.base && p.base.repo && p.base.repo.id === repoId &&
+                  p.head && p.head.sha === headSha) number = p.number;
             }
             if (!number && run.head_repository) {
               const pulls = await github.paginate(github.rest.pulls.list, {
@@ -62,7 +66,13 @@ jobs:
               if (match) number = match.number;
             }
             if (!number) { core.info(`No open PR at ${headSha} - nothing to comment on`); return; }
-            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
+            let pr;
+            try {
+              ({ data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number }));
+            } catch (e) {
+              if (e.status === 404) { core.info(`#${number} is not a PR in ${owner}/${repo} - nothing to comment on`); return; }
+              throw e;
+            }
             if (pr.state !== 'open' || pr.head.sha !== headSha) {
               core.info(`PR #${number} has moved on from ${short} - the newer run will comment`);
               return;
