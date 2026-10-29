@@ -18,7 +18,8 @@ from .. import constants
 from ..support import (
     updates,
     utilities,
-    project_status
+    project_status,
+    endpoint_health
 )
 from ..datasets import (
     css_data
@@ -470,6 +471,12 @@ class MainFrame(wx.Frame):
             logging.exception("Stack Trace:")
             self._report_manual_check(manual, None, str(e), include_prerelease)
             return
+
+        # Updates were turned back on because a service the patcher depends on is gone
+        # (support/endpoint_health.py): tell the user once, before any update dialog.
+        notice = endpoint_health.pop_notice()
+        if notice and not getattr(self, 'exiting_app', False) and not gui_support.is_app_exiting():
+            wx.CallAfter(wx.MessageBox, notice, "Updates Turned Back On", wx.OK | wx.ICON_WARNING)
 
         if not update_dict:
             self._report_manual_check(manual, None, checker.last_error, include_prerelease)
