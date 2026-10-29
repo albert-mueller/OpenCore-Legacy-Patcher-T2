@@ -2,14 +2,11 @@
 ## 4.0.0.1900019 - 4.0.0 alpha 19.19
 I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://oclp-t2.github.io/issues/599.html on this patcher's page or https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
 
-This release brings new root patches and MacBook4,1 support from Dortania's upstream OpenCore Legacy Patcher, thx @Jazzzny, EduCovas and Dortania:
+This release brings new root patches from Dortania's upstream OpenCore Legacy Patcher, thx @Jazzzny, EduCovas and Dortania:
 - adds root patches for Intel GMA X3100 graphics (MacBook4,1) on macOS Big Sur and newer (ported from Dortania 436ded0f)
 - adds new non-metal patches: QuartzCore is now patched on macOS Big Sur and newer (ported from Dortania 828e3124)
 - adds patched screen savers and wallpaper extensions for non-metal Macs (Drift, Hello, Monterey, Ventura, Macintosh and Sequoia wallpapers) (ported from Dortania 71036963)
-- reintroduces support for the MacBook4,1 (ported from Dortania ad5b5df7), including:
-  - two-finger trackpad support, backlight and audio patches
-  - audio through Dortania's modified AppleALC 1.6.3 build with support for older models (only used on MacBook4,1, every other Mac stays on AppleALC 1.9.8)
-  - a USB map for macOS El Capitan and newer, including the UHCI companion controllers so USB 1.1 devices work (ported from Dortania e50a9575, added to the existing USB maps instead of Dortania's new per-model map layout)
+- MacBook4,1 support is limited to root patching (GMA X3100 graphics, backlight and audio patches, ported from Dortania ad5b5df7). Building OpenCore for the MacBook4,1 is not supported: its audio needs Dortania's modified AppleALC 1.6.3, which is not compatible with OpenCore 1.0.8. Building can return once a much newer AppleALC supports this model
 - PatcherSupportPkg is updated to 2.11
 
 ## 4.0.0.1900018 - 4.0.0 alpha 19.18

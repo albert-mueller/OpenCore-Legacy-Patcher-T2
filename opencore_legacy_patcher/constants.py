@@ -87,7 +87,6 @@ class Constants:
         self.airportbcrmfixup_version:   str = "2.2.1"  #      AirPortBrcmFixup
         self.nvmefix_version:            str = "1.1.3"  #      NVMeFix
         self.applealc_version:           str = "1.9.8"  #      AppleALC
-        self.applealc_jazzzny_version:   str = "1.6.3-Jazzzny" #  AppleALC for MacBook4,1 (Dortania build with support for older models)
         self.restrictevents_version:     str = "1.1.7"  #      RestrictEvents (rolling - acidanthera/RestrictEvents@b70aaa4, javascriptcore branch)
         self.t2tahoefixup_version:       str = "1.0.16" #      T2TahoeFixup
         self.appleans2disabler_version:  str = "1.0.0"  #      AppleANS2Disabler (T2 internal SSD)
@@ -644,10 +643,6 @@ class Constants:
     @property
     def applealc_path(self):
         return self.payload_kexts_path / Path(f"Acidanthera/AppleALC-v{self.applealc_version}-{self.kext_variant}.zip")
-
-    @property
-    def applealc_jazzzny_path(self):
-        return self.payload_kexts_path / Path(f"Acidanthera/AppleALC-v{self.applealc_jazzzny_version}-{self.kext_variant}.zip")
 
     @property
     def piixata_path(self):
