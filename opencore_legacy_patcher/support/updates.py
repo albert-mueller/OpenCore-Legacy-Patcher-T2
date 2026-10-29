@@ -17,6 +17,7 @@ from . import subprocess_wrapper
 from . import global_settings
 from . import update_channel_availability
 from . import project_status
+from . import endpoint_health
 
 
 from .. import constants
@@ -206,6 +207,12 @@ class CheckBinaryUpdates:
             logging.info("Running from source - automatic updates are disabled for this session.")
             self.last_error = "Running from source - automatic updates are disabled for this session."
             return None
+
+        # If an external service the patcher depends on is gone for good, a fix can only
+        # arrive as an update - lift the snooze and turn automatic updates back on before
+        # the snooze is evaluated below (see support/endpoint_health.py).
+        if self.constants.special_build is False:
+            endpoint_health.check_and_restore_updates(self.constants)
 
         if manual is False:
             next_update_check = global_settings.GlobalEnviromentSettings().read_property("NextUpdateCheck")
