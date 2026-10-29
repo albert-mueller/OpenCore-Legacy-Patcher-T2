@@ -52,6 +52,10 @@ AD_NETWORKS = ("googlesyndication.com", "adsbygoogle", "doubleclick.net", "adser
 DISCLAIMERS = ("not affiliated", "unofficial", "independent community fork", "nicht mit dortania",
                "nicht offiziell", "inoffiziell")
 LABEL = "typosquat-site"
+# Earlier real-world case against the upstream project, linked in every issue as a reference
+PRIOR_CASE = ("For a real example of how such a site operated and was taken down, see Dortania's "
+              "write-up on opencorelegacypatcher.com: "
+              "https://github.com/dortania/OpenCore-Legacy-Patcher/issues/1120")
 MARKER = "<!-- typosquat-site:{} -->"
 UA = f"Mozilla/5.0 (compatible; typosquat-site-watch; +https://github.com/{ORIGINAL})"
 HOST_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
@@ -432,6 +436,8 @@ def farm_issue_body(r, reg):
         f"report fake branding or scraped content to the hosting provider and the registrar's abuse contact{contact}, "
         "and policy violations to the ad network it uses.",
         "",
+        PRIOR_CASE,
+        "",
         "Closing this issue marks the site as handled, and the workflow won't file it again.",
         "",
         MARKER.format(r["host"]),
@@ -484,6 +490,8 @@ def issue_body(r, reg):
         "Please check the site before acting.",
         "",
         f"**If it's an impersonation:** {action}",
+        "",
+        PRIOR_CASE,
         "",
         "Closing this issue marks the site as handled, and the workflow won't file it again.",
         "",
