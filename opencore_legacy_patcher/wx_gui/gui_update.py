@@ -33,7 +33,7 @@ class UpdateFrame(wx.Frame):
     """
     Create a frame for updating the patcher
     """
-    def __init__(self, parent: wx.Frame, title: str, global_constants: constants.Constants, screen_location: wx.Point, url: str = "", version_label: str = "", changelog: str = "") -> None:
+    def __init__(self, parent: wx.Frame, title: str, global_constants: constants.Constants, screen_location: wx.Point, url: str = "", version_label: str = "", changelog: str = "", mandatory: bool = False) -> None:
         # CORRECTED: Always call the super-class constructor first to register the window correctly
         super().__init__(parent, title=title, size=(350, 300), style=wx.DEFAULT_FRAME_STYLE & ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX))
 
@@ -67,6 +67,10 @@ class UpdateFrame(wx.Frame):
 
         self.title: str = title
         self.constants: constants.Constants = global_constants
+        # Set by the automatic check once the user's snooze has run out, see
+        # updates.snooze_has_expired(): the update can no longer be postponed by
+        # cancelling the download or the administrator prompt.
+        self.mandatory: bool = mandatory
         self.screen_location: wx.Point = screen_location
         if parent:
             self.parent.Centre()
@@ -171,6 +175,7 @@ class UpdateFrame(wx.Frame):
             item_name=self.version_label,
             download_icon=str(self.constants.app_icon_path),
             changelog=self.changelog,
+            allow_cancel=not self.mandatory,
             cancel_message=(
                 "Are you sure you want to cancel the update?\n\n"
                 "Staying on an older version of OpenCore Legacy Patcher T2 means you "
@@ -305,6 +310,21 @@ class UpdateFrame(wx.Frame):
         self.progress_bar_animation.stop_pulse()
         self.progress_bar.Hide()
 
+        # A mandatory update must not be postponed by dismissing the admin prompt
+        # either - that would just be the "Cancel -> Yes" loophole one step later.
+        # The update cannot be forced without the password, so the patcher closes
+        # instead of returning to the main menu; the next launch asks again.
+        if is_cancelled and self.mandatory:
+            wx.MessageBox(
+                "This update is required because the snooze period has ended or an online "
+                "service the patcher depends on is no longer available.\n\n"
+                f"{self.constants.patcher_name} will now close. The update will be offered again the next time you open it.",
+                "Update Required",
+                wx.OK | wx.ICON_WARNING
+            )
+            logging.info("Mandatory update cancelled at the admin prompt, closing the app")
+            sys.exit(3)
+
         # A cancelled install (user dismissed the admin prompt) leaves the system
         # untouched, so return to the main menu instead of taking the app down.
         if is_cancelled and self._return_to_parent():
@@ -318,6 +338,11 @@ class UpdateFrame(wx.Frame):
 
     def _finalize_ui_and_start_countdown(self) -> None:
         """Reconstructs the interface layout and initializes the exit timer safely."""
+        if self.mandatory:
+            try:
+                updates.clear_snooze()
+            except Exception:
+                logging.exception("Failed to clear the expired snooze")
         self.title_label.SetLabel("Update complete!")
         self.title_label.Centre(wx.HORIZONTAL)
 

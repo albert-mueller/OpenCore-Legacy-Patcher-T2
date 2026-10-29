@@ -49,7 +49,6 @@ class GenerateDefaults:
         self.constants.firewire_boot = False
         self.constants.xhci_boot = False
         self.constants.nvme_boot = False
-        self.constants.force_quad_thread = False
         self.constants.enable_wake_on_wlan = False
         self.constants.disable_tb = False
         self.constants.dGPU_switch = False
@@ -113,11 +112,6 @@ class GenerateDefaults:
             else:
                 global_settings.GlobalEnviromentSettings().write_property("MacBookPro_TeraScale_2_Accel", False)
                 self.constants.allow_ts2_accel = False
-
-        if self.model in ["MacPro3,1", "Xserve2,1"]:
-            self.constants.force_quad_thread = True
-        else:
-            self.constants.force_quad_thread = False
 
         if self.model in smbios_data.smbios_dictionary:
             if smbios_data.smbios_dictionary[self.model]["CPU Generation"] >= cpu_data.CPUGen.skylake.value:
@@ -544,6 +538,7 @@ class GenerateDefaults:
 
             # Non-Metal Logic
             elif arch in [
+                device_probe.Intel.Archs.GMA_X3100,
                 device_probe.Intel.Archs.Iron_Lake,
                 device_probe.Intel.Archs.Sandy_Bridge,
                 device_probe.NVIDIA.Archs.Tesla,

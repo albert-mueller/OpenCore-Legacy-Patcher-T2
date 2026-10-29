@@ -496,9 +496,22 @@ jobs:
           if [ -n "$pr" ]; then
             gh api -X PATCH "repos/$GITHUB_REPOSITORY/pulls/$pr" -F "body=@$RUNNER_TEMP/body.md" > /dev/null
           else
-            url=$(gh pr create --head "$FIX_BRANCH" --base "$BASE" \
-                    --title "Python check: automatic fixes" --body-file "$RUNNER_TEMP/body.md")
-            pr=${url##*/}
+            # Creating PRs with GITHUB_TOKEN needs "Allow GitHub Actions to create and
+            # approve pull requests" enabled for the organization AND the repository.
+            # If it isn't, the fixes are already pushed - warn with a link instead of failing.
+            if url=$(gh pr create --head "$FIX_BRANCH" --base "$BASE" \
+                       --title "Python check: automatic fixes" --body-file "$RUNNER_TEMP/body.md" 2>"$RUNNER_TEMP/pr_err.txt"); then
+              pr=${url##*/}
+            else
+              cat "$RUNNER_TEMP/pr_err.txt"
+              compare="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/$BASE...$FIX_BRANCH?expand=1"
+              echo "::warning::Couldn't create the auto-fix PR (is 'Allow GitHub Actions to create and approve pull requests' enabled in the org and repo settings?). The fixes were pushed to $FIX_BRANCH - open the PR manually: $compare"
+              {
+                echo "### Auto-fix PR could not be created"
+                echo "The fixes were pushed to \`$FIX_BRANCH\`. [Open the PR manually]($compare)."
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
           fi
 
           # Ask for review. A reviewer needs access to the repo (collaborator with

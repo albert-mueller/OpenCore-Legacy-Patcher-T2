@@ -496,16 +496,6 @@ class OCSettingsFrame(wx.Frame):
                     "min": 0,
                     "max": 60,
                 },
-                "MacPro3,1/Xserve2,1 Workaround": {
-                    "type": "checkbox",
-                    "value": self.constants.force_quad_thread,
-                    "variable": "force_quad_thread",
-                    "description": [
-                        "Limits to 4 threads max on these units.",
-                        "Required for macOS Sequoia and later.",
-                    ],
-                    "condition": (self.constants.custom_model and self.constants.custom_model in ["MacPro3,1", "Xserve2,1"]) or self.constants.computer.real_model in ["MacPro3,1", "Xserve2,1"]
-                },
             },
             "Debugging": {
                 "Debugging features ": {

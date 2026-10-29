@@ -2,6 +2,7 @@
 arguments.py: CLI argument handling
 """
 
+import os
 import sys
 import time
 import logging
@@ -28,8 +29,11 @@ from ..datasets import (
 from . import (
     utilities,
     defaults,
-    validation
+    validation,
+    updates
 )
+
+from packaging import version
 
 
 
@@ -77,6 +81,10 @@ class arguments:
             self._sys_patch_auto_handler()
             return
 
+        if self.args.check_updates:
+            self._check_updates_handler()
+            return
+
 
     def _validation_handler(self) -> None:
         """
@@ -118,6 +126,72 @@ class arguments:
 
         logging.info("Set Auto patching")
         StartAutomaticPatching(self.constants).start_auto_patch()
+
+
+    def _other_instance_running(self) -> bool:
+        """
+        Whether another copy of the patcher is running (GUI, auto patcher, OS caching, ...)
+        """
+        try:
+            results = subprocess.run(["/bin/ps", "-axo", "pid=,command="], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10)
+        except Exception:
+            logging.exception("Failed to list running processes")
+            return False
+        own_pid = os.getpid()
+        for line in results.stdout.decode("utf-8", errors="replace").splitlines():
+            pid, _, command = line.strip().partition(" ")
+            if not pid.isdigit() or int(pid) == own_pid:
+                continue
+            if "OpenCore-Patcher-T2.app/Contents/MacOS/" in command:
+                return True
+        return False
+
+
+    def _check_updates_handler(self) -> None:
+        """
+        Background update check, started every few hours by the update-check LaunchAgent
+
+        Runs the same check as the app's startup check (snooze, update channel,
+        project and endpoint health included) without opening any window. Only if
+        a newer build is found the patcher opens, and its own startup check then
+        offers or installs it exactly as on a normal launch: auto updates on, an
+        expired snooze or a dead service (support/endpoint_health.py) install it,
+        otherwise the user is asked.
+        """
+        logging.info("Background update check")
+
+        if self.constants.launcher_script is not None:
+            logging.info("- Running from source, skipping")
+            return
+        if self._other_instance_running():
+            # The open app checks on its own; the next interval tries again.
+            logging.info("- The patcher is already running, skipping")
+            return
+
+        try:
+            checker = updates.CheckBinaryUpdates(self.constants)
+            update_dict = checker.check_binary_updates()
+        except Exception as e:
+            logging.error(f"- Update check failed: {e}")
+            logging.exception("Stack Trace:")
+            return
+
+        if not update_dict:
+            logging.info(f"- No update available ({checker.last_error if checker.last_error else 'already on the latest version'})")
+            return
+
+        remote_version_str = str(update_dict["Version"])
+        if not update_dict.get("ChannelSwitch", False):
+            try:
+                if version.parse(remote_version_str) <= version.parse(self.constants.patcher_version):
+                    logging.info(f"- Already up to date (Local: {self.constants.patcher_version}, Remote: {remote_version_str})")
+                    return
+            except version.InvalidVersion:
+                logging.error(f"- Unparsable version (Local: {self.constants.patcher_version}, Remote: {remote_version_str}), not opening the patcher")
+                return
+
+        logging.info(f"- Found new version: {remote_version_str}, opening the patcher")
+        gui_entry.EntryPoint(self.constants).start()
 
 
     def _prepare_for_update_handler(self) -> None:

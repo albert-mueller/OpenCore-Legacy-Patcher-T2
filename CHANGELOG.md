@@ -1,6 +1,45 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.1900019 - 4.0.0 alpha 19.19
+I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://oclp-t2.github.io/issues/599.html on this patcher's page or https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
+
+This release brings new root patches from Dortania's upstream OpenCore Legacy Patcher, thx @Jazzzny, EduCovas and Dortania:
+- adds root patches for Intel GMA X3100 graphics (MacBook4,1) on macOS Big Sur and newer (ported from Dortania 436ded0f)
+- adds new non-metal patches: QuartzCore is now patched on macOS Big Sur and newer (ported from Dortania 828e3124)
+- adds patched screen savers and wallpaper extensions for non-metal Macs (Drift, Hello, Monterey, Ventura, Macintosh and Sequoia wallpapers) (ported from Dortania 71036963)
+- MacBook4,1 support is limited to root patching (GMA X3100 graphics, backlight and audio patches, ported from Dortania ad5b5df7). Building OpenCore for the MacBook4,1 is not supported: its audio needs Dortania's modified AppleALC 1.6.3, which is not compatible with OpenCore 1.0.8. Building can return once a much newer AppleALC supports this model
+- PatcherSupportPkg is updated to 2.11
+- now, in the repository, if you have just a question rather than an issue, or AI could help you fix that issue, you can also use /ai after opening the issue to get an answer from AI instead of waiting for a human
+- the patcher now also checks for updates in the background, at login and every 6 hours, even when it is not open. The check runs silently and only opens the patcher when a newer build is found; the update is then offered or installed exactly as on a normal launch (snooze, "Turn Off Auto Updates", mandatory updates after an expired snooze or a dead service all apply). It is skipped while the patcher is already open, and no analytics are sent for it. This is installed by the PKG as a LaunchAgent (com.albert-mueller.opencore-legacy-patcher.update-check) and removed again by the uninstaller
+- brings bug fixes from Dortania's upstream OpenCore Legacy Patcher, thx @Jazzzny, @dhinakg and Dortania:
+- fixes Safari/WebKit crashes on Macs older than Sandy Bridge (no AVX): the JavaScriptCore AVX patch is now applied through RestrictEvents (`revpatch=jsc`), replacing the removed root patch. This also covers Macs without a Wi-Fi card on macOS Sonoma and newer, which never got the old root patch (ported from Dortania aec949a1)
+  - RestrictEvents is updated to 1.1.7 (rolling build of acidanthera/RestrictEvents b70aaa4, `javascriptcore` branch, same build Dortania ships; there is no tagged 1.1.7 release yet). RestrictEvents is still not injected on T2 Macs
+- fixes the dual CPU kernel panic on MacPro3,1 and Xserve2,1 on macOS Sequoia and newer with a new kernel patch that fixes the CPU startup ordering. The "MacPro3,1/Xserve2,1 Workaround" setting (cpus=4) is removed as it is no longer needed, so all CPU threads can be used again (ported from Dortania 5e311e35)
+- enables the PCI bus enumeration patch on all Macs whose last supported macOS is older than OS X El Capitan (ported from Dortania 7eae823f)
+
+This release also fixes a vulnerability, too:
+- updates are enforced when an online service the patcher depends on is gone for good (PatcherSupportPkg downloads, Metallib catalog, KDK catalog, AppleDB, the project website, Gemini help). Once one of these services has been unreachable for more than 24 hours (the server answers 404/410/451, the domain no longer resolves, or its certificate is invalid), updates behave exactly as if the snooze period had ended, for as long as the service stays gone: a running snooze is ended and can't be renewed, "Turn Off Auto Updates" is ignored (the setting itself is kept), and the next update is installed automatically and can't be cancelled. A notice explains why. The main repository is not part of this check. Users who are simply offline are never affected: github.com has to be reachable first, and timeouts and server errors are ignored. Once every affected service is reachable again, the user's update settings apply again
+  - Impact: a dead service breaks older builds, and an abandoned domain or account can be registered by someone else and used to serve malicious content to every older installation. The fix always ships as an update, which users with snoozed or disabled updates would otherwise never receive. That is why these settings are ignored in this case instead of being honored
+
+## 4.0.0.1900017 - 4.0.0 alpha 19.17
+I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://oclp-t2.github.io/issues/599.html on this patcher's page or https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
+
+From today onwards, we are migrating over to a new location for this patcher and the old APIs are retired. This means if you don't update soon, you will not be able to:
+- install automatic updates via the OpenCore Legacy Patcher T2 application
+- install root patches
+- open Issues or Discussions from the Help menu in OpenCore Legacy Patcher T2
+- open the OpenCore Legacy Patcher T2 website from the Help menu
+- get automatically instructions on how to disable Secure Boot and SIP on T2 Macs
+
+This release:
+- changes all patcher endpoints to the new GitHub organization endpoint
+- fixes a vulnerability where, after the snoozed update days had passed, the update could be postponed again by clicking Cancel and then Yes in the update download, so the outdated and possibly vulnerable version kept running. Once the snooze period has ended, the update is now mandatory: the download can no longer be cancelled (the Cancel button is gone and Escape or closing the window no longer stops it), and dismissing the administrator password prompt closes the patcher instead of returning to the main menu, so the update is offered again on the next launch
+  - Impact: users could keep running an outdated, possibly vulnerable version of OpenCore Legacy Patcher T2 indefinitely by cancelling the update download every time it was offered after the snooze period had ended. Security fixes in newer releases might never be installed, leaving the Mac exposed to known vulnerabilities that attackers could exploit. Since the patcher runs with administrator privileges and modifies the boot configuration and the system volume, a vulnerability in an outdated build could affect the whole system
+- fixes a vulnerability where the snoozed update days could be bypassed by snoozing again in Settings, since every change restarted the snooze from today, even after it had already ended. A snooze can now only be shortened, never extended past its current deadline, an expired snooze can no longer be renewed, setting it to 0 ends the snooze instead of removing it, and an invalid snooze date is treated as expired. The snooze is reset once the required update has been installed, or when no newer version is available, so future updates can be snoozed again
+  - Impact: users could keep running an outdated, possibly vulnerable version of OpenCore Legacy Patcher T2 indefinitely by renewing the snooze in Settings, so the update was never offered at all. Security fixes in newer releases might never be installed, leaving the Mac exposed to known vulnerabilities that attackers could exploit. Since the patcher runs with administrator privileges and modifies the boot configuration and the system volume, a vulnerability in an outdated build could affect the whole system
+- the Snooze Updates setting now shows the remaining days of the snooze instead of the number of days originally entered
+
 ## 4.0.0.1900016 - 4.0.0 alpha 19.16
-I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://albert-mueller.github.io/issues/599.html on this patcher's page or https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
+I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://oclp-t2.github.io/issues/599.html on this patcher's page or https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
 
 This release:
 - fixes an issue where if a user desired to receive pre-release builds may no longer receive any updates by ensuring the Check for pre-release updates is now a check box instead of a button to ensure the user gets these updates from the desired channel instead of stopping to receive updates altogether until a stable release is out
@@ -32,7 +71,7 @@ This release:
 - adds the USB map's former location (USB-Map.kext/Contents/Info.plist) to the License Guard allow-list: the file now lives on as AppleUSBMaps/Info.plist with its Dortania copyright notice intact. Together with the restored files, this resolves the 13 License Guard warnings about deleted files with an upstream copyright notice.
 
 ## 4.0.0.1900014 - 4.0.0 alpha 19.14
-I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://albert-mueller.github.io/issues/599.html on this patcher's page or https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
+I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://oclp-t2.github.io/issues/599.html on this patcher's page or https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
 
 This release:
 - adds a button that opens the official OpenCore Legacy Patcher T2 website called Official OpenCore Legacy Patcher T2 guide
@@ -51,21 +90,21 @@ Severity: high
 - fixes a vulnerability where an attacker could point to any of the buttons inside Help to an arbitary website, including a typosquatting site:
 
       ("View official OpenCore Legacy Patcher T2 GitHub repository", getattr(self.constants, "github_official_link", "https://share.google/wPHFvNb9hJ86pGJg0")),
-                  ("View GitHub Issues", getattr(self.constants, "github_issues_link", "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues")),
-                  ("Join GitHub Discussions", getattr(self.constants, "github_discussions_link", "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/discussions"))
+                  ("View GitHub Issues", getattr(self.constants, "github_issues_link", "https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues")),
+                  ("Join GitHub Discussions", getattr(self.constants, "github_discussions_link", "https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/discussions"))
 
-Impact: an attacker could swap for example https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues to a lookalike typosquatting site that looks like GitHub to launch SEO poisoning attacks to impersonate Albert Müller, Gandalf, Matteo or any of the contributors on this repository or worse, install malware. This vulnerability has been fixed by ensuring that the gui_help.py doesn't contain hardcoded links and allow opening only trusted domains and nothing else. 
+Impact: an attacker could swap for example https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues to a lookalike typosquatting site that looks like GitHub to launch SEO poisoning attacks to impersonate Albert Müller, Gandalf, Matteo or any of the contributors on this repository or worse, install malware. This vulnerability has been fixed by ensuring that the gui_help.py doesn't contain hardcoded links and allow opening only trusted domains and nothing else. 
 Severity: high
 Proof of concept: https://youtu.be/IJ_wMjHIbJs?si=nciL0exX5Iab0b0S
 
 
 ## 4.0.0.1900013 - 4.0.0 alpha 19.13
-I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://albert-mueller.github.io/issues/599.html on this patcher's page or https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
+I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://oclp-t2.github.io/issues/599.html on this patcher's page or https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
 
 This release fixes a bug where on T2 Macs, OpenCore Legacy Patcher T2 still was thinking that it was using OpenCore 2.0.4, although since many releases, it was already using OpenCore 2.0.7.
 
 ## 4.0.0.1900012 - 4.0.0 alpha 19.12
-I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://albert-mueller.github.io/issues/599.html on this patcher's page or https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
+I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://oclp-t2.github.io/issues/599.html on this patcher's page or https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
 
 This version:
 - moves T2 Installer Workaround from Security to General and no longer requires Experimental Features to be enabled
@@ -214,7 +253,7 @@ Security and OpenCore installation:
 This release:
 - adds an end-of-life warning: if the main project repository (albert-mueller/OpenCore-Legacy-Patcher-T2) is archived or deleted, the main menu shows a warning on launch and a "Download OpenCore Legacy Patcher from Dortania" button that opens Dortania's latest release. The check runs once per launch in the background; a missing internet connection or a GitHub rate limit never triggers it, and a renamed repository still counts as active
 - if the repository was deleted, or its name now belongs to a different repository (detected via GitHub's repository ID), the in-app updater stops using the official channel, so a re-registered account can't ship fake updates (same supply chain issue as the fork channels). An archived repository keeps the updater as is
-- changes the link with instructions for T2 Macs from the previous repository: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2-Instructions-for-T2-Macs to a now new website: https://albert-mueller.github.io/ . The previous repository will be gone and as such, if you are running older versions of OpenCore Legacy Patcher T2, now it will open a dead link.
+- changes the link with instructions for T2 Macs from the previous repository: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2-Instructions-for-T2-Macs to a now new website: https://oclp-t2.github.io/ . The previous repository will be gone and as such, if you are running older versions of OpenCore Legacy Patcher T2, now it will open a dead link.
 
 ## 4.0.0.190009.2 - 4.0.0 alpha 19.9.2
 This release:
@@ -316,7 +355,7 @@ Impact: the helper is installed setuid root and runs any command its caller pass
                           response = error_dialog.ShowModal()
           
                           if response == wx.ID_OK:
-                              webbrowser.open("https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues")
+                              webbrowser.open("https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues")
           
                           # Check directly for your custom event return hook code
                           # Unter macOS Catalina und älter Gemini funktioniert nicht richtig unter Safari/WebKit
@@ -612,7 +651,7 @@ This release:
 - the "Downloading" window of the app updater now also shows the release notes of the version being downloaded, below the progress bar, instead of only the logo, the version and the Cancel button. Links open in the browser, and HTML inside the release notes is shown as text instead of being rendered. Other downloads (macOS installers, KDKs, metallibs) keep the compact window
 - fixes a bug where turning on "Turn Off Auto Updates" (or launching with --disable_auto_update) also turned off the automatic check for updates. As the setting describes, the app now still checks for updates automatically, but a found update is only offered in the "A new version is available" dialog instead of being downloaded and installed without asking. Manual checks and the "Update Later" snooze work as before
 - reworks how the app asks for administrator rights: the old self-made password dialog was replaced with the native macOS authorization prompt (utilities.get_admin_permission), and admin requests now go through one shared code path instead of several copies. Thx @gandolf243
-- fixes a vulnerability where the app asked for the administrator password in a plain AppleScript dialog (`osascript` `display dialog ... with hidden answer`). Because osascript is preinstalled on every Mac, any other program could show an identical-looking "OpenCore Legacy Patcher needs your administrator password" dialog with the app's own icon (a living-off-the-land social engineering attack), check the entered password with `sudo -v` and then use it to take over the Mac; users had no way to tell the real prompt from a fake one. The app also kept the password in memory for the rest of the session and piped it to `sudo -S` for every privileged command. Administrator rights are now requested through Apple's Security framework (Authorization Services, utilities.get_admin_permission): the password is entered in the system's own authorization prompt and never reaches the app. From now on, OpenCore Legacy Patcher T2 never asks for your password in its own dialog, so treat any such dialog as fake. Thx @gandolf243 https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/pull/445
+- fixes a vulnerability where the app asked for the administrator password in a plain AppleScript dialog (`osascript` `display dialog ... with hidden answer`). Because osascript is preinstalled on every Mac, any other program could show an identical-looking "OpenCore Legacy Patcher needs your administrator password" dialog with the app's own icon (a living-off-the-land social engineering attack), check the entered password with `sudo -v` and then use it to take over the Mac; users had no way to tell the real prompt from a fake one. The app also kept the password in memory for the rest of the session and piped it to `sudo -S` for every privileged command. Administrator rights are now requested through Apple's Security framework (Authorization Services, utilities.get_admin_permission): the password is entered in the system's own authorization prompt and never reaches the app. From now on, OpenCore Legacy Patcher T2 never asks for your password in its own dialog, so treat any such dialog as fake. Thx @gandolf243 https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/pull/445
 - fixes a bug where mounting the root volume for root patching could report success even when the mount failed, because the mount function returned the volume path instead of True/False. Thx @gandolf243
 - fixes an "Internal Error occurred!" crash on launch of the compiled app ("During unpacking of our internal files, we seemed to have encountered an error"): payloads.dmg was never mounted because the unpack step still referenced a password-prompt function that the admin rework had removed. payloads.dmg now uses the new native prompt, and the elevated mount now returns its result instead of None
 - fixes a vulnerability where the Privileged Helper Tool's command allowlist (added in 4.0.0.190004.6) could be bypassed: when the helper refused a command (not on the allowlist, /bin/sh -c ..., or /bin/sh and /usr/sbin/installer in Debug builds), the app ran the exact same command as root through a normal-looking admin password prompt instead. Refused commands (COMMAND_NOT_ALLOWED / COMMAND_MISSING) are now final and no other elevation path is tried
@@ -629,10 +668,10 @@ This release:
 - removes dead code (unused imports, unreachable statements, uncalled functions and old test scripts in the repository root). No change in behaviour intended
 - updates the bundled OpenCore (RELEASE/DEBUG), ocvalidate and macserial to 2.0.7, which fixes the following vulnerabilities in OpenCore's boot manager (OcBootManagementLib). Both also exist in upstream Acidanthera OpenCorePkg:
 
-        - an out-of-bounds read and write on the heap in OcParseVars: when a value ended in a backslash, the parser read the escaped character from the backslash itself instead of the next position, never saw the end of the string and kept reading and shifting heap memory past the end of the buffer. The parsed files include /etc/default/grub and /etc/os-release on any attached Linux volume, which OpenLinuxBoot reads automatically at every boot, so a crafted file on a USB stick or second drive was enough to corrupt memory in the bootloader. https://github.com/albert-mueller/OpenCorePkg-add-T2-support/commit/2859c4f355630b3459a001bd16304f94f8d8fc43
-        - use of an uninitialised stack buffer in OcCheckArgumentFromEnv: load options longer than BOOT_LINE_LENGTH or containing non-ASCII characters made the conversion fail without writing anything, so the unterminated, uninitialised buffer was then searched for boot arguments (and DEBUG builds hit an ASSERT). Load options are now treated as untrusted and copied with explicit bounds, and OpenCore no longer writes into the caller's buffer. https://github.com/albert-mueller/OpenCorePkg-add-T2-support/commit/2859c4f355630b3459a001bd16304f94f8d8fc43
+        - an out-of-bounds read and write on the heap in OcParseVars: when a value ended in a backslash, the parser read the escaped character from the backslash itself instead of the next position, never saw the end of the string and kept reading and shifting heap memory past the end of the buffer. The parsed files include /etc/default/grub and /etc/os-release on any attached Linux volume, which OpenLinuxBoot reads automatically at every boot, so a crafted file on a USB stick or second drive was enough to corrupt memory in the bootloader. https://github.com/oclp-t2/OpenCorePkg-add-T2-support/commit/2859c4f355630b3459a001bd16304f94f8d8fc43
+        - use of an uninitialised stack buffer in OcCheckArgumentFromEnv: load options longer than BOOT_LINE_LENGTH or containing non-ASCII characters made the conversion fail without writing anything, so the unterminated, uninitialised buffer was then searched for boot arguments (and DEBUG builds hit an ASSERT). Load options are now treated as untrusted and copied with explicit bounds, and OpenCore no longer writes into the caller's buffer. https://github.com/oclp-t2/OpenCorePkg-add-T2-support/commit/2859c4f355630b3459a001bd16304f94f8d8fc43
 
-  OpenCore 2.0.7 also hardens the GitHub Actions workflows that build the bundled binaries (read-only token by default, no persisted checkout credentials, third-party actions pinned to a commit SHA), which makes it harder to tamper with release builds through a compromised action or workflow token. https://github.com/albert-mueller/OpenCorePkg-add-T2-support/commit/5a69ea03d5abca6cce4454a1eb9a9682fe8b2f17
+  OpenCore 2.0.7 also hardens the GitHub Actions workflows that build the bundled binaries (read-only token by default, no persisted checkout credentials, third-party actions pinned to a commit SHA), which makes it harder to tamper with release builds through a compromised action or workflow token. https://github.com/oclp-t2/OpenCorePkg-add-T2-support/commit/5a69ea03d5abca6cce4454a1eb9a9682fe8b2f17
 - updates WhateverGreen to 1.7.1, AirportBrcmFixup to 2.2.1, AppleALC to 1.9.8 and PatcherSupportPkg to 2.0.4 (removes patches that are no longer needed)
 - updates the Privileged Helper Tool binary with the command allowlist fix from 4.0.0.190004.6
 - fixes Build-Project.command not being executable
@@ -640,7 +679,7 @@ This release:
 
 ## 4.0.0.190004.6 - 4.0.0 alpha 19.4.6
 This release:
-- adds a dark variant of the app icon (OC-Patcher-Dark.icns) that is used on macOS 26 Tahoe and newer when Dark Mode is active: in the main menu logo, in the Dock while the app is running, and in the app's dialogs (admin prompts, update and auto-patcher dialogs). Switching between Light and Dark Mode while the app is open updates the icon immediately. If the dark icon file is missing, the regular icon is used. Thx @coolkid418 https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/435
+- adds a dark variant of the app icon (OC-Patcher-Dark.icns) that is used on macOS 26 Tahoe and newer when Dark Mode is active: in the main menu logo, in the Dock while the app is running, and in the app's dialogs (admin prompts, update and auto-patcher dialogs). Switching between Light and Dark Mode while the app is open updates the icon immediately. If the dark icon file is missing, the regular icon is used. Thx @coolkid418 https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/435
 - fixes a bug where when running one of the following files, it says Permission denied:
 
         - .github/scripts/syntax_check.sh
@@ -1175,10 +1214,10 @@ This release:
 - Fixes Priveleged Helper Tool permissions, thx @Medelcartelinc 
 - fixes APFS snapshot creation on macOS 15 Sequoia and macOS 26 Tahoe , thx @Medelcartelinc 
 - Fixes bless --bootefi missing on macOS 15 Sequoia x86_64, thx @Medelcartelinc 
-- The AppleHDA audio driver is so old that on macOS 26.7 it stopped working and on macOS 26.6.2 it enables safety guard hold that prevents from installing any macOS updates. This is now fixed by adding a new patch: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/pull/376/changes/8d6a60aec8f1179a39da234dc9cd6d1ad2bd0e1e , thx @Medelcartelinc 
+- The AppleHDA audio driver is so old that on macOS 26.7 it stopped working and on macOS 26.6.2 it enables safety guard hold that prevents from installing any macOS updates. This is now fixed by adding a new patch: https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/pull/376/changes/8d6a60aec8f1179a39da234dc9cd6d1ad2bd0e1e , thx @Medelcartelinc 
 - fixes unconditional injection of the SkipLogo patch that causes T2 Macs to not even reach the Apple logo at all, thx @Medelcartelinc 
 - fixes a bug where on MacBookPro16,4 (MacBook Pro 2020, Intel) MacBookAir9,1 (2020) and MacBookAir9,2 (2020) where they weren't exempt from the SkipLogo patch
-- now, it only enables AMFIPass only on unsupported T2 Macs, thx @Medelcartelinc https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/pull/376/changes/a6a9b27208ce4a2110c20c5c9e1bc4b9949a10ee
+- now, it only enables AMFIPass only on unsupported T2 Macs, thx @Medelcartelinc https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/pull/376/changes/a6a9b27208ce4a2110c20c5c9e1bc4b9949a10ee
 - Changes the PlatformInfo > Generic > ROM value from 0016CB445566 to 112233000000, thx @Medelcartelinc 
 - macOS 26 Tahoe introduces a WindowServer deadlock with AMD Legacy GCN, Polaris, and Intel Skylake GPUs due to incompatibilities between the legacy drivers and the Tahoe metallib format. This is fixed by Re-using the 3802 downgraded metallibs from MetallibSupportPkg, thx @Medelcartelinc
 - Fixes a bug where Broadcom BCM5701 Ethernet injection patchset for macOS 15 Sequoia & 26 Tahoe was there but wasn't injected at all, causing on the affected Macs to have no Ethernet at all, thx @Medelcartelinc 
@@ -1433,7 +1472,7 @@ Impact: an attacker could set self.mount_point to a specially crafted value if a
 
 ## Emergency update - 4.0.0.18009.3 - 4.0.0 alpha 18.9.3
 This release:
-- fixes a bug only on non-T2 Macs where RestrictEvents causes a kernel panic; on T2 Macs, @albert-mueller and @Medelcartelinc are actively investigating this bug in a PR and soon will be fixed: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/pull/342 . Thx to @gandolf243 for fixing this bug on non-T2 Macs!
+- fixes a bug only on non-T2 Macs where RestrictEvents causes a kernel panic; on T2 Macs, @albert-mueller and @Medelcartelinc are actively investigating this bug in a PR and soon will be fixed: https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/pull/342 . Thx to @gandolf243 for fixing this bug on non-T2 Macs!
 - changes Reboot prompts to say Restart so people who don't speak much English can understand that it means Restart
 - when installing root patches, normally before proceeding to install root patches, it checks and notifies about OpenCore Legacy Patcher T2. However, only there, the logic was extremely buggy and easy to exploit:
 
@@ -1960,7 +1999,7 @@ Applica root patch (Appliquer de root patch) means Apply root patches
 - now, injects critical T2 Tahoe boot arguments (revpatch=sbvmm, AMFIPass=0x1, ipc_control_port_options=0, agdpmod) into NVRAM, thx @Medelcartelinc 
 - Removed connector-less headless iGPU framebuffer overrides from single-GPU models (Macmini8,1, MacBookPro16,3, MacBookAir8,x/9,1). Headless 0x3E9B0006 is now strictly scoped to dual-GPU models with discrete graphics (MacBookPro15,1/15,3/16,1/16,4), thx @Medelcartelinc 
 - Adds dynamic agdpmod=pikera (dGPU) vs agdpmod=vit9696 (iGPU) injection prevents WindowServer deadlock, thx @Medelcartelinc 
-- renames Developer Mode: ON to Experimental Mode: ON when you enable Experimental Features as since [4.0.0.18001](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/releases/tag/4.0.0.18001), Developer Mode is only for developers, thx @gandolf243 
+- renames Developer Mode: ON to Experimental Mode: ON when you enable Experimental Features as since [4.0.0.18001](https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/releases/tag/4.0.0.18001), Developer Mode is only for developers, thx @gandolf243 
 - fixes a bug where upon crashing, the file name of the crash report still says the old name instead of the new one, thx @gandolf243 
 - In the patcher, inside Settings, now there is an option to manually check for updates
 
@@ -2434,7 +2473,7 @@ This release:
 - fixes a bug where upon clicking Save OpenCore and the EFI configuration has been saved successfully, it will show a crash log
 - fixes an issue where WiFi doesn't work on MacBook Air Mid 2013 and MacBook Air Early 2014 on macOS 26 Tahoe by adding dart=0 in the boot arguments
 - fixes a bug where the OpenCore button is greyed out on Hackintoshes, virtual machines and supported T2 Macs 
-- updates OpenCore to 2.0.3 (changelog here: https://github.com/albert-mueller/OpenCorePkg-add-T2-support/releases/tag/2.0.3 )
+- updates OpenCore to 2.0.3 (changelog here: https://github.com/oclp-t2/OpenCorePkg-add-T2-support/releases/tag/2.0.3 )
 - fixes the following vulnerabilities:
 application_entry.py:
 
@@ -2531,7 +2570,7 @@ This release fixes an issue where the Priveleged Helper Tool is not signed prope
 Diese Version behebt ein Problem, bei dem das Privileged Helper Tool nicht ordnungsgemäß signiert ist, was dazu führt, dass die App auf osascript zurückgreift.
 
 ## 4.0.0.18000 - 4.0.0 alpha 18
-You'll need to follow the update instructions here to get successfully updated: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/248
+You'll need to follow the update instructions here to get successfully updated: https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/248
 This release:
 - renames the app from OpenCore-Patcher to OpenCore-Patcher-T2, the installer is renamed to OpenCore-Patcher-T2.pkg and AutoPkg-Assets-T2.pkg. However, for this release only, there are going to be 2 installers: OpenCore-Patcher.pkg and OpenCore-Patcher-T2.pkg, and the same goes for AutoPkg-Assets.pkg and the reason is on alpha 17 and older releases when updating, they won't recognie the OpenCore-Patcher-T2.pkg as a valid package to update from. And this app is renamed to fix a vulnerability where an attacker could trick a user to install OpenCore Legacy Patcher T2 disguised as OpenCore Legacy Patcher (the original project by Dortania) to impersonate Dortania and spread malware.
 - fixes a vulnerability where the user agent is OpenCore-Legacy-Patcher-T2. And the reason this is a vulnerability is that GitHub and many sites are unable to parse this user agent properly and inapropriately serve an older web page version. And also, an attacker could exploit exactly this to launch MitM attacks to launch a malicious update via a malicious DNS address. This vulnerability is fixed by changing the user agent to this: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36 Edg/152.0.4191.53/OpenCoreLegacyPatcherT2 . As such, to most websites this looks like a modern browser while signalizing it's actually OpenCore Legacy Patcher T2 rather than a web browser.
@@ -2640,7 +2679,7 @@ Für nicht unterstützte T2-Macs habe ich diesen Bug gefunden: acidanthera/OpenC
 
 ## 4.0.0.17001 - 4.0.0 alpha 17.1
 This release:
-- removes Gemini generated vulnerability fixes that cause issues: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/commit/f326e311e1fa0fe0f54c04322dbac33a0af1f5ae
+- removes Gemini generated vulnerability fixes that cause issues: https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/commit/f326e311e1fa0fe0f54c04322dbac33a0af1f5ae
 - since unsupported T2 Macs to even boot into Tahoe's installer via OpenCorePkg it needs SMBIOS spoofing at the moment; thus when building OpenCore with SMBIOS spoofing set to None it will throw an error that guides you how to spoof the SMBIOS instead to avoid kernel panics or WindowServer failing to process when choosing the language at this time. 
 - Adds a scroll bar inside Security to fix not being able to see all SIP settings that are available
 <img width="712" height="797" alt="Bildschirmfoto 2026-08-26 um 02 17 06" src="https://github.com/user-attachments/assets/bd09ae43-2a6c-4413-ac99-69a73673dd32" />
@@ -2768,10 +2807,10 @@ gui_main_menu.py:
 Impact: an attacker could supply the _check_for_updates or any other function with invalid code to launch a denial of service attack to crash the application. Or an attacker could delete the  if pop_up.GetReturnCode() != wx.ID_YES: condition to trick the user into updating OpenCore and root patches without their consent. This is fixed by putting the update code under an else condition and also in try/except blocks for error handling.
 
 Remaining:
-- MacBookPro7,1 and other Core 2 Duo Macs are not able to boot: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/206 - this is an OpenCorePkg bug; will fix in the next days
+- MacBookPro7,1 and other Core 2 Duo Macs are not able to boot: https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/206 - this is an OpenCorePkg bug; will fix in the next days
 - Remains root patches to be tested against Sequoia, Sonoma, Ventura, Monterey and Big Sur systems and eventually implement legacy OS fallback for mounting Universal-Binaries.dmg. At the moment, it works only with macOS 26.4 Tahoe and newer.
 - Remains to be tested on unsupported T2 Macs
-- Fix yellow screen https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/194 , however I'm not sure how to fix that issue; waiting for contributors to fix it. If anyone can fix it, I recommend to reach me to add as a contributor or create a fork and then push a PR.
+- Fix yellow screen https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/194 , however I'm not sure how to fix that issue; waiting for contributors to fix it. If anyone can fix it, I recommend to reach me to add as a contributor or create a fork and then push a PR.
 
 ## 4.0.0.16913 - 4.0.0 pre-alpha 5.3 for alpha 17
 This release fixes a UI bug in Settings where the description for Allow native models may overlap.
@@ -2828,7 +2867,7 @@ Diese Version behebet einen Fehler, indem auf nicht unterstützte T2 Macs Build 
 ## 4.0.0.16910 - 4.0.0 pre-alpha 5 for alpha 17:
 This release:
 - fixes UI bugs in the update screen where it says Would you like to instead of Would you like to update due to not enough space on the screen
-- fixes a bug where root-volume file removal writing to the sealed live volume instead of the mounted copy when root patching on a Mac that requires Metallibs https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/commit/059cc9a659e9ff3c240b732b66b950916d44a007
+- fixes a bug where root-volume file removal writing to the sealed live volume instead of the mounted copy when root patching on a Mac that requires Metallibs https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/commit/059cc9a659e9ff3c240b732b66b950916d44a007
 - moves all debugging features in Settings in a seperate Debug tab to make it easier to find these debugging features when needed - such as, Kext Debugging
 - All settings from Extras are moved to Advanced to make it easier to navigate
 - fixes a bug on T2 Macs where upon trying to format a partition on the internal SSD as APFS, it fails to do so because the UUID of the partition is not properly seen by macOS due to OpenCore configuration issue; to e exact, the cause was UpdateSMBIOSMode was set to Costum instead of Create. However, another issue remains that blocks still formatting the internal drive as APFS properly: on T2 Macs when trying to format the drive while booted via OpenCorePkg, VEK fails to access the internal drive #192 
@@ -2988,10 +3027,10 @@ Impact: an attacker could supply the checking for updates function with an inval
 ## 4.0.0.16050 - 4.0.0 alpha 16.4.0
 This release:
 - fixes UI bugs in the update screen where it says Would you like to instead of Would you like to update due to not enough space on the screen
-- fixes a bug where root-volume file removal writing to the sealed live volume instead of the mounted copy when root patching on a Mac that requires Metallibs https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/commit/059cc9a659e9ff3c240b732b66b950916d44a007
+- fixes a bug where root-volume file removal writing to the sealed live volume instead of the mounted copy when root patching on a Mac that requires Metallibs https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/commit/059cc9a659e9ff3c240b732b66b950916d44a007
 - moves all debugging features in Settings in a seperate Debug tab to make it easier to find these debugging features when needed - such as, Kext Debugging
 - All settings from Extras are moved to Advanced to make it easier to navigate
-- adds an experimental EF for macOS 26I to the repository for MacBookPro14,3 - if it works, report here: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/pull/190 . If it doesn't, report an issue., thx @Medelcartelinc
+- adds an experimental EF for macOS 26I to the repository for MacBookPro14,3 - if it works, report here: https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/pull/190 . If it doesn't, report an issue., thx @Medelcartelinc
 - fixes the following vulnerabilities:
 - fixes a vulnerability where an attacker or bad Hackintosh user could trick a Hackintosh user into building OpenCore EFIs for real Macs by spoofing the SMBIOS as a Mac computer
 - fixes a bug and a vulnerability where the patcher itself checks if the config the current OpenCore is running was checked against the SMBIOS instead of checking real hardware. This could cause false alarms. An attacker could abuse this to cause a DoS attack by tricking the user into building an EFI that is not suitable for their Mac.
@@ -3312,14 +3351,14 @@ Behebt einen Fehler, der dazu führte, dass auf Nicht-Metal-GPUs das Patchen ver
 This release fixes a critical typosquatting vulnerability and should update to this version immediately.
 This release:
 
-changes the PatcherSupportPkg from https://github.com/YBronst/PatcherSupportPkg to my own fork here: https://github.com/albert-mueller/PatcherSupportPkg
+changes the PatcherSupportPkg from https://github.com/YBronst/PatcherSupportPkg to my own fork here: https://github.com/oclp-t2/PatcherSupportPkg
 fixes a typosquatting vulnerability where by accident, in constants.py under self.url_patcher_support_pkg I defined ttps://github.com/YBronst/PatcherSupportPkg instead of https://github.com/YBronst/PatcherSupportPkg . This is very dangerous accident as attackers could register ttps://github.com/YBronst/PatcherSupportPkg to deliver malware under the guise of patches.
 adds patches for Broadwell and similar GPUs
 Dieses Release behebt eine kritische Typosquatting-Sicherheitslücke und sollte umgehend aktualisiert werden.
 
 Dieses Release:
 
-ändert das PatcherSupportPkg von https://github.com/YBronst/PatcherSupportPkg zu meinem eigenen Fork hier: https://github.com/albert-mueller/PatcherSupportPkg
+ändert das PatcherSupportPkg von https://github.com/YBronst/PatcherSupportPkg zu meinem eigenen Fork hier: https://github.com/oclp-t2/PatcherSupportPkg
 
 behebt eine Typosquatting-Sicherheitslücke, die durch die versehentliche Definition von ttps://github.com/YBronst/PatcherSupportPkg in constants.py unter self.url_patcher_support_pkg entstanden ist. Anstatt https://github.com/YBronst/PatcherSupportPkg wurde ttps://github.com/YBronst/PatcherSupportPkg definiert. Dies ist ein sehr gefährlicher Fehler, da Angreifer ttps://github.com/YBronst/PatcherSupportPkg registrieren könnten, um Schadsoftware als Patch getarnt zu verbreiten.
 
@@ -3365,7 +3404,7 @@ Thanks @pyquick for contributing to this project!
 This release:
 - fixes an issue when trying to build OpenCore for a different machine, for example, I'd like to build OpenCore for Mac mini 2018 from my MacBook Pro 2020 with 4 thunderbolt 3 ports. Upon selecting Macmini8,1 as a Target device, Build and Install OpenCore was greyed out
 - fixes a bug where when checking if WiFi root patches are installed, it was checking the file OCLP-Plus.plist, which will never exist as this project is not OCLP-Plus
-- Changes the Metallibs API from https://dortania.github.io/ to https://albert-mueller.github.io/ . The repository of the new API is this: https://github.com/albert-mueller/albert-mueller.github.io
+- Changes the Metallibs API from https://dortania.github.io/ to https://oclp-t2.github.io/metallibs/ . The repository of the new API is this: https://github.com/oclp-t2/metallibs
 - adds macOS 26 Tahoe support for these GPUs: (previously it was completely absent)
 
 Intel:
@@ -3383,7 +3422,7 @@ Diese Version:
 
 Behebt einen Fehler, bei dem beim Prüfen, ob WLAN-Root-Patches installiert sind, die Datei „OCLP-Plus.plist“ geprüft wurde, die jedoch nicht existiert, da dieses Projekt nicht OCLP-Plus ist.
 
-Ändert die Metallibs-API von https://dortania.github.io/ zu https://albert-mueller.github.io/. Das Repository der neuen API finden Sie hier: https://github.com/albert-mueller/albert-mueller.github.io
+Ändert die Metallibs-API von https://dortania.github.io/ zu https://oclp-t2.github.io/metallibs/. Das Repository der neuen API finden Sie hier: https://github.com/oclp-t2/metallibs
 
 – Fügt Unterstützung für macOS 26 Tahoe für folgende GPUs hinzu: (zuvor fehlte diese Unterstützung vollständig)
 
@@ -3836,11 +3875,11 @@ security.py:
                         self._apply_t2_graphics_injection()
                         self._apply_t2_kernel_patches_tahoe() # <- this is also a vulnerability
 
-With the next pre-alpha release, 4.0.0.1350, for T2 Macs, patches will be written with Claude instead of NotebookLM due to being known to be buggy, cause gray screens and kernel panics: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/discussions/122
+With the next pre-alpha release, 4.0.0.1350, for T2 Macs, patches will be written with Claude instead of NotebookLM due to being known to be buggy, cause gray screens and kernel panics: https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/discussions/122
 
 ## 4.0.0.13040 - 4.0.0 Voralpha 10 für Alpha 16 / 4.0.0 pre-alpha 10 for alpha 16
 This release:
-- for those who are still using 4.0.0 alpha 15.7.1, this release fixes all issues that were already fixed in the previous pre-alphas too: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/blob/main/CHANGELOG.md
+- for those who are still using 4.0.0 alpha 15.7.1, this release fixes all issues that were already fixed in the previous pre-alphas too: https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/blob/main/CHANGELOG.md
 - now patches are confirmed working on 2017 iMac, tested by @jasondillontech-lgtm
 - fixes an issue where Installing drivers and patches may continue without enabling full disk access to OpenCore Legacy Patcher, which may result in Permission denied error:
 <img width="3024" height="4032" alt="621701350-d4a42d00-e654-460c-9f72-22462657c63b" src="https://github.com/user-attachments/assets/b56cb483-aa72-488e-83db-ef475170dab7" />
@@ -3853,7 +3892,7 @@ Known issues:
 
 Diese Version:
 
-- Für alle, die noch Version 4.0.0 Alpha 15.7.1 verwenden: Diese Version behebt alle Probleme, die bereits in den vorherigen Pre-Alpha-Versionen behoben wurden: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/blob/main/CHANGELOG.md
+- Für alle, die noch Version 4.0.0 Alpha 15.7.1 verwenden: Diese Version behebt alle Probleme, die bereits in den vorherigen Pre-Alpha-Versionen behoben wurden: https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/blob/main/CHANGELOG.md
 
 - Die Patches funktionieren nun nachweislich auf dem 2017er iMac, getestet von @jasondillontech-lgtm
 
@@ -3882,7 +3921,7 @@ Known Issues & Status:
 
 Root Patching & Login Stability: We are investigating reports regarding authentication issues following root patch application. I am currently working on a fix but will not push it to the main branch until the solution is verified stable.
 
-Call for Testing: Version 4.0.0 Pre-Alpha 9.2 is available here for those who wish to assist in debugging: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/releases/tag/4.0.0.13032
+Call for Testing: Version 4.0.0 Pre-Alpha 9.2 is available here for those who wish to assist in debugging: https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/releases/tag/4.0.0.13032
 
 Recommended Workflow: Until login stability is confirmed, I recommend using this release to Build OpenCore only, while avoiding the "Install Drivers and Patches" module.
 
@@ -3904,7 +3943,7 @@ Bekannte Probleme & Status:
 
 Root-Patching & Login-Stabilität: Wir untersuchen Berichte über Authentifizierungsprobleme nach der Anwendung des Root-Patches. Ich arbeite derzeit an einer Lösung, werde diese aber erst in den Hauptzweig übernehmen, wenn die Stabilität der Lösung bestätigt ist.
 
-Aufruf zum Testen: Version 4.0.0 Pre-Alpha 9.2 steht hier für alle zur Verfügung, die beim Debuggen helfen möchten: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/releases/tag/4.0.0.13032
+Aufruf zum Testen: Version 4.0.0 Pre-Alpha 9.2 steht hier für alle zur Verfügung, die beim Debuggen helfen möchten: https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/releases/tag/4.0.0.13032
 
 Empfohlener Workflow: Bis die Login-Stabilität bestätigt ist, empfehle ich, diese Version nur zum Erstellen von OpenCore zu verwenden und das Modul „Treiber und Patches installieren“ zu vermeiden.
 
@@ -4407,7 +4446,7 @@ self.patcher_full_name: str = f"{self.patcher_name} version {self.patcher_versio
     self.url_patcher_support_pkg:         str = "https://github.com/dortania/PatcherSupportPkg/releases/download/"
     self.discord_link:                    str = "https://discord.gg/rqdPgH8xSN"
     self.guide_link:                      str = "https://dortania.github.io/OpenCore-Legacy-Patcher/"
-    self.repo_link:                       str = "https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/"
+    self.repo_link:                       str = "https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/"
     self.installer_pkg_url:               str = f"{self.repo_link}/releases/download/{self.patcher_version}/AutoPkg-Assets.pkg"
     self.installer_pkg_url_nightly:       str = f"{self.repo_link}/releases/download/{self.patcher_version}/AutoPkg-Assets.pkg" # here is the bug - this should be removed / das soll entfernt sein
 
@@ -4443,7 +4482,7 @@ This release:
 - removes Bypass AppleBCMWLANCore timeout patch as it causes hangs at Apple logo
 
 But this hasn't been fixed yet:
-- Bugs in WhateverGreen (even the latest version by Dortania) causes gray screen on T2 Macs: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/104
+- Bugs in WhateverGreen (even the latest version by Dortania) causes gray screen on T2 Macs: https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/104
 
 Diese Version:
 - Behebt einen Fehler, bei dem möglicherweise nicht nach Byte-Längenunterschieden zwischen Suchen und Ersetzen gesucht wurde.
@@ -4453,7 +4492,7 @@ Diese Version:
 - Entfernt den Bypass AppleBCMWLANCore-Timeout-Patch, da dieser zu Hängern beim Apple-Logo führte.
 
 Folgendes ist jedoch noch nicht behoben:
-- Fehler in WhateverGreen (auch in der neuesten Version von Dortania) verursachen einen grauen Bildschirm auf T2-Macs: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/104
+- Fehler in WhateverGreen (auch in der neuesten Version von Dortania) verursachen einen grauen Bildschirm auf T2-Macs: https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/104
 
 ## 4.0.0 pre-alpha 1 for alpha 16 / 4.0.0 Voralpha 1 für Alpha 16
 This release:
@@ -5936,12 +5975,12 @@ Behoben: Der Builder vertraut externen Eingaben nicht mehr blind.
 
 ## 3.1.1 pre-alpha release candidate / 3.1.1 Voralpha Releasekandidat 3:
 This release:
-- Replaces broken ocvalidate and macserial with a functioning one to fix https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/29 . It is fixed by storing the ocvalidate and macserial in a zip file called OpenCoreLegacyPatcherTools.zip and when launching OpenCore Legacy Patcher T2, it will extract that file and copy these 2 files automatically for you in the right directory.
+- Replaces broken ocvalidate and macserial with a functioning one to fix https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/29 . It is fixed by storing the ocvalidate and macserial in a zip file called OpenCoreLegacyPatcherTools.zip and when launching OpenCore Legacy Patcher T2, it will extract that file and copy these 2 files automatically for you in the right directory.
 - Continues to roll out patches to fix the T2 controller panic AppleUSBXHCI::createPorts: unsupported speed mantissa 5830 exponent 2 panic when pressing ->
 
 
 Dieses Version:
-- Ersetzt das kapputen ocvalidate und macserial mit einen, die funktioniert, um den Fehler https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/29 zu verbessern . Dieses Fehler ist verbessert, indem die Dateien stattdessen in das Zip-Datei OpenCoreLegacyPatcherTools.zip sein. Und wenn Sie OpenCore Legacy Patcher T2 öffnet, wird es automatisch extrahiert und denn diese Dateien kopiert in das richtige Ordner.
+- Ersetzt das kapputen ocvalidate und macserial mit einen, die funktioniert, um den Fehler https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/29 zu verbessern . Dieses Fehler ist verbessert, indem die Dateien stattdessen in das Zip-Datei OpenCoreLegacyPatcherTools.zip sein. Und wenn Sie OpenCore Legacy Patcher T2 öffnet, wird es automatisch extrahiert und denn diese Dateien kopiert in das richtige Ordner.
 - Weiterfahren, Verbesserungen auszurollen, um das Fehler, indem beim Anklicken der Pfeil -> in Sprache auswählen, der T2-Kontroller mit dem Fehler AppleUSBXHCI::createPorts: unsupported speed mantissa 5830 exponent 2 panic abstürzt
 
 ## 3.1.1 pre-alpha release candidate / 3.1.1 Voralpha Releasekandidat 2:
@@ -5971,9 +6010,9 @@ This release:
 - Updates ocvalidate to OpenCore 1.0.7
 
 The following issues are known:
-https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/24
+https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/24
 The following issues remain to be tested whether are fixed or not:
-https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/18 and https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/8
+https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/18 and https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/8
 
 ## 3.1.1 pre-alpha 4:
 This release:
@@ -6025,10 +6064,10 @@ Supply Chain Security: Downloads are retrieved solely via Dortania's official re
 ## 3.1.1 pre-alpha 3:
 This release:
 - Removes USB port mapping for MacBookAir8,1 and 8,2 - this can eventually cause hangs
-- Fix https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/23
+- Fix https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/23
 
 ## 3.1.1 pre-alpha 2.1:
-This release fixes a config.plist bug that doesn't build OpenCore properly on non-T2 Macs. On T2 Macs, this issue remains: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/23
+This release fixes a config.plist bug that doesn't build OpenCore properly on non-T2 Macs. On T2 Macs, this issue remains: https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/23
 
 ## 3.1.1 pre-alpha 2:
 - upgrades config.plist to OpenCore 1.0.7
@@ -6043,12 +6082,12 @@ This version begins the upgrade from OpenCore 1.0.5 to 1.0.7 (but hasn't fully u
 
 ## 3.1.0 alpha 2.1:
 This release:
-- blacks out Build OpenCore on 2018-2019 MacBook Airs since these models frequently freeze at the Apple logo. This project still uses OpenCore 1.0.5, upgrading to OpenCore 1.0.7 is planned to eventually begin to fix the following issues: https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/18 and https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/8 and eventually, get the MacBookAir8,1 and 8,2 to boot reliably into macOS's installer. Outside this release, in the branch https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/tree/opencore-1-0-7-upgrade I started upgrading to OpenCore 1.0.7, but the code is considered at a pre-alpha stage and is still in very very early development. To test building OpenCore EFI on these models (if you are ready to experiment), you will need to go to the model_array file and remove # from the model that you are going to be testing. 
+- blacks out Build OpenCore on 2018-2019 MacBook Airs since these models frequently freeze at the Apple logo. This project still uses OpenCore 1.0.5, upgrading to OpenCore 1.0.7 is planned to eventually begin to fix the following issues: https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/18 and https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/8 and eventually, get the MacBookAir8,1 and 8,2 to boot reliably into macOS's installer. Outside this release, in the branch https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/tree/opencore-1-0-7-upgrade I started upgrading to OpenCore 1.0.7, but the code is considered at a pre-alpha stage and is still in very very early development. To test building OpenCore EFI on these models (if you are ready to experiment), you will need to go to the model_array file and remove # from the model that you are going to be testing. 
 - phases out iBridged.kext completely- not needed
-- removes SSDT-T2-SPOOF.dsl as it only spoofed the iBridged version that the T2 chip is running and this is not needed; replaced with [SSDT-T2-SPOOF-SSDT.txt](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/blob/main/SSDT-T2-SPOOF-SSDT.txt), [T2-Lilu-hooks.txt](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/blob/main/T2-Lilu-hooks.txt) and [T2-costum-kext-concept.txt](https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/blob/main/T2-costum-kext-concept.txt) - they aren't precompiled and ready to use, rather than there to do research.
+- removes SSDT-T2-SPOOF.dsl as it only spoofed the iBridged version that the T2 chip is running and this is not needed; replaced with [SSDT-T2-SPOOF-SSDT.txt](https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/blob/main/SSDT-T2-SPOOF-SSDT.txt), [T2-Lilu-hooks.txt](https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/blob/main/T2-Lilu-hooks.txt) and [T2-costum-kext-concept.txt](https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/blob/main/T2-costum-kext-concept.txt) - they aren't precompiled and ready to use, rather than there to do research.
 - Remove temporarily Info-Tahoe.plist from AppleUSBMaps (this doesn't affect the OpenCore 1.0.7 upgrade branch), as this is not a full USB port map and as such is incomplete and not even close to ready for testing (this is included in the official OpenCore Legacy Patcher 3.0.0).
 
-The issues https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/8 and https://github.com/albert-mueller/OpenCore-Legacy-Patcher-T2/issues/18 aren't fixed yet. Both of these require to upgrade OpenCore to version 1.0.7 at very minimum for sure.
+The issues https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/8 and https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/18 aren't fixed yet. Both of these require to upgrade OpenCore to version 1.0.7 at very minimum for sure.
 
 Reminder: before to boot into OpenCore on T2 Macs, don't forget to hold command + R until macOS Recovery loads. Then go to Utilities > Terminal. Then, type the following commands:
 csrutil disable

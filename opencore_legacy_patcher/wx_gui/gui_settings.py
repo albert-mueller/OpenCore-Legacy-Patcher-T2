@@ -25,6 +25,7 @@ from ..support import (
     subprocess_wrapper,
     kdk_handler,
     update_channel_availability,
+    endpoint_health,
 )
 from ..datasets import (
     smbios_data,
@@ -409,7 +410,9 @@ class SettingsFrame(wx.Frame):
                 "Snooze Updates": {
                     "type": "spinctrl",
                     "variable": "SnoozeUpdates",
-                    "value": int(global_settings.GlobalEnviromentSettings().read_property("SnoozeUpdates") or 0),
+                    # Remaining days of the current snooze, not the number originally
+                    # entered (a 7-day snooze set 5 days ago has 2 days left).
+                    "value": self._remaining_snooze_days(),
                     "min": 0,
                     "max": 14,
                     "description": [
@@ -814,6 +817,19 @@ Hardware Information:
         global_settings.GlobalEnviromentSettings().write_property(variable_name, self.constants.auto_update)
         logging.info(f"Auto-update setting set to: {self.constants.auto_update}")
 
+        # Stored as chosen, but ignored while a service the patcher depends on is gone
+        # (support/endpoint_health.py) - the fix for that can only arrive as an update.
+        if self.constants.auto_update is False and endpoint_health.updates_forced():
+            logging.warning("Auto updates turned off, but ignored while a required service is gone")
+            wx.CallAfter(
+                wx.MessageBox,
+                "Some online services OpenCore Legacy Patcher T2 depends on are no longer reachable, "
+                "so the next update is required and will still be installed automatically.\n\n"
+                "This setting applies again once these services are back.",
+                "Auto Updates Required",
+                wx.OK | wx.ICON_INFORMATION
+            )
+
     def on_update_channel(self, event: wx.Event) -> None:
         """
         Switch the update channel (official T2 repository or a fork).
@@ -899,7 +915,26 @@ Hardware Information:
     def snooze_updates(self, event: wx.Event = None, value: int = None, *args, **kwargs) -> None:
         """
         Updates the snooze updates setting and persists it to the global settings.
+
+        A snooze can be shortened or ended early, but never pushed past the
+        deadline that was already in place when this Settings window opened.
+        Previously every change simply wrote today + N days, so the snooze could
+        be renewed forever - including after it had expired, right before the
+        mandatory update - and the outdated (possibly vulnerable) build kept
+        running indefinitely.
+
+        The deadline is captured once per Settings window (on the first change)
+        rather than re-read on every call: the spin control fires on every
+        keystroke, so typing "14" passes through "1" first, and re-reading would
+        treat that 1-day intermediate value as the new limit.
+
+        Setting 0 while a snooze exists ends it (deadline = today) instead of
+        deleting it: deleting NextUpdateCheck would also make an expired snooze
+        disappear, turning the pending mandatory update back into an optional one.
         """
+        if getattr(self, "_updating_snooze_control", False):
+            return
+
         if isinstance(event, wx.Event):
             value = int(event.GetEventObject().GetValue())
         elif value is None and args:
@@ -910,16 +945,99 @@ Hardware Information:
             return
 
         value = max(0, int(value))
-        self.constants.snooze_updates = value
-        if value > 0:
-            self.constants.next_update_check = (date.today() + timedelta(days=value)).isoformat()
-            global_settings.GlobalEnviromentSettings().write_property("NextUpdateCheck", self.constants.next_update_check)
-        else:
-            self.constants.next_update_check = ""
-            global_settings.GlobalEnviromentSettings().delete_property("NextUpdateCheck")
+        today = date.today()
 
-        global_settings.GlobalEnviromentSettings().write_property("SnoozeUpdates", self.constants.snooze_updates)
-        logging.info(f"Snooze updates setting updated to: {self.constants.snooze_updates} days")
+        if not hasattr(self, "_snooze_deadline_limit"):
+            self._snooze_deadline_limit = None
+            stored = global_settings.GlobalEnviromentSettings().read_property("NextUpdateCheck")
+            if stored not in [None, "", "None"]:
+                try:
+                    self._snooze_deadline_limit = date.fromisoformat(str(stored))
+                except Exception:
+                    # Unreadable value: treat as "already due" rather than as
+                    # "no snooze", so a corrupted plist can't unlock a fresh one.
+                    logging.error("NextUpdateCheck value is invalid, treating the snooze as expired: %r", stored)
+                    self._snooze_deadline_limit = today
+
+        limit = self._snooze_deadline_limit
+        # While a service the patcher depends on is gone the snooze counts as
+        # expired (support/endpoint_health.py), so no new snooze can be set either.
+        if endpoint_health.updates_forced():
+            self._snooze_forced = True
+            limit = today
+        settings = global_settings.GlobalEnviromentSettings()
+
+        if limit is None:
+            # No snooze in place: behave as before
+            if value > 0:
+                deadline = today + timedelta(days=value)
+                self.constants.next_update_check = deadline.isoformat()
+                settings.write_property("NextUpdateCheck", self.constants.next_update_check)
+            else:
+                self.constants.next_update_check = ""
+                settings.delete_property("NextUpdateCheck")
+        else:
+            requested = today + timedelta(days=value)
+            deadline = min(requested, limit) if value > 0 else today
+            if value > 0 and requested > limit:
+                logging.warning(f"Snooze extension refused: requested {requested.isoformat()}, limit is {limit.isoformat()}")
+                self._show_snooze_limit_notice(limit, today)
+            self.constants.next_update_check = deadline.isoformat()
+            settings.write_property("NextUpdateCheck", self.constants.next_update_check)
+            value = max(0, (deadline - today).days)
+            self._set_snooze_control(event, value)
+
+        self.constants.snooze_updates = value
+        settings.write_property("SnoozeUpdates", self.constants.snooze_updates)
+        logging.info(f"Snooze updates setting updated to: {self.constants.snooze_updates} days (next automatic check: {self.constants.next_update_check or 'not snoozed'})")
+
+    def _remaining_snooze_days(self) -> int:
+        stored = global_settings.GlobalEnviromentSettings().read_property("NextUpdateCheck")
+        if stored in [None, "", "None"]:
+            return 0
+        try:
+            return min(14, max(0, (date.fromisoformat(str(stored)) - date.today()).days))
+        except Exception:
+            return 0
+
+    def _set_snooze_control(self, event, value: int) -> None:
+        """Show the effective number of days without re-entering snooze_updates()."""
+        if not isinstance(event, wx.Event):
+            return
+        control = event.GetEventObject()
+        try:
+            if int(control.GetValue()) == value:
+                return
+            self._updating_snooze_control = True
+            control.SetValue(value)
+        except RuntimeError:
+            pass
+        finally:
+            self._updating_snooze_control = False
+
+    def _show_snooze_limit_notice(self, limit: date, today: date) -> None:
+        """Explain once per Settings window why the snooze could not be extended."""
+        if getattr(self, "_snooze_limit_notice_shown", False):
+            return
+        self._snooze_limit_notice_shown = True
+        if getattr(self, "_snooze_forced", False):
+            message = (
+                "Some online services OpenCore Legacy Patcher T2 depends on are no longer reachable, "
+                "so updates can't be snoozed right now.\n\n"
+                "The next update is required. Snoozing works again once these services are back."
+            )
+        elif limit <= today:
+            message = (
+                "The snooze period has already ended, so updates can't be snoozed again.\n\n"
+                "The pending update has to be installed first. After that you can snooze future updates again."
+            )
+        else:
+            message = (
+                f"Updates are already snoozed until {limit.isoformat()}.\n\n"
+                "A snooze can be shortened, but not extended, so outdated builds with known "
+                "security issues can't be kept indefinitely."
+            )
+        wx.CallAfter(wx.MessageBox, message, "Snooze Limit", wx.OK | wx.ICON_INFORMATION)
 
 
     def _fix_developer_mode_marker_with_privileges(self, marker_path: Path, create: bool) -> bool:

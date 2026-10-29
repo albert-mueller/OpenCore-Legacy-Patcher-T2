@@ -289,8 +289,12 @@ class OpenCoreLegacyPatcher:
         if self.constants.computer.build_model is None:
             logging.info(f"Initializing build_model to native host: {self.computer.real_model}")
             self.constants.computer.build_model = self.computer.real_model
-        self.constants.analytics_thread = threading.Thread(target=analytics_handler.Analytics(self.constants).send_analytics)
-        self.constants.analytics_thread.start()
+        # The background update check (update-check LaunchAgent) runs every few hours;
+        # it must not send analytics every time. If it finds an update and opens the
+        # GUI, that counts as a normal launch only from the user's point of view.
+        if "--check_updates" not in sys.argv:
+            self.constants.analytics_thread = threading.Thread(target=analytics_handler.Analytics(self.constants).send_analytics)
+            self.constants.analytics_thread.start()
 
         if utilities.check_cli_args() is None:
             self.constants.cli_mode = False
@@ -301,7 +305,7 @@ class OpenCoreLegacyPatcher:
             self.constants.cli_mode = True
             self.constants.gui_mode = False
 
-            ignore_args = ["--auto_patch", "--gui_patch", "--gui_unpatch", "--update_installed"]
+            ignore_args = ["--auto_patch", "--gui_patch", "--gui_unpatch", "--update_installed", "--check_updates"]
 
             # If none of the specific arguments are in sys.argv
             if not any(x in sys.argv for x in ignore_args):
@@ -309,7 +313,9 @@ class OpenCoreLegacyPatcher:
 
             # Fix: Deterministic Thread Synchronization.
             # Ensure arguments parsing never runs into race conditions regardless of flags if unpack state is required
-            if "--auto_patch" not in sys.argv:
+            # The background update check doesn't need the payloads either: it only
+            # talks to GitHub, and the GUI it may open waits for them on its own.
+            if "--auto_patch" not in sys.argv and "--check_updates" not in sys.argv:
                 while self.constants.unpack_thread.is_alive():
                     time.sleep(self.constants.thread_sleep_interval)
             else:

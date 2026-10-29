@@ -30,7 +30,7 @@ class DownloadFrame(wx.Frame):
     CHANGELOG_WIDTH:  int = 610
     CHANGELOG_HEIGHT: int = 320
 
-    def __init__(self, parent: wx.Frame, title: str, global_constants: constants.Constants, download_obj: network_handler.DownloadObject, item_name: str, download_icon = None, cancel_message: str = None, changelog: str = None) -> None:
+    def __init__(self, parent: wx.Frame, title: str, global_constants: constants.Constants, download_obj: network_handler.DownloadObject, item_name: str, download_icon = None, cancel_message: str = None, changelog: str = None, allow_cancel: bool = True) -> None:
         logging.info("Initializing Download Frame")
         self.constants: constants.Constants = global_constants
         self.title: str = title
@@ -43,6 +43,9 @@ class DownloadFrame(wx.Frame):
             self.download_icon: str = "/System/Library/CoreServices/Installer.app/Contents/Resources/package.icns"
 
         self.user_cancelled: bool = False
+        # False for mandatory downloads (an update whose snooze has expired):
+        # no Cancel button, and terminate_download() refuses to stop the transfer.
+        self.allow_cancel: bool = allow_cancel
         # Callers can supply their own confirmation text for the Cancel button
         # (the updater uses this to warn about staying on an outdated build).
         # Everyone else keeps the generic prompt.
@@ -87,9 +90,19 @@ class DownloadFrame(wx.Frame):
             if changelog_view is not None:
                 button_y = changelog_view.GetPosition()[1] + changelog_view.GetSize()[1] + 15
 
-        return_button = wx.Button(frame, label="Cancel", pos=(-1, button_y))
-        return_button.Bind(wx.EVT_BUTTON, lambda event: self.terminate_download())
-        return_button.Centre(wx.HORIZONTAL)
+        if self.allow_cancel:
+            return_button = wx.Button(frame, label="Cancel", pos=(-1, button_y))
+            return_button.Bind(wx.EVT_BUTTON, lambda event: self.terminate_download())
+            return_button.Centre(wx.HORIZONTAL)
+        else:
+            # Mandatory download: explain why there is no Cancel button instead
+            # of just leaving the user without one.
+            return_button = wx.StaticText(frame, label="This update is required - the snooze period has ended.", pos=(-1, button_y))
+            return_button.SetFont(gui_support.font_factory(13, wx.FONTWEIGHT_NORMAL))
+            return_button.Centre(wx.HORIZONTAL)
+            # Escape / the close button would otherwise just hide the sheet
+            frame.Bind(wx.EVT_CLOSE, lambda event: event.Veto() if event.CanVeto() else event.Skip())
+            frame.Bind(wx.EVT_CHAR_HOOK, lambda event: None if event.GetKeyCode() == wx.WXK_ESCAPE else event.Skip())
 
         # Set size of frame
         frame.SetSize((-1, return_button.GetPosition()[1] + return_button.GetSize()[1] + 40))
@@ -194,6 +207,9 @@ class DownloadFrame(wx.Frame):
         """
         Terminate download
         """
+        if not self.allow_cancel:
+            logging.info("Download is mandatory, ignoring cancel request")
+            return
         if wx.MessageBox(self.cancel_message, "Cancel Download", wx.YES_NO | self.cancel_icon | wx.NO_DEFAULT) == wx.YES:
             logging.info("User cancelled download")
             self.user_cancelled = True

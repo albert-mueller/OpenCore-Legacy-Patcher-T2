@@ -5,7 +5,7 @@
     width="200"
   />
   <h1>OpenCore Legacy Patcher T2 — T1 & T2 macOS Tahoe Edition</h1>
-  <p><b>Developed & Maintained by <a href="https://github.com/albert-mueller">albert-mueller (Albert Müller)</a> with community contributions</b></p>
+  <p><b>Developed & Maintained by <a href="https://github.com/albert-mueller">albert-mueller (Albert Müller)</a> in the <a href="https://github.com/oclp-t2">oclp-t2</a> organization, with community contributions</b></p>
   <p><i>Restoring full graphics acceleration, Broadcom Wi-Fi, audio routing, and T1/T2 security on macOS 26 Tahoe & macOS 15 Sequoia</i></p>
 </div>
 

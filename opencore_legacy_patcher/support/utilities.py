@@ -574,6 +574,7 @@ def check_cli_args():
     parser.add_argument("--gui_unpatch", help="Starts GUI in Root Unpatcher", action="store_true", required=False)
     parser.add_argument("--auto_patch", help="Check if patches are needed and prompt user", action="store_true", required=False)
     parser.add_argument("--update_installed", help="Prompt user to finish updating via GUI", action="store_true", required=False)
+    parser.add_argument("--check_updates", help="Check for patcher updates in the background (update-check LaunchAgent), opens the patcher only if one is found", action="store_true", required=False)
     # Both of these are GUI-side switches, not CLI-mode triggers: they are
     # deliberately absent from the "did the user ask for CLI mode" check below,
     # so passing them still opens the normal GUI. They only need to exist here
@@ -593,7 +594,8 @@ def check_cli_args():
         args.validate or
         args.auto_patch or
         args.prepare_for_update or
-        args.cache_os
+        args.cache_os or
+        args.check_updates
     ):
         return None
     else:

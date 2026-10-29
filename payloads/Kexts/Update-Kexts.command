@@ -53,6 +53,12 @@ KEXT_DICTIONARY = {
         "RestrictEvents": {
             "Repository": "https://github.com/acidanthera/RestrictEvents",
             "Constants Variable": "self.restrictevents_version",
+            # Pinned to the rolling build acidanthera/RestrictEvents@b70aaa4 (javascriptcore branch,
+            # same build Dortania ships). It carries the JavaScriptCore AVX patch (revpatch=jsc) that
+            # pre-Sandy Bridge Macs need for Safari/WebKit. The tagged releases (1.1.6 and older) don't
+            # have it, so updating from GitHub releases would silently drop the fix. Only unpin once a
+            # tagged release contains the JavaScriptCore patch.
+            "Pinned": "rolling build b70aaa4 with the JavaScriptCore AVX patch (revpatch=jsc)",
         },
         "RSRHelper": {
             "Repository": "https://github.com/khronokernel/RSRHelper",
@@ -146,6 +152,11 @@ class GenerateKexts:
         for kext_folder in KEXT_DICTIONARY:
             for kext_name in KEXT_DICTIONARY[kext_folder]:
                 print(f"Checking {kext_name}...")
+                if "Pinned" in KEXT_DICTIONARY[kext_folder][kext_name]:
+                    # Never replace pinned kexts with the latest GitHub release, not even when the
+                    # release has the same or a higher version number (see the comment at the entry).
+                    print(f"  {kext_name} is pinned, skipping: {KEXT_DICTIONARY[kext_folder][kext_name]['Pinned']}")
+                    continue
                 if "Override" in KEXT_DICTIONARY[kext_folder][kext_name]:
                     self._get_latest_release(kext_folder, kext_name, override_kext_zip_name=KEXT_DICTIONARY[kext_folder][kext_name]["Override"])
                 else:

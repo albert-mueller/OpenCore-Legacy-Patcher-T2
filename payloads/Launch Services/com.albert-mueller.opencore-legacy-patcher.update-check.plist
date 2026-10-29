@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>AssociatedBundleIdentifiers</key>
+	<array>
+		<string>io.github.albert-mueller.opencore-legacy-patcher-t2</string>
+	</array>
+	<key>Label</key>
+	<string>com.albert-mueller.opencore-legacy-patcher.update-check</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Library/Application Support/albert-mueller/OpenCore-Patcher-T2/OpenCore-Patcher-T2.app/Contents/MacOS/OpenCore-Patcher-T2</string>
+		<string>--check_updates</string>
+	</array>
+	<key>LimitLoadToSessionType</key>
+	<string>Aqua</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StartInterval</key>
+	<integer>21600</integer>
+</dict>
+</plist>

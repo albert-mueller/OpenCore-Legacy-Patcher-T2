@@ -18,7 +18,8 @@ from .. import constants
 from ..support import (
     updates,
     utilities,
-    project_status
+    project_status,
+    endpoint_health
 )
 from ..datasets import (
     css_data
@@ -471,6 +472,12 @@ class MainFrame(wx.Frame):
             self._report_manual_check(manual, None, str(e), include_prerelease)
             return
 
+        # Updates are enforced because a service the patcher depends on is gone
+        # (support/endpoint_health.py): tell the user once, before any update dialog.
+        notice = endpoint_health.pop_notice()
+        if notice and not getattr(self, 'exiting_app', False) and not gui_support.is_app_exiting():
+            wx.CallAfter(wx.MessageBox, notice, "Updates Turned Back On", wx.OK | wx.ICON_WARNING)
+
         if not update_dict:
             self._report_manual_check(manual, None, checker.last_error, include_prerelease)
             return
@@ -516,8 +523,17 @@ class MainFrame(wx.Frame):
             # With "Turn Off Auto Updates" enabled (auto_update False) the automatic
             # check still runs, but the result is only offered via the same dialog
             # instead of being downloaded and installed without asking.
-            ask_first = manual or channel_switch or self.constants.auto_update is False
-            wx.CallAfter(self.on_update, update_dict["Link"], remote_version_str, update_dict["Github Link"], changelog, ask_first, channel_switch)
+            # While a service the patcher depends on is gone (endpoint_health.updates_forced()),
+            # "Turn Off Auto Updates" is ignored and the update behaves as if the snooze
+            # deadline had passed - the fix for the dead service can only arrive this way.
+            forced = endpoint_health.updates_forced()
+            ask_first = manual or channel_switch or (self.constants.auto_update is False and not forced)
+            # Automatic check after the snooze ran out: the update may not be
+            # postponed again by cancelling it (see updates.snooze_has_expired()).
+            mandatory = not ask_first and (updates.snooze_has_expired() or forced)
+            if mandatory:
+                logging.info("Snooze period has ended or a required service is gone, this update is mandatory")
+            wx.CallAfter(self.on_update, update_dict["Link"], remote_version_str, update_dict["Github Link"], changelog, ask_first, channel_switch, mandatory)
 
     def _report_manual_check(self, manual: bool, new_version, error, include_prerelease: bool = False) -> None:
         """
@@ -564,7 +580,7 @@ class MainFrame(wx.Frame):
             wx.OK | wx.ICON_INFORMATION, self
         )
 
-    def on_update(self, oclp_url: str, oclp_version: str, oclp_github_url: str, changelog_text: str, manual: bool = False, channel_switch: bool = False):
+    def on_update(self, oclp_url: str, oclp_version: str, oclp_github_url: str, changelog_text: str, manual: bool = False, channel_switch: bool = False, mandatory: bool = False):
         if not self or gui_support.is_app_exiting():
             return
         host_space = utilities.get_free_space()
@@ -583,7 +599,8 @@ class MainFrame(wx.Frame):
                 screen_location=self.GetPosition(),
                 url=oclp_url,
                 version_label=oclp_version,
-                changelog=changelog_text
+                changelog=changelog_text,
+                mandatory=mandatory
             )
             return
 
