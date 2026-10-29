@@ -47,7 +47,6 @@ import threading
 
 from datetime import date, datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
-from urllib.parse import urlparse
 
 import requests
 
