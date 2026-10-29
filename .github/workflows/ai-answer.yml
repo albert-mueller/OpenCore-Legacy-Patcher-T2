@@ -28,7 +28,8 @@ jobs:
         uses: actions/github-script@v7
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: gemini-2.5-flash
+          # Tried in order; falls through on retired models, quota or overload errors
+          GEMINI_MODELS: gemini-3.8-flash,gemini-flash-latest,gemini-flash-lite-latest
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -78,28 +79,35 @@ jobs:
               `=== Earlier comments ===\n${history || '(none)'}\n\n` +
               `=== Question from @${comment.user.login} ===\n${question}`;
 
-            let answer;
+            let answer, usedModel;
             try {
-              const res = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/${process.env.GEMINI_MODEL}:generateContent`,
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'x-goog-api-key': process.env.GEMINI_API_KEY,
-                  },
-                  body: JSON.stringify({
-                    systemInstruction: { parts: [{ text: systemText }] },
-                    contents: [{ role: 'user', parts: [{ text: userText }] }],
-                    generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
-                  }),
-                }
-              );
-              const data = await res.json();
-              if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
-              answer = (data.candidates?.[0]?.content?.parts || [])
-                .map(p => p.text || '').join('').trim();
-              if (!answer) throw new Error('Empty response from model');
+              const models = process.env.GEMINI_MODELS.split(',').map(m => m.trim()).filter(Boolean);
+              const errors = [];
+              for (const model of models) {
+                const res = await fetch(
+                  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'x-goog-api-key': process.env.GEMINI_API_KEY,
+                    },
+                    body: JSON.stringify({
+                      systemInstruction: { parts: [{ text: systemText }] },
+                      contents: [{ role: 'user', parts: [{ text: userText }] }],
+                      generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
+                    }),
+                  }
+                );
+                const data = await res.json().catch(() => ({}));
+                const text = (data.candidates?.[0]?.content?.parts || [])
+                  .map(p => p.text || '').join('').trim();
+                if (res.ok && text) { answer = text; usedModel = model; break; }
+                const msg = data.error?.message || (res.ok ? 'empty response' : `HTTP ${res.status}`);
+                core.warning(`${model}: ${msg}`);
+                errors.push(`${model}: ${msg}`);
+              }
+              if (!answer) throw new Error(errors.join(' | '));
             } catch (err) {
               core.error(err.message);
               await github.rest.issues.createComment({
@@ -114,7 +122,7 @@ jobs:
               body:
                 (userQuestion ? `> ${userQuestion.split('\n').join('\n> ')}\n\n` : '') +
                 `${answer}\n\n` +
-                `<sub>🤖 AI-generated answer (${process.env.GEMINI_MODEL}) — may contain mistakes.</sub>`,
+                `<sub>🤖 AI-generated answer (${usedModel}) — may contain mistakes.</sub>`,
             });
 
             await github.rest.reactions.createForIssueComment({
