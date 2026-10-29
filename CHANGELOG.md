@@ -8,11 +8,6 @@ This release brings new root patches from Dortania's upstream OpenCore Legacy Pa
 - adds patched screen savers and wallpaper extensions for non-metal Macs (Drift, Hello, Monterey, Ventura, Macintosh and Sequoia wallpapers) (ported from Dortania 71036963)
 - MacBook4,1 support is limited to root patching (GMA X3100 graphics, backlight and audio patches, ported from Dortania ad5b5df7). Building OpenCore for the MacBook4,1 is not supported: its audio needs Dortania's modified AppleALC 1.6.3, which is not compatible with OpenCore 1.0.8. Building can return once a much newer AppleALC supports this model
 - PatcherSupportPkg is updated to 2.11
-
-## 4.0.0.1900018 - 4.0.0 alpha 19.18
-I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://oclp-t2.github.io/issues/599.html on this patcher's page or https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
-
-This release:
 - now, in the repository, if you have just a question rather than an issue, or AI could help you fix that issue, you can also use /ai after opening the issue to get an answer from AI instead of waiting for a human
 - brings bug fixes from Dortania's upstream OpenCore Legacy Patcher, thx @Jazzzny, @dhinakg and Dortania:
 - fixes Safari/WebKit crashes on Macs older than Sandy Bridge (no AVX): the JavaScriptCore AVX patch is now applied through RestrictEvents (`revpatch=jsc`), replacing the removed root patch. This also covers Macs without a Wi-Fi card on macOS Sonoma and newer, which never got the old root patch (ported from Dortania aec949a1)
@@ -20,7 +15,7 @@ This release:
 - fixes the dual CPU kernel panic on MacPro3,1 and Xserve2,1 on macOS Sequoia and newer with a new kernel patch that fixes the CPU startup ordering. The "MacPro3,1/Xserve2,1 Workaround" setting (cpus=4) is removed as it is no longer needed, so all CPU threads can be used again (ported from Dortania 5e311e35)
 - enables the PCI bus enumeration patch on all Macs whose last supported macOS is older than OS X El Capitan (ported from Dortania 7eae823f)
 
-This release also:
+This release also fixes a vulnerability, too:
 - turns update checks back on when an online service the patcher depends on is gone for good (PatcherSupportPkg downloads, Metallib catalog, KDK catalog, AppleDB, the project website, Gemini help). If updates are snoozed or automatic updates are turned off and one of these services has been unreachable for more than 24 hours (the server answers 404/410/451, the domain no longer resolves or its certificate is invalid), the snooze is lifted and automatic updates are turned back on, and a notice explains why. The main repository is not part of this check, and a user who is just offline is never affected (github.com has to be reachable first, timeouts and server errors are ignored). Each outage is handled once, so snoozing again afterwards is respected
   - Impact: a dead service breaks older builds, and an abandoned domain or account can be registered again by somebody else and serve malicious content to every older installation. The fix for that always ships as an update, which users with snoozed or disabled updates would otherwise never get
 
