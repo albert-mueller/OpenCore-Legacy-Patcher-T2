@@ -1,4 +1,6 @@
 # OpenCore Legacy Patcher T2 changelog / OpenCore Legacy Patcher T2-Änderungsprotokoll
+## 4.0.0.1900017 - 4.0.0 alpha 19.17
+- on T2 Macs, updates T2TahoeFixup.kext to 1.0.17, adding shadow BuildManifest.plist deployment to writable /private/tmp and automatic vnode_lookup redirection when in-place vn_rdwr write fails with EROFS (30) on read-only installer volumes, resolving MobileSoftwareUpdate Error -81 during Stage 2
 ## 4.0.0.1900016 - 4.0.0 alpha 19.16
 - on T2 Macs, updates T2TahoeFixup.kext to 1.0.16, adding lifecycle gating to AppleCredentialManager hooks (hookGetEOSDeviceType and hookShouldJoinPMtreeOnSEPManager) and boot-arg -t2noacmfix to restore native T2 SEP communication post-install and resolve Issue #602 ("Activation lock status could not be determined")
 ## 4.0.0.1900015 - 4.0.0 alpha 19.15
