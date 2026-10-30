@@ -187,7 +187,7 @@ class StartAutomaticPatching:
         try:
             response = network_handler.NetworkUtilities().get(
                 api_url,
-                headers={"User-Agent": self.constants.patcher_name},
+                headers={"User-Agent": f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0/BridgePatcher/{self.constants.patcher_version}"},
                 timeout=10,
             )
             releases = response.json()
