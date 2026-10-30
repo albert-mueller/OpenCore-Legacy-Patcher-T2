@@ -1,10 +1,10 @@
 # Build and run from source
 
-OpenCore Legacy Patcher T2 at its core is a Python-based GUI/CLI-based application. In turn, to run the project from source, you simply need to invoke the OpenCore-Patcher-GUI.command file via Python.
+BridgePatcher at its core is a Python-based GUI/CLI-based application. In turn, to run the project from source, you simply need to invoke the OpenCore-Patcher-GUI.command file via Python.
 
 For developers wishing to validate mainline changes, you may use this link: [GUI (Graphical Based App)](https://github.com/bridgepatcher/BridgePatcher/releases)
 
-* **Warning**:Untagged builds built from the latest commit are actively developed OpenCore Legacy Patcher T2 builds. These builds have not been tested, are not guaranteed to work, and are not guaranteed to be safe. They may have bugs that remain to be tested. Do not use untagged builds without a good reason to do so, and do not use them on your main machine. Additionally, these binaries should not be used without first consulting the [CHANGELOG](./CHANGELOG.md).
+* **Warning**:Untagged builds built from the latest commit are actively developed BridgePatcher builds. These builds have not been tested, are not guaranteed to work, and are not guaranteed to be safe. They may have bugs that remain to be tested. Do not use untagged builds without a good reason to do so, and do not use them on your main machine. Additionally, these binaries should not be used without first consulting the [CHANGELOG](./CHANGELOG.md).
 
   **Do not share _any_ links to these binaries** in forums; please link to **this document only**.
   * Additionally, do not reupload these binaries or download binaries from other sites. Using binaries from untrusted sources is a security issue, as they may have malware or exploitable vulnerabilities that are patched long time ago. 
@@ -24,7 +24,7 @@ cd ~/Developer
 # Clone project
 git clone https://github.com/bridgepatcher/BridgePatcher
 # Move into Project directory
-cd ./OpenCore-Legacy-Patcher-T2
+cd ./BridgePatcher
 # Install Python dependencies used by the project
 pip3 install -r requirements.txt
 ```
@@ -65,7 +65,7 @@ The main goal of generating prebuilt binaries is to strip the requirement of a l
 # Install PyInstaller
 pip3 install pyinstaller
 # Move into project directory
-cd ~/Developer/OpenCore-Legacy-Patcher-T2/
+cd ~/Developer/BridgePatcher/
 # Create the pyinstaller based Application
 Build-Project.command
 # Open build folder

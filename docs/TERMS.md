@@ -1,6 +1,6 @@
 # OpenCore Patcher Terminology
 
-With OpenCore Legacy Patcher T2, we use a lot of different terms to refer to hardware including `SSE4.1`, `32-Bit Firmware`, etc. This page is to help users understand what all these confusing words mean.
+With BridgePatcher, we use a lot of different terms to refer to hardware including `SSE4.1`, `32-Bit Firmware`, etc. This page is to help users understand what all these confusing words mean.
 
 # Terminology
 
@@ -14,7 +14,7 @@ Term | Description
 ---
 Term | Description
 --- | ---
-**OpenCore**   | A boot manager by the [Acidanthera team](https://github.com/acidanthera). It loads macOS on Macs Apple no longer supports, with faster booting and a lighter footprint than older boot managers. OpenCore itself can keep macOS security features like SIP, FileVault and Apple Secure Boot working. **With OpenCore Legacy Patcher T2, several of these are deliberately weakened:** root patching requires partly disabling SIP and the sealed system volume, AMFI may be disabled, and on T2 Macs Apple Secure Boot is turned off. Your Mac is less protected than a supported Mac running stock macOS, so only use it if you accept that trade-off.
+**OpenCore**   | A boot manager by the [Acidanthera team](https://github.com/acidanthera). It loads macOS on Macs Apple no longer supports, with faster booting and a lighter footprint than older boot managers. OpenCore itself can keep macOS security features like SIP, FileVault and Apple Secure Boot working. **With BridgePatcher, several of these are deliberately weakened:** root patching requires partly disabling SIP and the sealed system volume, AMFI may be disabled, and on T2 Macs Apple Secure Boot is turned off. Your Mac is less protected than a supported Mac running stock macOS, so only use it if you accept that trade-off.
 **ACPI**   | Tables defined in your firmware defining your hardware and different methods, tied directly to how IOKit/IOService handles device setup
 **NVRAM**   | Non-volatile storage, where many variables are stored including default boot options, Hibernation keys, Secure Boot information, etc
 ---

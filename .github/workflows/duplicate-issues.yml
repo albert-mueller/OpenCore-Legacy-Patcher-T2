@@ -179,7 +179,7 @@ jobs:
             };
             const VERSION_FIELDS = [
               // [form heading, label, version pattern]
-              ['OpenCore Legacy Patcher T2 version', 'OCLP-T2', /\d+\.\d+\.\d+(?:\.\d+)*/],
+              ['BridgePatcher version', 'OCLP-T2', /\d+\.\d+\.\d+(?:\.\d+)*/],
               ['Target macOS version',               'macOS',   /\b\d{2}(?:\.\d+)*/],
             ];
             // "4.0.0" vs "4.0.0.18001" or "26" vs "26.7.1": one is just less precise -> same.
@@ -212,7 +212,7 @@ jobs:
             const clip = (s, n) => (s || '').replace(/\s+/g, ' ').trim().slice(0, n);
 
             const SYSTEM_PROMPT = [
-              'You detect duplicate GitHub issues for a macOS patcher project (OpenCore Legacy Patcher T2).',
+              'You detect duplicate GitHub issues for a macOS patcher project (BridgePatcher).',
               'Issues can be written in ANY language (English, German, Chinese, Spanish, ...). Compare the MEANING, not the wording or language.',
               'An existing issue counts as a duplicate only if it reports the SAME specific problem or request',
               '(same symptom and, when stated, the same context such as Mac model or macOS version).',
