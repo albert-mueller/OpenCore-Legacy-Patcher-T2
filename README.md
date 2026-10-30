@@ -1,6 +1,6 @@
 <div align="center">
   <h1>OpenCore Legacy Patcher T2 — T1 & T2 macOS Tahoe Edition</h1>
-  <p><b>Developed & Maintained by <a href="https://github.com/albert-mueller">albert-mueller (Albert Müller)</a> in the <a href="https://github.com/oclp-t2">oclp-t2</a> organization, with community contributions</b></p>
+  <p><b>Developed & Maintained by <a href="https://github.com/albert-mueller">albert-mueller (Albert Müller)</a> in the <a href="https://github.com/bridgepatcher">bridgepatcher</a> organization, with community contributions</b></p>
   <p><i>Restoring full graphics acceleration, Broadcom Wi-Fi, audio routing, and T1/T2 security on macOS 26 Tahoe & macOS 15 Sequoia</i></p>
 </div>
 
@@ -10,7 +10,7 @@
 > **OpenCore Legacy Patcher T2 is an independent community fork and is not
 > affiliated with, maintained by, or endorsed by Dortania. Authentic releases are
 > exclusively published on GitHub:
-> [github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/releases](https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/releases).**
+> [github.com/bridgepatcher/BridgePatcher/releases](https://github.com/bridgepatcher/BridgePatcher/releases).**
 > Websites that present OCLP-T2 as an official Dortania product, or offer it for
 > download anywhere else, are not ours — don't download from them.
 > **WARNUNG!**
@@ -56,7 +56,7 @@ fixes a vulnerability where an attacker or bad Hackintosh user could trick a Hac
 > **⚠️ EXPERIMENTAL FORK** — Adds **macOS 15 Sequoia and macOS 26 Tahoe support for all unsupported Macs**. T2 Macs as of now are unsupported by the official OpenCore Legacy Patcher from Dortania. Use it at your own risk. It's still in alpha stage, so I highly recommend to backup all your data and do it only on a spare T2 Mac to experiment. This is experimental alpha software.
 ## T2 Mac Support
 
-> **💡 Recommended Download**: Always download pre-compiled releases directly from [Releases](https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/releases) for guaranteed stability, bundled payloads, and proper packaging.
+> **💡 Recommended Download**: Always download pre-compiled releases directly from [Releases](https://github.com/bridgepatcher/BridgePatcher/releases) for guaranteed stability, bundled payloads, and proper packaging.
 
 > **🚧 Not ready for general use**
 
@@ -120,11 +120,11 @@ Note 2: Currently, OpenCore Legacy Patcher T2 officially supports patching to ru
 
 To start using the project, please see our in-depth guide:
 
-* [OpenCore Legacy Patcher T2 Guide](https://oclp-t2.github.io/OpenCore-Legacy-Patcher-T2/)
+* [OpenCore Legacy Patcher T2 Guide](https://bridgepatcher.github.io/)
 
 ## Support
 
-This project is offered on an AS-IS basis, and we do not guarantee support for any issues that may arise. Community support for this independent fork is provided through [GitHub Discussions](https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/discussions).
+This project is offered on an AS-IS basis, and we do not guarantee support for any issues that may arise. Community support for this independent fork is provided through [GitHub Discussions](https://github.com/bridgepatcher/BridgePatcher/discussions).
 
 ## Running from source
 

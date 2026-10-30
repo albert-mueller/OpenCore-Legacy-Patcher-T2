@@ -18,7 +18,7 @@ class Constants:
         # Wenn eine Version mit s endet, es heißt, dass sie noch nicht fertig ist.
         self.patcher_version:                 str = "4.0.0.1900019"
         self.patcher_version_label=self.patcher_version
-        self.patcher_support_pkg_version:     str = "2.11"  # PatcherSupportPkg (needs a 2.11 release built from oclp-t2/PatcherSupportPkg master: GMA X3100 + non-metal screen saver payloads)
+        self.patcher_support_pkg_version:     str = "2.11"  # PatcherSupportPkg (needs a 2.11 release built from bridgepatcher/PatcherSupportPkg master: GMA X3100 + non-metal screen saver payloads)
         self.copyright_date:                  str = "Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors · T2 fork © 2026 Albert Müller"
 
         # Application identity
@@ -29,11 +29,11 @@ class Constants:
         self.bundle_identifier:               str = "io.github.albert-mueller.opencore-legacy-patcher-t2"
 
         # URLs
-        self.url_patcher_support_pkg:         str = "https://github.com/oclp-t2/PatcherSupportPkg/releases/download/"
-        self.guide_link:                      str = "https://oclp-t2.github.io/"
-        self.repo_link:                       str = "https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/"
-        self.github_issues_link:              str = "https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues"
-        self.github_discussions_link:         str = "https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/discussions"
+        self.url_patcher_support_pkg:         str = "https://github.com/bridgepatcher/PatcherSupportPkg/releases/download/"
+        self.guide_link:                      str = "https://bridgepatcher.github.io/"
+        self.repo_link:                       str = "https://github.com/bridgepatcher/BridgePatcher/"
+        self.github_issues_link:              str = "https://github.com/bridgepatcher/BridgePatcher/issues"
+        self.github_discussions_link:         str = "https://github.com/bridgepatcher/BridgePatcher/discussions"
         self.gemini_link:                     str = "https://gemini.google.com"
 
         # Update channels (Settings > App > "Update Channel")
@@ -46,7 +46,7 @@ class Constants:
         self.update_channels: dict = {
             "official": {
                 "label": "Albert Müller - Official (T2 - recommended)",
-                "repo":  "https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/",
+                "repo":  "https://github.com/bridgepatcher/BridgePatcher/",
             },
             "medelcartelinc": {
                 "label": "Medelcartelinc (Fork)",

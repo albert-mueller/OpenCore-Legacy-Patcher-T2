@@ -374,7 +374,7 @@ class InstallOCFrame(wx.Frame):
             elif not self.constants.custom_model:
                 if self.constants.computer.real_model in model_array.T2Macs:
                     logging.info(f"Now building OpenCore EFI is done for {self.constants.computer.real_model}. A new browser tab will open automatically in your default browser of your choice that explains how to disable Secure Boot and SIP exactly. Make sure to follow the guide.")
-                    url = "https://oclp-t2.github.io/T2.html"
+                    url = "https://bridgepatcher.github.io/T2.html"
                     webbrowser.open(url)
                 gui_support.RestartHost(self).restart(message="OpenCore has finished installing to disk.\n\nYou will need to restart and hold the Option key and select OpenCore/Boot EFI's option.\n\nWould you like to restart?")
             else:
@@ -423,7 +423,7 @@ class InstallOCFrame(wx.Frame):
                 response = error_dialog.ShowModal()
 
                 if response == wx.ID_OK:
-                    webbrowser.open("https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues")
+                    webbrowser.open("https://github.com/bridgepatcher/BridgePatcher/issues")
 
                 # Check directly for your custom event return hook code
                 # Unter macOS Catalina und älter Gemini funktioniert nicht richtig unter Safari/WebKit

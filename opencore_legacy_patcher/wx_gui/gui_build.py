@@ -260,7 +260,7 @@ class BuildFrame(wx.Frame):
                 response = error_dialog.ShowModal()
 
                 if response == wx.ID_OK:
-                    webbrowser.open("https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues")
+                    webbrowser.open("https://github.com/bridgepatcher/BridgePatcher/issues")
                 # Safari und WebKit unter macOS Catalina und älter können nicht richtig Gemini öffnen, deshalb falls diese Version läuft, wird Gemini ins Webbrowser geöffnet
                 elif response == GEMINI_CLICKED_ID:
                     # Gemini can't see the build log on its own, so copy it to the clipboard

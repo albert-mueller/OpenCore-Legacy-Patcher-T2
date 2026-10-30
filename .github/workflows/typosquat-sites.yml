@@ -57,5 +57,5 @@ jobs:
           SEARCH_QUERIES: "\"OpenCore Legacy Patcher T2\" download|\"OCLP-T2\"|\"OpenCore-Legacy-Patcher-T2\"|OCLP T2 Tahoe T2 Mac download"
           SEARCH_RESULTS: "20"
           # Forums, news, video and code sites that are never treated as content farms
-          FARM_ALLOWLIST: "oclp-t2.github.io reddit.com youtube.com youtu.be x.com twitter.com insanelymac.com tonymacx86.com macrumors.com forums.macrumors.com stackexchange.com stackoverflow.com apple.com wikipedia.org discord.com discord.gg gitlab.com"
+          FARM_ALLOWLIST: "bridgepatcher.github.io reddit.com youtube.com youtu.be x.com twitter.com insanelymac.com tonymacx86.com macrumors.com forums.macrumors.com stackexchange.com stackoverflow.com apple.com wikipedia.org discord.com discord.gg gitlab.com"
         run: python .github/scripts/typosquat_sites.py
