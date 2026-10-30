@@ -1015,7 +1015,7 @@ class PatchSysVolume:
                             logging.error("We couldn't resolve the dynamic patchset and install Metallibs due to the following error:")
                             logging.exception("Stack Trace:")
                             logging.info("Please try again later.")
-                            logging.info("Try reporting this issue to the OpenCore Legacy Patcher T2 repository and check for updates.")
+                            logging.info("Try reporting this issue to the BridgePatcher repository and check for updates.")
                             raise
 
                         source_file = (
@@ -1054,7 +1054,7 @@ class PatchSysVolume:
                                 except Exception as e:
                                     logging.error(f"- Failed to force-refresh MetallibSupportPkg: {e}")
                                     logging.exception("Stack Trace:")
-                                    logging.info("Try reporting this issue to the OpenCore Legacy Patcher T2 repository and check for updates.")
+                                    logging.info("Try reporting this issue to the BridgePatcher repository and check for updates.")
                                     raise
 
                             if not Path(source_file).exists():

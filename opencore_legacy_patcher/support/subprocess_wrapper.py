@@ -197,7 +197,7 @@ def privileged_helper_needs_setuid_repair() -> bool:
         return False
     else:
         logging.error("We failed to assess the safety of repairing the Priveleged Helper Tool. It won't be repaired, just to be on the safe side.")
-        logging.info("Please ensure that OpenCore Legacy Patcher T2 is downloaded only from the official GitHub repository.")
+        logging.info("Please ensure that BridgePatcher is downloaded only from the official GitHub repository.")
         return False
 
 
@@ -206,7 +206,7 @@ def repair_privileged_helper_permissions():
         if not _helper_path_is_safe_to_repair():
             return False
 
-        prompt = "OpenCore Legacy Patcher T2 needs administrator permission to repair the permissions of its privileged helper tool."
+        prompt = "BridgePatcher needs administrator permission to repair the permissions of its privileged helper tool."
 
         result=utilities.get_admin_permission(
             action="/bin/chmod",
@@ -329,7 +329,7 @@ def _run_via_authorization_services(command: list, timeout: Optional[float] = No
     err_path = os.path.join(work_dir, "stderr")
     status_path = os.path.join(work_dir, "status")
     try:
-        reason = kwargs.get("reason", "OpenCore-Patcher-T2 needs your administrative permission")
+        reason = kwargs.get("reason", "BridgePatcher needs your administrative permission")
         launch = utilities.get_admin_permission(
             action="/bin/sh",
             args=["-c", _AUTH_SERVICES_WRAPPER, "oclp-elevated", out_path, err_path, status_path] + command,

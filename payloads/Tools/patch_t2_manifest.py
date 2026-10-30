@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-patch_t2_manifest.py - OpenCore Legacy Patcher T2
+patch_t2_manifest.py - BridgePatcher
 Injects dropped Apple T2 build identities into macOS 26 Tahoe BuildManifest.plist
 to prevent MobileSoftwareUpdate Error -81 (kMSUErrorMissingManifest).
 """

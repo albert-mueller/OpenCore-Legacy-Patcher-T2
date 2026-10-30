@@ -85,7 +85,7 @@ def _install_openssl3_macports() -> Path:
             shell_command = " ".join(install)
             result = subprocess.run(
                 ["/usr/bin/osascript", "-e",
-                 f'do shell script "{shell_command}" with prompt "OpenCore-Patcher-T2 needs to install OpenSSL 3 via MacPorts." with administrator privileges'],
+                 f'do shell script "{shell_command}" with prompt "BridgePatcher needs to install OpenSSL 3 via MacPorts." with administrator privileges'],
                 capture_output=True, text=True,
             )
 

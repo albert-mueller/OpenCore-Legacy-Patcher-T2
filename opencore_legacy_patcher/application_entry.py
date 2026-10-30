@@ -63,7 +63,7 @@ class OpenCoreLegacyPatcher:
         except Exception as e: # behebt eine Sicherheitslücke, die erlaubt Angreifern, in der try-Loop mit invalider Syntax zu füttern, um Fehler außerhalb von FileNotFoundError zu erzeugen. Denn die Angreifern könnten beliebiges Code auszuführen, indem sie aus das fehlende except Exception as e ausnutzen.
             logging.error("There is an issue finding and working with the directory.")
             logging.exception("Stack Trace:")
-            logging.info("Your patcher has been tampered. Please, redownload OpenCore Legacy Patcher T2 from GitHub.")
+            logging.info("Your patcher has been tampered. Please, redownload BridgePatcher from GitHub.")
             sys.exit(3)
 
 
@@ -204,7 +204,7 @@ class OpenCoreLegacyPatcher:
                 logging.info("7. Then open the Terminal")
                 logging.info("8. Run python3, followed by the directory where is located the Build-Project.command.")
                 logging.info("9. Once successfully builds the project, you'll get Build successful")
-                logging.info("10. Then open the dist foler and install OpenCore Legacy Patcher T2 with the newly done changes")
+                logging.info("10. Then open the dist foler and install BridgePatcher with the newly done changes")
 
             self._apply_vmware_simulated_hardware()
 
