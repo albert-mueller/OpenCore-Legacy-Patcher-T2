@@ -34,7 +34,9 @@ ALLOWLIST = {h.lower() for h in os.environ.get("ALLOWLIST", "").split()}
 # contains one counts as a lookalike even if its page doesn't mention the project
 FORMER_NAMES = os.environ.get("FORMER_NAMES", "").split()
 # Former official addresses of the project (e.g. oclp-t2.github.io). They no longer belong to it,
-# so they are always reported, whether or not anything is online there.
+# so they are reported as soon as anything is published there again. While they're down
+# (404 or no response) they're skipped. Their issues use their own marker (<host>#live), so a
+# closed issue from an earlier check doesn't hide a site that goes live later.
 FORMER_HOSTS = [h.lower() for h in os.environ.get("FORMER_HOSTS", "").split()]
 FORMER_HOST_MARK = "former official address of this project, no longer ours"
 # Newly registered domains: how many past days of registrations to check, and the
@@ -470,7 +472,7 @@ def farm_issue_body(r, reg):
         "",
         "Closing this issue marks the site as handled, and the workflow won't file it again.",
         "",
-        MARKER.format(r["host"]),
+        MARKER.format(r.get("key", r["host"])),
     ]
     return "\n".join(lines)
 
@@ -531,7 +533,7 @@ def issue_body(r, reg):
         "",
         "Closing this issue marks the site as handled, and the workflow won't file it again.",
         "",
-        MARKER.format(r["host"]),
+        MARKER.format(r.get("key", r["host"])),
     ]
     return "\n".join(lines)
 
@@ -582,17 +584,22 @@ def main():
             "new_registration": True,
         })
 
-    # Former official addresses are reported whether or not they serve anything yet
+    # Former official addresses are reported only once something is published there again
     found_hosts = {r["host"] for r in results}
     for host in FORMER_HOSTS:
         if host in found_hosts:
-            next(r for r in results if r["host"] == host)["markers"].insert(0, FORMER_HOST_MARK)
+            r = next(r for r in results if r["host"] == host)
+            r["markers"].insert(0, FORMER_HOST_MARK)
+            r["key"] = f"{host}#live"
             continue
         status, final, _ = fetch(f"https://{host}/")
+        if not status or status >= 400:
+            print(f"Former address {host} is down ({status or 'no response'}); not reported")
+            continue
         results.append({
             "host": host, "url": final, "status": status, "ips": resolve(host),
             "title": "", "markers": [FORMER_HOST_MARK], "download_hosts": [], "links_official": False,
-            "new_registration": False,
+            "new_registration": False, "key": f"{host}#live",
         })
 
     tracked = set()
@@ -601,7 +608,7 @@ def main():
         if m:
             tracked.add(m.group(1).lower())
 
-    new = [r for r in sorted(results, key=lambda r: r["host"]) if r["host"] not in tracked]
+    new = [r for r in sorted(results, key=lambda r: r["host"]) if r.get("key", r["host"]) not in tracked]
     if new and not DRY_RUN:
         post(f"/repos/{ORIGINAL}/labels",
              {"name": LABEL, "color": "b60205", "description": "Website imitating this project"})
