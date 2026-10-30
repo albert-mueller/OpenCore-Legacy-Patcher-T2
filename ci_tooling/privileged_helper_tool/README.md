@@ -1,11 +1,11 @@
 # OpenCore Legacy Patcher Privileged Helper Tool
 
-`com.albert-mueller.opencore-patcher-t2.privileged-helper` is OpenCore Legacy Patcher's Privileged Helper Tool.
+`io.github.bridgepatcher.privileged-helper` is OpenCore Legacy Patcher's Privileged Helper Tool.
 
 The architecture is as such:
 1. The main application (OpenCore-Patcher-T2.app) will send arguments to the privileged helper tool to execute.
 2. The privileged helper tool checks the code signature of the calling process: it must be the app (identifier
-   `com.dortania.opencore-legacy-patcher-t2`), signed with exactly the certificate the helper itself is signed with,
+   `io.github.bridgepatcher.bridgepatcher`), signed with exactly the certificate the helper itself is signed with,
    validly signed and using the hardened runtime (see "What the helper checks" below).
 3. The privileged helper tool will then execute the command and return the output to the main application.
 
@@ -48,7 +48,7 @@ A self signed release build keeps the caller check without paying for an Apple D
 2. The **running** parent process must satisfy
 
    ```
-   identifier "com.dortania.opencore-legacy-patcher-t2" and certificate leaf = H"<that SHA-1>"
+   identifier "io.github.bridgepatcher.bridgepatcher" and certificate leaf = H"<that SHA-1>"
    ```
 
    checked with `SecCodeCheckValidity` (running process) and `SecStaticCodeCheckValidity` (strict, on disk) - a
@@ -142,9 +142,9 @@ certificate, or the helper will refuse it (error 167).
 
 ```
 security unlock-keychain ~/Library/Keychains/oclp-signing.keychain-db
-codesign -f -s "OCLP Self Signed" --options runtime com.albert-mueller.opencore-patcher-t2.privileged-helper
+codesign -f -s "OCLP Self Signed" --options runtime io.github.bridgepatcher.privileged-helper
 security lock-keychain ~/Library/Keychains/oclp-signing.keychain-db
-codesign --verify --strict -vv com.albert-mueller.opencore-patcher-t2.privileged-helper
+codesign --verify --strict -vv io.github.bridgepatcher.privileged-helper
 sudo ./install.sh                      # refuses unsigned/ad-hoc binaries, sets root:wheel 4755
 ```
 

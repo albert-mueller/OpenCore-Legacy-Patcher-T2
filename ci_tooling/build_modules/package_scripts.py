@@ -457,7 +457,7 @@ class GenerateScripts:
         self.files = [
             "Applications/OpenCore-Patcher-T2.app",
             "Library/Application Support/albert-mueller/OpenCore-Patcher-T2/OpenCore-Patcher-T2.app",
-            "Library/PrivilegedHelperTools/com.albert-mueller.opencore-patcher-t2.privileged-helper",
+            "Library/PrivilegedHelperTools/io.github.bridgepatcher.privileged-helper",
             "Library/LaunchAgents/com.albert-mueller.opencore-legacy-patcher.update-check.plist"
         ]
 
@@ -466,7 +466,9 @@ class GenerateScripts:
         self.legacy_files = [
             "Library/Application Support/Dortania/Update.plist",
             "Library/Application Support/Dortania/OpenCore-Patcher-T2.app",
-            "Library/PrivilegedHelperTools/com.albert-mueller.opencore-legacy-patcher.privileged-helper"
+            "Library/PrivilegedHelperTools/com.albert-mueller.opencore-legacy-patcher.privileged-helper",
+            # Helper path before the rename to BridgePatcher (only this fork ever wrote it)
+            "Library/PrivilegedHelperTools/com.albert-mueller.opencore-patcher-t2.privileged-helper"
         ]
 
         self.additional_auto_pkg_files = [
@@ -590,7 +592,7 @@ class GenerateScripts:
         _script += self._generate_label_bar()
         _script += "\n"
 
-        _script += "helperPath=\"Library/PrivilegedHelperTools/com.albert-mueller.opencore-patcher-t2.privileged-helper\"\n"
+        _script += "helperPath=\"Library/PrivilegedHelperTools/io.github.bridgepatcher.privileged-helper\"\n"
         _script += "mainAppPath=\"Library/Application Support/albert-mueller/OpenCore-Patcher-T2/OpenCore-Patcher-T2.app\"\n"
         _script += "shimAppPath=\"Applications/OpenCore-Patcher-T2.app\"\n"
         if is_autopkg:

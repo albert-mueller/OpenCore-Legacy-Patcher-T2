@@ -296,7 +296,7 @@ class InitializeLoggingSupport:
 
             # Ask user if they want to send crash report
             try:
-                result = applescript.AppleScript(f'display dialog "{safe_error_msg}" with title "OpenCore Legacy Patcher ({safe_version})" buttons {{"Yes", "No"}} default button "Yes" with icon caution').run()
+                result = applescript.AppleScript(f'display dialog "{safe_error_msg}" with title "BridgePatcher ({safe_version})" buttons {{"Yes", "No"}} default button "Yes" with icon caution').run()
             except Exception as e:
                 logging.error(f"Failed to display crash report dialog: {e}")
                 return

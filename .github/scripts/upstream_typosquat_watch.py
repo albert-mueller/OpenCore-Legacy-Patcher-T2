@@ -26,12 +26,15 @@ os.environ["ORIGINAL_REPO"] = UPSTREAM
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import typosquat_sites as ts  # noqa: E402
-from typosquat_watch import assess, get, looks_like, paginate, post, request, summary, variants  # noqa: E402
+from typosquat_watch import assess, contains_name, get, looks_like, paginate, post, request, summary, variants  # noqa: E402
 
 DRY_RUN = os.environ.get("DRY_RUN", "true").lower() == "true"
 REPO_NAMES = os.environ.get("REPO_NAMES", UPSTREAM.split("/")[1]).split()
 ALLOW_OWNERS = {s.lower() for s in os.environ.get("ALLOWLIST_OWNERS", "").split()}
 ALLOW_REPOS = {s.lower() for s in os.environ.get("ALLOWLIST_REPOS", "").split()}
+# Former names of the project in ISSUE_REPO (e.g. OpenCore-Legacy-Patcher-T2). Repos that aren't
+# GitHub forks but still carry one in their name are listed as lookalikes of upstream too.
+FORMER_NAMES = os.environ.get("FORMER_NAMES", "").split()
 # How long a newly registered lookalike domain without content keeps being re-checked
 WATCH_DAYS = int(os.environ.get("WATCH_DAYS", "60"))
 # Entries not seen for this long are dropped from the list entirely
@@ -86,7 +89,8 @@ def readme_download_links(full):
         parts = urllib.parse.urlsplit(url)
         if BIN_EXT.search(parts.path) or host_in((parts.hostname or "").lower(), FILE_HOSTS):
             urls.add(url)
-    own = {full.lower(), UPSTREAM.lower()}
+    # The repo itself, upstream and this project (links to our releases are fine)
+    own = {full.lower(), UPSTREAM.lower(), ISSUE_REPO.lower()}
     found = set()
     for url in urls:
         parts = urllib.parse.urlsplit(url)
@@ -107,7 +111,11 @@ def evaluate_repo(full, owner_sq, root, up_owner):
         return None
     if repo.get("fork") and (repo.get("source") or {}).get("full_name", "").lower() == root:
         return None  # a normal fork inside the upstream fork network
+    if repo.get("fork") and (repo.get("source") or {}).get("full_name", "").lower() == ISSUE_REPO.lower():
+        return None  # a fork of this project; the fork name check asks those to rename
     reasons = []
+    if not repo.get("fork") and contains_name(repo.get("name", ""), FORMER_NAMES):
+        reasons.append("uses BridgePatcher's former name (" + ", ".join(FORMER_NAMES) + ")")
     assets = set()
     for rel in get(f"/repos/{full}/releases?per_page=10") or []:
         assets.update(a["name"] for a in rel.get("assets", []) if BIN_EXT.search(a["name"]))
@@ -137,7 +145,8 @@ def scan_repos():
             if (owner.lower() == up_owner.lower() or owner.lower() in ALLOW_OWNERS
                     or full.lower() in ALLOW_REPOS):
                 continue
-            if name.lower() in exact or any(looks_like(name, n) for n in REPO_NAMES):
+            if (name.lower() in exact or any(looks_like(name, n) for n in REPO_NAMES)
+                    or contains_name(name, FORMER_NAMES)):
                 candidates[full] = looks_like(owner, up_owner)
     print(f"{len(candidates)} repository candidates")
     found = {}
@@ -152,6 +161,8 @@ def scan_repos():
 
 def scan_sites(watch):
     targets = {h: "/" for h in ts.domain_candidates(ts.KEYWORDS)}
+    for h in ts.former_name_pages():
+        targets.setdefault(h, "/")
     for kw in ts.CT_KEYWORDS:
         for h in ts.ct_hosts(kw):
             targets.setdefault(h, "/")
@@ -176,6 +187,10 @@ def scan_sites(watch):
             "downloads": cell(", ".join(r["download_hosts"]) or "no download links", 60),
         }
         watch.pop(r["host"], None)  # it has content now, so it's listed normally
+    # BridgePatcher's former official addresses are always listed: they no longer belong to it
+    for h in ts.FORMER_HOSTS:
+        info = found.setdefault(h, {"title": "—", "downloads": "—"})
+        info["title"] = cell("former BridgePatcher address, no longer official · " + info["title"])
     return found
 
 

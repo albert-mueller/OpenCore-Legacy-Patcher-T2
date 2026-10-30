@@ -4,7 +4,7 @@
 <dict>
 	<key>AssociatedBundleIdentifiers</key>
 	<array>
-		<string>io.github.albert-mueller.opencore-legacy-patcher-t2</string>
+		<string>io.github.bridgepatcher.bridgepatcher</string>
 	</array>
 	<key>Label</key>
 	<string>com.albert-mueller.opencore-legacy-patcher.update-check</string>

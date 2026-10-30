@@ -38,7 +38,7 @@ import rich
 EXIT_MIXED_UP:    int = 3
 MIXED_UP_MESSAGE: str = "The app couldn't be generated because the version is mixed up"
 
-DEFAULT_REPO:         str = "oclp-t2/OpenCore-Legacy-Patcher-T2"
+DEFAULT_REPO:         str = "bridgepatcher/BridgePatcher"
 DEFAULT_VERSION_FILE: str = "opencore_legacy_patcher/constants.py"
 DEFAULT_VERSION_KEY:  str = "patcher_version"
 
@@ -128,7 +128,7 @@ class ReleaseGuard:
             API_URL.format(repo=self.repo),
             headers={
                 "Accept":               "application/vnd.github+json",
-                "User-Agent":           "oclp-t2-release-guard",
+                "User-Agent":           "bridgepatcher-release-guard",
                 "X-GitHub-Api-Version": "2022-11-28",
             },
         )

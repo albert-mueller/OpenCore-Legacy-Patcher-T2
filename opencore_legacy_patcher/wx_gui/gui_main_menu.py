@@ -266,15 +266,15 @@ class MainFrame(wx.Frame):
     def _end_of_life_message(self) -> str:
         status = self.constants.project_status
         if status == project_status.ProjectStatus.ARCHIVED:
-            reason = "The OpenCore Legacy Patcher T2 repository has been archived and is no longer maintained."
+            reason = "The BridgePatcher repository has been archived and is no longer maintained."
         elif status == project_status.ProjectStatus.REPLACED:
             reason = (
-                "The original OpenCore Legacy Patcher T2 repository was deleted and its name now belongs "
+                "The original BridgePatcher repository was deleted and its name now belongs "
                 "to a different repository. Do not download anything from it before you can verify it isn't "
                 "malicious. It could contain malware. "
             )
         else:
-            reason = "The OpenCore Legacy Patcher T2 repository no longer exists."
+            reason = "The BridgePatcher repository no longer exists."
         return (
             f"{reason}\n\n"
             "This project has reached its end of life: it will not receive any further "

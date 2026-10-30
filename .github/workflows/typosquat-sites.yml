@@ -49,6 +49,11 @@ jobs:
           CONTENT_MARKERS: "opencore legacy patcher t2|opencore-legacy-patcher-t2|oclp-t2|oclp t2"
           # Hosts (and their subdomains) that are never flagged
           ALLOWLIST: "github.com githubusercontent.com dortania.github.io"
+          # Former names of this project: a working website with one in its address (including
+          # <name>.github.io) counts as a lookalike even if its page doesn't mention the project
+          FORMER_NAMES: "OpenCore-Legacy-Patcher-T2 OCLP-T2"
+          # Former official addresses: always reported as typosquats, online or not
+          FORMER_HOSTS: "oclp-t2.github.io"
           # --- Content farms (any domain), found through the Brave Search API ---
           # Free key from https://api-dashboard.search.brave.com, stored as repo secret
           # BRAVE_SEARCH_API_KEY. Without it this part is skipped.
@@ -57,5 +62,5 @@ jobs:
           SEARCH_QUERIES: "\"OpenCore Legacy Patcher T2\" download|\"OCLP-T2\"|\"OpenCore-Legacy-Patcher-T2\"|OCLP T2 Tahoe T2 Mac download"
           SEARCH_RESULTS: "20"
           # Forums, news, video and code sites that are never treated as content farms
-          FARM_ALLOWLIST: "oclp-t2.github.io reddit.com youtube.com youtu.be x.com twitter.com insanelymac.com tonymacx86.com macrumors.com forums.macrumors.com stackexchange.com stackoverflow.com apple.com wikipedia.org discord.com discord.gg gitlab.com"
+          FARM_ALLOWLIST: "bridgepatcher.github.io reddit.com youtube.com youtu.be x.com twitter.com insanelymac.com tonymacx86.com macrumors.com forums.macrumors.com stackexchange.com stackoverflow.com apple.com wikipedia.org discord.com discord.gg gitlab.com"
         run: python .github/scripts/typosquat_sites.py

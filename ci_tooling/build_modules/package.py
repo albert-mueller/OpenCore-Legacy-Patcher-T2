@@ -71,7 +71,7 @@ class GeneratePackage:
         """
         self._files = {
             "./dist/OpenCore-Patcher-T2.app": "/Library/Application Support/albert-mueller/OpenCore-Patcher-T2/OpenCore-Patcher-T2.app",
-            "./ci_tooling/privileged_helper_tool/com.albert-mueller.opencore-patcher-t2.privileged-helper": "/Library/PrivilegedHelperTools/com.albert-mueller.opencore-patcher-t2.privileged-helper",
+            "./ci_tooling/privileged_helper_tool/io.github.bridgepatcher.privileged-helper": "/Library/PrivilegedHelperTools/io.github.bridgepatcher.privileged-helper",
             # Background update check, see support/arguments.py _check_updates_handler()
             "./payloads/Launch Services/com.albert-mueller.opencore-legacy-patcher.update-check.plist": "/Library/LaunchAgents/com.albert-mueller.opencore-legacy-patcher.update-check.plist",
         }
@@ -103,12 +103,12 @@ class GeneratePackage:
         _welcome = ""
 
         _welcome += "# Overview\n"
-        _welcome += f"This package will install the OpenCore Legacy Patcher T2 application (v{constants.Constants().patcher_version}) on your system."
+        _welcome += f"This package will install the BridgePatcher application (v{constants.Constants().patcher_version}) on your system."
 
-        _welcome += "\n\nAdditionally, a shortcut for OpenCore Legacy Patcher T2 will be added in the '/Applications' folder."
-        _welcome += "\n\nThis package will not 'Build and Install OpenCore' or install any 'Root Patches' on your machine. If required, you can run OpenCore Legacy Patcher T2 to install any patches you may need."
+        _welcome += "\n\nAdditionally, a shortcut for BridgePatcher will be added in the '/Applications' folder."
+        _welcome += "\n\nThis package will not 'Build and Install OpenCore' or install any 'Root Patches' on your machine. If required, you can run BridgePatcher to install any patches you may need."
         _welcome += "\n\nBefore installing the patcher, I highly recommend to open Terminal and verify the SHA256 certificates using the shasum -a 256 command with the ones in this repository."
-        _welcome += f"\n\nFor more information on OpenCore Legacy Patcher T2 usage, see our [documentation]({constants.Constants().guide_link}) and [GitHub repository]({constants.Constants().repo_link})."
+        _welcome += f"\n\nFor more information on BridgePatcher usage, see our [documentation]({constants.Constants().guide_link}) and [GitHub repository]({constants.Constants().repo_link})."
         _welcome += "\n\nA copy of LICENSE.txt, including the upstream BSD 4-Clause terms and the additional terms for this fork, is included in the application bundle at `Contents/Resources/LICENSE.txt`."
         _welcome += "\n\n"
 
@@ -127,11 +127,11 @@ class GeneratePackage:
         _welcome = ""
 
         _welcome += "# Application Uninstaller\n"
-        _welcome += "This package will uninstall the OpenCore Legacy Patcher T2 application and its Privileged Helper Tool from your system."
+        _welcome += "This package will uninstall the BridgePatcher application and its Privileged Helper Tool from your system."
         _welcome += "\n\n"
-        _welcome += "This will not remove any root patches or OpenCore configurations that you may have installed using OpenCore Legacy Patcher T2."
+        _welcome += "This will not remove any root patches or OpenCore configurations that you may have installed using BridgePatcher."
         _welcome += "\n\n"
-        _welcome += f"For more information on OpenCore Legacy Patcher T2, see our [documentation]({constants.Constants().guide_link}) and [GitHub repository]({constants.Constants().repo_link})."
+        _welcome += f"For more information on BridgePatcher, see our [documentation]({constants.Constants().guide_link}) and [GitHub repository]({constants.Constants().repo_link})."
 
         return _welcome
 
@@ -145,7 +145,7 @@ class GeneratePackage:
         _welcome += "# PLEASE DO NOT RUN AUTOPKG-ASSETS MANUALLY!\n\n"
         _welcome += "## THIS WILL CORRUPT THE OPERATING SYSTEM!\n\n"
         _welcome += "This package is intented to be used only by the Patcher application itslef, not run manually by a user. Download the OpenCore-Patcher-T2.pkg on the Github Repository.\n\n"
-        _welcome += f"[OpenCore Legacy Patcher T2 GitHub Release]({constants.Constants().repo_link})"
+        _welcome += f"[BridgePatcher GitHub Release]({constants.Constants().repo_link})"
 
         return _welcome
 
@@ -188,7 +188,7 @@ class GeneratePackage:
             pkg_background="./ci_tooling/pkg_assets/PkgBackground-Uninstaller.png",
             pkg_preinstall_script=self._write_temp_script(GenerateScripts().uninstall()),
             pkg_as_distribution=True,
-            pkg_title="OpenCore Legacy Patcher T2 Uninstaller",
+            pkg_title="BridgePatcher Uninstaller",
             pkg_welcome=self._generate_uninstaller_welcome(),
         )
 
@@ -203,7 +203,7 @@ class GeneratePackage:
             pkg_preinstall_script=self._write_temp_script(GenerateScripts().preinstall_pkg()),
             pkg_postinstall_script=self._write_temp_script(GenerateScripts().postinstall_pkg()),
             pkg_file_structure=self._files,
-            pkg_title="OpenCore Legacy Patcher T2",
+            pkg_title="BridgePatcher",
             pkg_welcome=self._generate_installer_welcome(),
         )
 

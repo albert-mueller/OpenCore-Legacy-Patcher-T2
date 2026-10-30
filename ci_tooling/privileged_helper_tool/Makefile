@@ -1,5 +1,5 @@
 CC=clang
-OUTPUT=com.albert-mueller.opencore-patcher-t2.privileged-helper
+OUTPUT=io.github.bridgepatcher.privileged-helper
 
 # Optional, release builds only:
 #   make CERT_SHA1=<40 hex chars>        also hard-code the expected leaf certificate

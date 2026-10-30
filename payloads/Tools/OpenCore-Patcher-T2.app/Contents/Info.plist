@@ -9,7 +9,7 @@
 	<key>CFBundleIconFile</key>
 	<string>OC-Patcher.icns</string>
 	<key>CFBundleIdentifier</key>
-	<string>io.github.albert-mueller.opencore-legacy-patcher-t2</string>
+	<string>io.github.bridgepatcher.bridgepatcher</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -24,8 +24,8 @@
 	<string>Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors · T2 fork © 2026 Albert Müller</string>
 	<key>SMPrivilegedExecutables</key>
 	<dict>
-		<key>com.albert-mueller.opencore-patcher-t2.privileged-helper</key>
-		<string>identifier "com.albert-mueller.opencore-patcher-t2.privileged-helper" and anchor apple generic</string>
+		<key>io.github.bridgepatcher.privileged-helper</key>
+		<string>identifier "io.github.bridgepatcher.privileged-helper" and anchor apple generic</string>
 	</dict>
 </dict>
 </plist>

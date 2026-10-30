@@ -11,7 +11,7 @@
 
 # MARK: Variables
 # ---------------------------
-helperName="com.albert-mueller.opencore-patcher-t2.privileged-helper"
+helperName="io.github.bridgepatcher.privileged-helper"
 helperPath="/Library/PrivilegedHelperTools/$helperName"
 sourcePath="./$helperName"
 

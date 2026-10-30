@@ -30,6 +30,15 @@ CT_KEYWORDS = os.environ.get("CT_KEYWORDS", "").split()
 TLDS = os.environ.get("TLDS", "com net org io app dev").split()
 MARKERS = [fold(m.strip()) for m in os.environ.get("CONTENT_MARKERS", "").split("|") if m.strip()]
 ALLOWLIST = {h.lower() for h in os.environ.get("ALLOWLIST", "").split()}
+# Former names of the project (e.g. OpenCore-Legacy-Patcher-T2): a working website whose address
+# contains one counts as a lookalike even if its page doesn't mention the project
+FORMER_NAMES = os.environ.get("FORMER_NAMES", "").split()
+# Former official addresses of the project (e.g. oclp-t2.github.io). They no longer belong to it,
+# so they are reported as soon as anything is published there again. While they're down
+# (404 or no response) they're skipped. Their issues use their own marker (<host>#live), so a
+# closed issue from an earlier check doesn't hide a site that goes live later.
+FORMER_HOSTS = [h.lower() for h in os.environ.get("FORMER_HOSTS", "").split()]
+FORMER_HOST_MARK = "former official address of this project, no longer ours"
 # Newly registered domains: how many past days of registrations to check, and the
 # names to look for in them (compared without dots, dashes or underscores)
 NRD_DAYS = int(os.environ.get("NRD_DAYS", "3"))
@@ -153,6 +162,26 @@ def homograph_variants(keyword):
         except UnicodeError:
             pass
     return out
+
+
+def _flat(text):
+    return re.sub(r"[^a-z0-9]", "", fold(text))
+
+
+def former_name_in_host(host):
+    """Former project names contained in a hostname (ignoring the TLD, separators and lookalike letters)."""
+    flat = _flat("".join(unpuny(host).lower().split(".")[:-1]))
+    return [n for n in FORMER_NAMES if _flat(n) and _flat(n) in flat]
+
+
+def former_name_pages():
+    """<former name>.github.io: GitHub Pages addresses anyone could claim with a former project name."""
+    hosts = set()
+    for n in FORMER_NAMES:
+        for v in {n.lower(), n.lower().replace("-", "")}:
+            if HOST_LABEL.match(v):
+                hosts.add(f"{v}.github.io")
+    return hosts
 
 
 def domain_candidates(keywords):
@@ -296,7 +325,10 @@ def inspect(host, path):
     low = fold(page)
     hits = [m for m in MARKERS if m in low]
     if not hits:
-        return None  # resolves, but doesn't present itself as this project
+        former = former_name_in_host(host)
+        if not former:
+            return None  # resolves, but doesn't present itself as this project
+        hits = [f"former project name in the address ({', '.join(former)})"]
     title = re.search(r"<title[^>]*>(.*?)</title>", page, re.I | re.S)
     dl_hosts = sorted({describe_host(u) for u in download_links(page, final)})
     return {
@@ -440,7 +472,7 @@ def farm_issue_body(r, reg):
         "",
         "Closing this issue marks the site as handled, and the workflow won't file it again.",
         "",
-        MARKER.format(r["host"]),
+        MARKER.format(r.get("key", r["host"])),
     ]
     return "\n".join(lines)
 
@@ -459,7 +491,13 @@ def issue_body(r, reg):
                   "[Google Safe Browsing](https://safebrowsing.google.com/safebrowsing/report_phish/).")
     shown = unpuny(r["host"])
     name = f"**{r['host']}**" + (f" (shown in browsers as **{shown}**)" if shown != r["host"] else "")
-    if r["markers"]:
+    if r["markers"] and r["markers"][0] == FORMER_HOST_MARK:
+        intro = (f"Marked {name} as a typosquat: it was this project's official address before the rename "
+                 "to BridgePatcher and no longer belongs to it. Anything published there now is not from "
+                 "this project, even if it looks official.")
+    elif r["markers"] and r["markers"][0].startswith("former project name"):
+        intro = f"Found a website that uses this project's former name in its address: {name}"
+    elif r["markers"]:
         intro = f"Found a website with a lookalike name that presents itself as this project: {name}"
     else:
         intro = (f"Found a newly registered domain with a lookalike name: {name}\n\n"
@@ -495,7 +533,7 @@ def issue_body(r, reg):
         "",
         "Closing this issue marks the site as handled, and the workflow won't file it again.",
         "",
-        MARKER.format(r["host"]),
+        MARKER.format(r.get("key", r["host"])),
     ]
     return "\n".join(lines)
 
@@ -515,6 +553,8 @@ def main():
         for h in ct_hosts(kw):
             targets.setdefault(h, "/")
     targets.update(github_pages_candidates(site_host, site_path))
+    for h in former_name_pages():
+        targets.setdefault(h, "/")
     new_regs = {d for d in nrd_domains(NRD_DAYS) if nrd_match(d)} if NRD_KEYWORDS else set()
     for h in new_regs:
         targets.setdefault(h, "/")
@@ -544,13 +584,31 @@ def main():
             "new_registration": True,
         })
 
+    # Former official addresses are reported only once something is published there again
+    found_hosts = {r["host"] for r in results}
+    for host in FORMER_HOSTS:
+        if host in found_hosts:
+            r = next(r for r in results if r["host"] == host)
+            r["markers"].insert(0, FORMER_HOST_MARK)
+            r["key"] = f"{host}#live"
+            continue
+        status, final, _ = fetch(f"https://{host}/")
+        if not status or status >= 400:
+            print(f"Former address {host} is down ({status or 'no response'}); not reported")
+            continue
+        results.append({
+            "host": host, "url": final, "status": status, "ips": resolve(host),
+            "title": "", "markers": [FORMER_HOST_MARK], "download_hosts": [], "links_official": False,
+            "new_registration": False, "key": f"{host}#live",
+        })
+
     tracked = set()
     for issue in paginate(f"/repos/{ORIGINAL}/issues?labels={LABEL}&state=all&per_page=100"):
         m = re.search(r"<!-- typosquat-site:(\S+) -->", issue.get("body") or "")
         if m:
             tracked.add(m.group(1).lower())
 
-    new = [r for r in sorted(results, key=lambda r: r["host"]) if r["host"] not in tracked]
+    new = [r for r in sorted(results, key=lambda r: r["host"]) if r.get("key", r["host"]) not in tracked]
     if new and not DRY_RUN:
         post(f"/repos/{ORIGINAL}/labels",
              {"name": LABEL, "color": "b60205", "description": "Website imitating this project"})

@@ -116,7 +116,7 @@ body:
         - Security vulnerability - in the main project, please do not report it here and go to Security and quality and report a vulnerability there / - Sicherheitslücke - in der Hauptprojekt, bitte melden Sie diese nicht hier, sondern im Bereich „Security and quality“.
         - Malicious website delivering malware disguised as OpenCore Legacy Patcher / Bösartige Webseite, die sich tarnt als OpenCore Legacy Patcher T2, um Malware einzuschleusen
         - Malicious, typosquatting site trying to impersonate Dortania or Albert Müller / Bösartiges, Tippfehler-Webseite, die sich als Dortania oder Albert Müller tarnt
-        - Typosquatting repository (e.g  ОpenCore-Legacy-Patchеr-T2 with cyrilic o and e or OCLP-T2) / Repository mit Tippfehlern (z.B ОpenCore-Legacy-Patchеr-T2 mit kirillischer o und e)
+        - Typosquatting repository (e.g. BridgеPatcher with a Cyrillic е, or anything still named OpenCore-Legacy-Patcher-T2 / OCLP-T2) / Repository mit Tippfehlern (z.B. BridgеPatcher mit kyrillischem е, oder alles, was noch OpenCore-Legacy-Patcher-T2 / OCLP-T2 heißt)
         - Malicious fork / Bösartiges Fork
         - Suggestion about a new feature / Empfehlung für neues Funktion
         - Other / Andere

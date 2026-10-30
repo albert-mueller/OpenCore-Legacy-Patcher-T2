@@ -215,7 +215,7 @@ class OSUpdateFrame(wx.Frame):
         """
         resource_list = "\n".join(f"- {name}" for name in download_objects)
         message = (
-            f"OpenCore Legacy Patcher T2 has detected that macOS {self.os_data[0]} ({self.os_data[1]}) is being installed.\n\n"
+            f"BridgePatcher has detected that macOS {self.os_data[0]} ({self.os_data[1]}) is being installed.\n\n"
             f"The following resources are needed after the update and will be downloaded now:\n"
             f"{resource_list}\n\n"
             f"Caching starts automatically in {self._AUTO_CONTINUE_DELAY} seconds."

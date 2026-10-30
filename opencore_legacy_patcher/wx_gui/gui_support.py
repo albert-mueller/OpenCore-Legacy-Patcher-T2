@@ -142,7 +142,7 @@ class GenerateMenubar:
         menubar = wx.MenuBar()
         fileMenu = wx.Menu()
 
-        aboutItem = fileMenu.Append(wx.ID_ABOUT, "&About OpenCore Legacy Patcher T2")
+        aboutItem = fileMenu.Append(wx.ID_ABOUT, "&About BridgePatcher")
         fileMenu.AppendSeparator()
         revealLogItem = fileMenu.Append(wx.ID_ANY, "&Reveal Log File")
         fileMenu.AppendSeparator()
@@ -153,7 +153,7 @@ class GenerateMenubar:
         # wx.App.OnExit() and the frame's EVT_CLOSE handler entirely and tears
         # the process down directly. That's what was corrupting the
         # autorelease pool: our cleanup code was simply never being reached.
-        quitItem = fileMenu.Append(wx.ID_EXIT, "&Quit OpenCore Legacy Patcher T2\tCtrl+Q")
+        quitItem = fileMenu.Append(wx.ID_EXIT, "&Quit BridgePatcher\tCtrl+Q")
 
         menubar.Append(fileMenu, "&File")
         self.frame.SetMenuBar(menubar)

@@ -22,4 +22,4 @@ Users who wish to opt-out can do so either via the application's preferences or 
 defaults write com.dortania.opencore-legacy-patcher DisableCrashAndAnalyticsReporting -bool true
 ```
 
-To request deletion of an analytics record associated with your system, open a topic in [this project's GitHub Discussions](https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/discussions). Do not post your system UUID publicly. Ask the maintainers to arrange a private way to provide the UUID, and share it only through that private channel.
+To request deletion of an analytics record associated with your system, open a topic in [this project's GitHub Discussions](https://github.com/bridgepatcher/BridgePatcher/discussions). Do not post your system UUID publicly. Ask the maintainers to arrange a private way to provide the UUID, and share it only through that private channel.

@@ -2,7 +2,7 @@
 endpoint_health.py: Turn update checks back on when an external service the patcher depends on is gone
 
 The patcher relies on a handful of services that are NOT part of the main repository
-(oclp-t2/OpenCore-Legacy-Patcher-T2): the PatcherSupportPkg release downloads, the
+(bridgepatcher/BridgePatcher): the PatcherSupportPkg release downloads, the
 Metallib and KDK catalogs, AppleDB, the project website and so on. When one of them
 disappears for good, older builds keep pointing at it - root patching or installer
 downloads break, and a dead domain or account can be registered again by somebody else.
@@ -193,7 +193,7 @@ def _announce_outage(settings: global_settings.GlobalEnviromentSettings, groups:
     logging.warning("Ignoring the update snooze and \"Turn Off Auto Updates\" until they are back, the next update is mandatory")
 
     settings.write_property(_KEY_NOTICE, (
-        "Some online services OpenCore Legacy Patcher T2 depends on are no longer reachable:\n\n"
+        "Some online services BridgePatcher depends on are no longer reachable:\n\n"
         + "\n".join(f"- {group}" for group in groups)
         + "\n\nOlder builds may stop working correctly because of this, and an abandoned domain or "
         "account can be taken over by somebody else. To keep your Mac safe, the update snooze has "

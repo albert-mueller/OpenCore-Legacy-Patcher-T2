@@ -96,7 +96,7 @@ class BuildOpenCore:
         """
         Build EFI folder
         """
-        logging.info("---OpenCore Legacy Patcher T2 by Albert Müller---")
+        logging.info("---BridgePatcher by Albert Müller---")
         try:
             if self.constants.detected_os >= os_data.os_data.golden_gate:
                 if not self.constants.custom_model:
