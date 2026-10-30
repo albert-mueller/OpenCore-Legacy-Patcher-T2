@@ -216,7 +216,7 @@ class OpenCoreLegacyPatcher:
         launcher_script = None
         launcher_binary = sys.executable
         # PyInstaller sets sys.frozen in the built app, so a self-built and
-        # installed OpenCore-Patcher-T2.app is never treated as "from source",
+        # installed BridgePatcher.app is never treated as "from source",
         # even if its path happens to contain "python" (the substring check
         # alone matches the whole path, e.g. ~/python-projects/.../dist/).
         if not getattr(sys, "frozen", False) and "python" in launcher_binary:

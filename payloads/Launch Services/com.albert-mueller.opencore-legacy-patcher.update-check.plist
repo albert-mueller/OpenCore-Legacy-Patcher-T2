@@ -10,7 +10,7 @@
 	<string>com.albert-mueller.opencore-legacy-patcher.update-check</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/Library/Application Support/albert-mueller/OpenCore-Patcher-T2/OpenCore-Patcher-T2.app/Contents/MacOS/OpenCore-Patcher-T2</string>
+		<string>/Library/Application Support/albert-mueller/OpenCore-Patcher-T2/BridgePatcher.app/Contents/MacOS/BridgePatcher</string>
 		<string>--check_updates</string>
 	</array>
 	<key>LimitLoadToSessionType</key>

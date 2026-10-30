@@ -28,7 +28,7 @@ class InstallAutomaticPatchingServices:
 
     # Where the persistent copy of the patcher lives, as installed by the PKG
     # (see ci_tooling/build_modules/package.py)
-    _PATCHER_INSTALL_DIRECTORY: str = "/Library/Application Support/albert-mueller/OpenCore-Patcher-T2"
+    _PATCHER_INSTALL_DIRECTORY: str = constants.APP_INSTALL_DIRECTORY
 
     # Where older PKGs installed it: Dortania's own directory, shared with their
     # patcher. Only read to keep existing installs working and to clean up.
@@ -66,7 +66,8 @@ class InstallAutomaticPatchingServices:
         """
         Resolve the patcher binary that the launch services should invoke
 
-        The app bundle was renamed to OpenCore-Patcher-T2.app with the T2 rebrand,
+        The app bundle was renamed to OpenCore-Patcher-T2.app with the T2 rebrand
+        (and later to BridgePatcher.app),
         while the plists in payloads/Launch Services still referenced the old
         OpenCore-Patcher.app path. launchd then had nothing to exec, so auto-patch,
         macos-update and os-caching all silently did nothing on a PKG install.
@@ -78,7 +79,11 @@ class InstallAutomaticPatchingServices:
         # so a T2 bundle installed by an older build still carries the old name.
         # The current install directory wins; the legacy (Dortania) directory is
         # only used by installs from before the move that haven't been updated.
+        # BridgePatcher.app comes first: OpenCore-Patcher-T2.pkg leaves a link under
+        # the old bundle name next to it, which has no OpenCore-Patcher-T2 executable
+        # and so is never picked, but an install from before the rename still is.
         for directory, bundle, executable in (
+            (self._PATCHER_INSTALL_DIRECTORY,        constants.APP_BUNDLE_NAME,        constants.APP_EXECUTABLE_NAME),
             (self._PATCHER_INSTALL_DIRECTORY,        "OpenCore-Patcher-T2.app", "OpenCore-Patcher-T2"),
             (self._LEGACY_PATCHER_INSTALL_DIRECTORY, "OpenCore-Patcher-T2.app", "OpenCore-Patcher-T2"),
             (self._LEGACY_PATCHER_INSTALL_DIRECTORY, "OpenCore-Patcher-T2.app", "OpenCore-Patcher"),
@@ -99,7 +104,7 @@ class InstallAutomaticPatchingServices:
 
         # Nothing installed yet (ex. services written before the app is copied):
         # fall back to the path the PKG will create.
-        return str(Path(self._PATCHER_INSTALL_DIRECTORY) / "OpenCore-Patcher-T2.app" / "Contents" / "MacOS" / "OpenCore-Patcher-T2")
+        return str(Path(self._PATCHER_INSTALL_DIRECTORY) / constants.APP_BUNDLE_NAME / "Contents" / "MacOS" / constants.APP_EXECUTABLE_NAME)
 
 
     def _render_service(self, service: str) -> bytes:
@@ -211,7 +216,7 @@ class InstallAutomaticPatchingServices:
                 logging.info(f"- Failed to read {Path(service).name}, leaving in place: {e}")
                 continue
 
-            if "OpenCore-Patcher-T2.app" not in program:
+            if constants.APP_BUNDLE_NAME not in program and constants.LEGACY_APP_BUNDLE_NAME not in program:
                 logging.info(f"- Leaving {Path(service).name}, not ours")
                 continue
 
@@ -251,7 +256,8 @@ class InstallAutomaticPatchingServices:
         if not moved_bundle.exists():
             return
 
-        if not (Path(self._PATCHER_INSTALL_DIRECTORY) / "OpenCore-Patcher-T2.app").exists():
+        if not any((Path(self._PATCHER_INSTALL_DIRECTORY) / _bundle).exists()
+                   for _bundle in (constants.APP_BUNDLE_NAME, constants.LEGACY_APP_BUNDLE_NAME)):
             logging.info(f"- Keeping {moved_bundle}, nothing installed at {self._PATCHER_INSTALL_DIRECTORY} yet")
             return
 

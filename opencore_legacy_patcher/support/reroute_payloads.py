@@ -46,7 +46,7 @@ class RoutePayloadDiskImage:
                 # Reason shown in the native macOS authorization dialog; elevation itself is
                 # handled by utilities.get_admin_permission() (Authorization Services), not by
                 # collecting the password ourselves.
-                admin_password_prompt="OpenCore-Patcher-T2 needs administrator permission to mount its internal payloads.",
+                admin_password_prompt="BridgePatcher needs administrator permission to mount its internal payloads.",
                 # Fixed, known-correct password: "Authentication error" here can only mean
                 # the privilege gate/quarantine issue, never a wrong password (see mount_dmg)
                 retry_on_auth_error=True

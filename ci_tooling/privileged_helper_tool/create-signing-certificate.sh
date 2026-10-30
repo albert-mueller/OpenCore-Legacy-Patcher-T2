@@ -3,11 +3,11 @@
 # create-signing-certificate.sh
 #
 # Erstellt ein selbstsigniertes Code-Signing-Zertifikat fuer den lokalen Build
-# von OpenCore-Patcher-T2 - in einem EIGENEN, gesperrten Schluesselbund
+# von BridgePatcher - in einem EIGENEN, gesperrten Schluesselbund
 # (nicht im Anmeldeschluesselbund).
 #
 # Creates a self signed code signing certificate for local builds of
-# OpenCore-Patcher-T2 - in its OWN, locked keychain (not the login keychain).
+# BridgePatcher - in its OWN, locked keychain (not the login keychain).
 #
 # Warum / why: the privileged helper trusts exactly this certificate. With a
 # self signed certificate the private key IS the trust root - unlocked in the

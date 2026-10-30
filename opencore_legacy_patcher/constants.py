@@ -12,6 +12,33 @@ from .detections import device_probe
 from .support import gatekeeper
 
 
+# App naming
+# The app bundle and its executable were called OpenCore-Patcher-T2 until the
+# rename to BridgePatcher. The install directory, the log directory and the
+# launch service labels keep their old names on purpose, so existing installs,
+# settings, logs and launch services carry over without a migration.
+APP_NAME:                  str = "BridgePatcher"
+APP_BUNDLE_NAME:           str = f"{APP_NAME}.app"
+APP_EXECUTABLE_NAME:       str = APP_NAME
+
+# Former bundle/executable name. Only used to find, migrate and clean up
+# installs from before the rename, and for the optional compatibility package.
+LEGACY_APP_NAME:           str = "OpenCore-Patcher-T2"
+LEGACY_APP_BUNDLE_NAME:    str = f"{LEGACY_APP_NAME}.app"
+LEGACY_APP_EXECUTABLE_NAME: str = LEGACY_APP_NAME
+
+# Where the PKG installs the app (see ci_tooling/build_modules/package.py)
+APP_INSTALL_DIRECTORY:     str = "/Library/Application Support/albert-mueller/OpenCore-Patcher-T2"
+
+# Release assets. BridgePatcher.pkg is the installer every build produces.
+# OpenCore-Patcher-T2.pkg is only built with Build-Project.command's
+# --legacy-installer flag: builds from before the rename only look for that
+# asset name when checking for updates, so a release has to carry it for
+# those installs to see the update at all.
+INSTALLER_PKG_NAME:        str = f"{APP_NAME}.pkg"
+LEGACY_INSTALLER_PKG_NAME: str = f"{LEGACY_APP_NAME}.pkg"
+
+
 class Constants:
     def __init__(self) -> None:
         # Patcher Versioning
@@ -1023,7 +1050,7 @@ class Constants:
         # Only used inside the app (About window), so Mojave+ like in_app_icon_path
         if self.use_dark_in_app_icon:
             dark_icon = self.icns_resource_path / Path("OC-Patcher-Dark.png")
-            # In the built app the PNG lives in OpenCore-Patcher-T2.assets, not on disk
+            # In the built app the PNG lives in BridgePatcher.assets, not on disk
             from .support import image_handler
             if image_handler.exists(dark_icon):
                 return dark_icon
@@ -1147,7 +1174,7 @@ class Constants:
 
     @property
     def patcher_name(self) -> str: # Anzeigename der App (früher "OpenCore Legacy Patcher T2"); sollte hier niemals T1 returnen, sonst es würde den Patcher selbst verwirren
-        return "BridgePatcher"
+        return APP_NAME
 
     @property
     def update_repo_link(self) -> str:

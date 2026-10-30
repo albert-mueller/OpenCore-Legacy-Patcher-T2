@@ -97,7 +97,8 @@ class UpdateFrame(wx.Frame):
         # Same cut as gui_main_menu.py: the asset table at the end is not useful here.
         self.changelog = str(changelog).split("## Asset Information")[0] if changelog else ""
 
-        # Our own releases ship a raw "OpenCore-Patcher-T2.pkg" asset (see updates.py),
+        # Our own releases ship a raw "BridgePatcher.pkg" asset (or, before the rename,
+        # "OpenCore-Patcher-T2.pkg" - see updates.py),
         # while the upstream Dortania nightly.link fallback (gui_macos_configeration.py)
         # still ships the original "OpenCore-Patcher.pkg" zipped up - keep expecting
         # whichever one this URL actually points to instead of hardcoding one name.
@@ -109,15 +110,15 @@ class UpdateFrame(wx.Frame):
         # is_unpack_finished() wait further down - so whenever the update window
         # opened before the background mount had finished (or the mount failed /
         # the admin prompt was cancelled), payload_path still pointed into the
-        # app bundle itself (.../OpenCore-Patcher-T2.app/Contents/Frameworks/payloads).
+        # app bundle itself (.../BridgePatcher.app/Contents/Frameworks/payloads).
         # For the installed copy under /Library/Application Support that
         # directory is root-owned and does not exist, so mkdir() failed with
         # "[Errno 13] Permission denied" and the download aborted with
         # "Could not prepare working directory". The update package has nothing
         # to do with the payloads, so it should not depend on that mount at all.
-        self.update_work_dir = Path(tempfile.mkdtemp(prefix="OpenCore-Patcher-T2-update-"))
+        self.update_work_dir = Path(tempfile.mkdtemp(prefix=f"{constants.APP_NAME}-update-"))
         atexit.register(shutil.rmtree, self.update_work_dir, ignore_errors=True)
-        self.pkg_download_path = self.update_work_dir / ("OpenCore-Patcher.pkg" if self.url.endswith(".zip") else "OpenCore-Patcher-T2.pkg")
+        self.pkg_download_path = self.update_work_dir / ("OpenCore-Patcher.pkg" if self.url.endswith(".zip") else constants.INSTALLER_PKG_NAME)
         # The download is written here and _extract_update() reads it back from the
         # same path. These used to be two different hardcoded names
         # ("OpenCore-Patcher-T2.pkg.zip" vs "OpenCore-Patcher.pkg.zip"), so the ZIP
@@ -411,9 +412,45 @@ class UpdateFrame(wx.Frame):
             return value.decode("utf-8", errors="replace")
         return str(value)
 
+    def _installed_app_candidates(self) -> list:
+        """
+        Bundles the downloaded package may install, newest naming first
+
+        Our packages install BridgePatcher.app. A release from before the rename,
+        reachable through a channel switch, still installs OpenCore-Patcher-T2.app,
+        and an upstream Dortania ZIP installs OpenCore-Patcher.app. Resolved, so the
+        compatibility link OpenCore-Patcher-T2.pkg leaves behind is not counted twice.
+        """
+        if self.url.endswith(".zip"):
+            _names = ["OpenCore-Patcher.app"]
+        else:
+            _names = [constants.APP_BUNDLE_NAME, constants.LEGACY_APP_BUNDLE_NAME]
+
+        _candidates = []
+        for _name in _names:
+            _path = Path(self._install_directory()) / _name
+            try:
+                _path = _path.resolve()
+            except OSError:
+                pass
+            if _path not in _candidates:
+                _candidates.append(_path)
+        return _candidates
+
+    @staticmethod
+    def _info_plist_ctime(app_path: Path) -> float:
+        try:
+            return (app_path / "Contents" / "Info.plist").stat().st_ctime
+        except OSError:
+            return -1.0
+
     def _installed_app_path(self) -> Path:
-        _app_name = "OpenCore-Patcher.app" if self.url.endswith(".zip") else "OpenCore-Patcher-T2.app"
-        return Path(self._install_directory()) / _app_name
+        """
+        The bundle the update installed: the most recently written candidate
+        """
+        _candidates = self._installed_app_candidates()
+        _newest = max(_candidates, key=self._info_plist_ctime)
+        return _newest if self._info_plist_ctime(_newest) >= 0 else _candidates[0]
 
     def _installer_running(self) -> bool:
         """
@@ -440,11 +477,7 @@ class UpdateFrame(wx.Frame):
 
     def _app_was_rewritten(self, started: float) -> bool:
         # st_ctime changes on every write, even though the installer keeps the payload's mtime.
-        info_plist = self._installed_app_path() / "Contents" / "Info.plist"
-        try:
-            return info_plist.stat().st_ctime >= started - 5
-        except OSError:
-            return False
+        return any(self._info_plist_ctime(_app) >= started - 5 for _app in self._installed_app_candidates())
 
     def _wait_for_install(self, started: float, timeout: int = 900, start_grace: int = 30) -> bool:
         """
@@ -525,7 +558,7 @@ class UpdateFrame(wx.Frame):
         temporary directory removed when this app quits, which happens right after
         the package has been handed to the Installer.
         """
-        target = Path.home() / "Downloads" / f"OpenCore-Patcher-T2-{self.version_label}.pkg"
+        target = Path.home() / "Downloads" / f"{constants.APP_NAME}-{self.version_label}.pkg"
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             if target.exists():
@@ -561,24 +594,26 @@ class UpdateFrame(wx.Frame):
         """
         if self.url.endswith(".zip"):
             return "/Library/Application Support/Dortania"
-        return "/Library/Application Support/albert-mueller/OpenCore-Patcher-T2"
+        return constants.APP_INSTALL_DIRECTORY
 
     def _launch_update(self) -> None:
-        # Same reasoning as pkg_download_path above: an upstream Dortania nightly
-        # install still lands as "OpenCore-Patcher.app", only our own T2 releases
-        # install as "OpenCore-Patcher-T2.app" (see package.py's _files mapping).
-        _app_name = self._installed_app_path().name
+        # Same reasoning as _installed_app_candidates(): our releases install as
+        # "BridgePatcher.app", releases from before the rename as
+        # "OpenCore-Patcher-T2.app" and an upstream Dortania nightly as "OpenCore-Patcher.app".
+        _app_path = self._installed_app_path()
         try:
-            logging.info(f"Aktualisierung beginnen: '{self._install_directory()}/{_app_name}'")
-            logging.info(f"Launching update: '{self._install_directory()}/{_app_name}'")
-            # T2 builds now ship their executable as OpenCore-Patcher-T2; older T2
-            # releases and Dortania's app still use OpenCore-Patcher, so launch
-            # whichever one the freshly installed bundle actually contains.
-            _macos_dir = f"{self._install_directory()}/{_app_name}/Contents/MacOS"
-            _executable = f"{_macos_dir}/OpenCore-Patcher-T2"
-            if not Path(_executable).exists():
-                _executable = f"{_macos_dir}/OpenCore-Patcher"
-            subprocess.Popen([_executable, "--update_installed"])
+            logging.info(f"Aktualisierung beginnen: '{_app_path}'")
+            logging.info(f"Launching update: '{_app_path}'")
+            # Launch whichever executable the freshly installed bundle actually contains:
+            # BridgePatcher now, OpenCore-Patcher-T2 before the rename, OpenCore-Patcher
+            # in even older T2 releases and in Dortania's app.
+            _macos_dir = _app_path / "Contents" / "MacOS"
+            _executable = _macos_dir / constants.APP_EXECUTABLE_NAME
+            for _name in (constants.APP_EXECUTABLE_NAME, constants.LEGACY_APP_EXECUTABLE_NAME, "OpenCore-Patcher"):
+                if (_macos_dir / _name).exists():
+                    _executable = _macos_dir / _name
+                    break
+            subprocess.Popen([str(_executable), "--update_installed"])
         except Exception as e:
             logging.error("Das Starten des Aktualisierung durch den Builtin-Update-Instrument hat fehlgeschlagen.")
             logging.error("Launching the update via the builtin updater failed.")

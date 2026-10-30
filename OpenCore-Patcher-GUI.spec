@@ -54,7 +54,7 @@ exe = EXE(pyz,
           a.scripts,
           [],
           exclude_binaries=True,
-          name='OpenCore-Patcher-T2',
+          name=constants.APP_EXECUTABLE_NAME,
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
@@ -72,14 +72,15 @@ coll = COLLECT(exe,
                strip=False,
                upx=True,
                upx_exclude=[],
-               name='OpenCore-Patcher-T2')
+               name=constants.APP_NAME)
 
 app = BUNDLE(coll,
-             name='OpenCore-Patcher-T2.app',
+             name=constants.APP_BUNDLE_NAME,
              icon=str(SPEC_DIR / "payloads/Resources/AppIcons/OC-Patcher.icns"), # Fix: Use the corrected SPEC_DIR variable and Resources path
              bundle_identifier=constants.Constants().bundle_identifier,
              info_plist={
-                "CFBundleName": "BridgePatcher",
+                "CFBundleName": constants.APP_NAME,
+                "CFBundleDisplayName": constants.APP_NAME,
                 "CFBundleVersion": constants.Constants().patcher_version,
                 "CFBundleShortVersionString": constants.Constants().patcher_version,
                 "NSHumanReadableCopyright": constants.Constants().copyright_date,

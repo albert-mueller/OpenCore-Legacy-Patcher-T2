@@ -3,8 +3,21 @@ package_scripts.py: Generate pre/postinstall scripts for PKG and AutoPkg
 """
 
 
+from opencore_legacy_patcher import constants
+
 LEGACY_DOMAIN = "com.dortania.opencore-legacy-patcher"
 NEW_DOMAIN    = "com.albert-mueller.opencore-legacy-patcher"
+
+# Install locations, relative to the target volume
+_INSTALL_DIRECTORY   = constants.APP_INSTALL_DIRECTORY.lstrip("/")
+MAIN_APP_PATH        = f"{_INSTALL_DIRECTORY}/{constants.APP_BUNDLE_NAME}"
+SHIM_APP_PATH        = f"Applications/{constants.APP_BUNDLE_NAME}"
+EXECUTABLE_PATH      = f"{MAIN_APP_PATH}/Contents/MacOS/{constants.APP_EXECUTABLE_NAME}"
+
+# Same locations under the bundle name used before the rename to BridgePatcher
+LEGACY_MAIN_APP_PATH   = f"{_INSTALL_DIRECTORY}/{constants.LEGACY_APP_BUNDLE_NAME}"
+LEGACY_SHIM_APP_PATH   = f"Applications/{constants.LEGACY_APP_BUNDLE_NAME}"
+LEGACY_EXECUTABLE_PATH = f"{LEGACY_MAIN_APP_PATH}/Contents/MacOS/{constants.LEGACY_APP_EXECUTABLE_NAME}"
 
 
 class ZSHFunctions:
@@ -239,7 +252,8 @@ class ZSHFunctions:
         _script += "function _cleanLaunchService() {\n"
         _script += f"    local domain=\"{NEW_DOMAIN}\"\n"
         _script += f"    local legacyDomain=\"{LEGACY_DOMAIN}\"\n"
-        _script += "    local ourApp=\"OpenCore-Patcher-T2.app\"\n\n"
+        _script += f"    local ourApp=\"{constants.APP_BUNDLE_NAME}\"\n"
+        _script += f"    local ourLegacyApp=\"{constants.LEGACY_APP_BUNDLE_NAME}\"\n\n"
 
         _script += "    # Iterate over launch agents and daemons\n"
         _script += "    for launchServiceVariant in \"$pathToTargetVolume/Library/LaunchAgents\" \"$pathToTargetVolume/Library/LaunchDaemons\"; do\n"
@@ -259,12 +273,86 @@ class ZSHFunctions:
         _script += "        # at our app, so a side-by-side Dortania install keeps its own.\n"
         _script += "        for launchServicePath in \"$launchServiceVariant\"/$legacyDomain*.plist(N); do\n"
         _script += "            local program=$(/usr/libexec/PlistBuddy -c \"Print :ProgramArguments:0\" \"$launchServicePath\" 2>/dev/null)\n"
-        _script += "            if [[ $program == *$ourApp* ]]; then\n"
+        _script += "            if [[ $program == *$ourApp* || $program == *$ourLegacyApp* ]]; then\n"
         _script += "                echo \"Removing legacy launch service: $launchServicePath\"\n"
         _script += "                _removeFile \"$launchServicePath\"\n"
         _script += "            fi\n"
         _script += "        done\n"
         _script += "    done\n"
+        _script += "}\n"
+
+        return _script
+
+
+    def generate_migrate_launch_services(self) -> str:
+        """
+        ZSH function to point existing launch services at the renamed app
+
+        The auto-patch, macos-update and os-caching services are written by the
+        app itself (sys_patch/auto_patcher/install.py), not by this package, so
+        installs from before the rename still have them pointing at
+        OpenCore-Patcher-T2.app/Contents/MacOS/OpenCore-Patcher-T2. That bundle is
+        removed by the preinstall script, which would leave launchd with nothing to
+        exec until root patches were installed again. Only services whose program
+        is exactly the old executable are touched.
+        """
+
+        _script = ""
+
+        _script += "function _migrateLaunchServices() {\n"
+        _script += f"    local domain=\"{NEW_DOMAIN}\"\n"
+        _script += f"    local legacyBinary=\"/{LEGACY_EXECUTABLE_PATH}\"\n"
+        _script += f"    local newBinary=\"/{EXECUTABLE_PATH}\"\n\n"
+
+        _script += "    for launchServiceVariant in \"$pathToTargetVolume/Library/LaunchAgents\" \"$pathToTargetVolume/Library/LaunchDaemons\"; do\n"
+        _script += "        if [[ ! -d $launchServiceVariant ]]; then\n"
+        _script += "            continue\n"
+        _script += "        fi\n\n"
+
+        _script += "        for launchServicePath in \"$launchServiceVariant\"/$domain*.plist(N); do\n"
+        _script += "            # Never write through a symlink as root\n"
+        _script += "            if [[ -L $launchServicePath ]]; then\n"
+        _script += "                continue\n"
+        _script += "            fi\n"
+        _script += "            local program=$(/usr/libexec/PlistBuddy -c \"Print :ProgramArguments:0\" \"$launchServicePath\" 2>/dev/null)\n"
+        _script += "            if [[ $program != \"$legacyBinary\" ]]; then\n"
+        _script += "                continue\n"
+        _script += "            fi\n"
+        _script += "            echo \"Pointing launch service at the renamed app: $launchServicePath\"\n"
+        _script += "            /usr/bin/plutil -replace ProgramArguments.0 -string \"$newBinary\" \"$launchServicePath\"\n"
+        _script += "            /usr/sbin/chown root:wheel \"$launchServicePath\"\n"
+        _script += "            /bin/chmod 644 \"$launchServicePath\"\n"
+        _script += "        done\n"
+        _script += "    done\n"
+        _script += "    return 0\n"
+        _script += "}\n"
+
+        return _script
+
+
+    def generate_create_legacy_compatibility_link(self) -> str:
+        """
+        ZSH function for OpenCore-Patcher-T2.pkg only: link the old bundle name
+        to the renamed app inside the install directory
+
+        The built-in updater of builds from before the rename decides whether an
+        update succeeded by looking at OpenCore-Patcher-T2.app/Contents/Info.plist.
+        Without this link it reports a failed update and opens the macOS Installer
+        a second time, although the update was installed. The link is relative, so
+        it also resolves when installing to another volume, and it is removed again
+        by the next install of either package and by the uninstaller.
+        """
+
+        _script = ""
+
+        _script += "function _createLegacyCompatibilityLink() {\n"
+        _script += "    local linkPath=\"$pathToTargetVolume/$legacyAppPath\"\n\n"
+
+        _script += "    if [[ -e $linkPath && ! -L $linkPath ]]; then\n"
+        _script += "        /bin/rm -rf \"$linkPath\"\n"
+        _script += "    fi\n"
+        _script += "    echo \"Creating compatibility link: $linkPath\"\n"
+        _script += f"    /bin/ln -sfh \"{constants.APP_BUNDLE_NAME}\" \"$linkPath\"\n"
         _script += "}\n"
 
         return _script
@@ -408,7 +496,7 @@ class ZSHFunctions:
         return _script
 
 
-    def generate_postinstall_main(self, is_autopkg: bool = False) -> str:
+    def generate_postinstall_main(self, is_autopkg: bool = False, legacy_compatibility: bool = False) -> str:
         """
         ZSH function for postinstall's main
         """
@@ -418,6 +506,9 @@ class ZSHFunctions:
         _script += "function _main() {\n"
         _script += "    _setSUIDBit \"$pathToTargetVolume/$helperPath\"\n"
         _script += "    _createAlias \"$pathToTargetVolume/$mainAppPath\" \"$pathToTargetVolume/$shimAppPath\"\n"
+        if legacy_compatibility:
+            _script += "    _createLegacyCompatibilityLink\n"
+        _script += "    _migrateLaunchServices\n"
         _script += "    _prewarmGatekeeper \"$pathToTargetVolume/$mainAppPath\"\n"
         _script += "    _loadUpdateCheckAgent\n"
         if is_autopkg:
@@ -455,8 +546,8 @@ class GenerateScripts:
         self.zsh_functions = ZSHFunctions()
 
         self.files = [
-            "Applications/OpenCore-Patcher-T2.app",
-            "Library/Application Support/albert-mueller/OpenCore-Patcher-T2/OpenCore-Patcher-T2.app",
+            SHIM_APP_PATH,
+            MAIN_APP_PATH,
             "Library/PrivilegedHelperTools/io.github.bridgepatcher.privileged-helper",
             "Library/LaunchAgents/com.albert-mueller.opencore-legacy-patcher.update-check.plist"
         ]
@@ -468,7 +559,12 @@ class GenerateScripts:
             "Library/Application Support/Dortania/OpenCore-Patcher-T2.app",
             "Library/PrivilegedHelperTools/com.albert-mueller.opencore-legacy-patcher.privileged-helper",
             # Helper path before the rename to BridgePatcher (only this fork ever wrote it)
-            "Library/PrivilegedHelperTools/com.albert-mueller.opencore-patcher-t2.privileged-helper"
+            "Library/PrivilegedHelperTools/com.albert-mueller.opencore-patcher-t2.privileged-helper",
+            # App bundle and /Applications link before the rename to BridgePatcher.
+            # OpenCore-Patcher-T2.pkg puts LEGACY_MAIN_APP_PATH back as a link in
+            # its postinstall script, after this cleanup.
+            LEGACY_SHIM_APP_PATH,
+            LEGACY_MAIN_APP_PATH,
         ]
 
         self.additional_auto_pkg_files = [
@@ -567,7 +663,7 @@ class GenerateScripts:
         return _script
 
 
-    def _generate_postinstall_script(self, is_autopkg: bool = False) -> str:
+    def _generate_postinstall_script(self, is_autopkg: bool = False, legacy_compatibility: bool = False) -> str:
         """
         """
 
@@ -593,10 +689,12 @@ class GenerateScripts:
         _script += "\n"
 
         _script += "helperPath=\"Library/PrivilegedHelperTools/io.github.bridgepatcher.privileged-helper\"\n"
-        _script += "mainAppPath=\"Library/Application Support/albert-mueller/OpenCore-Patcher-T2/OpenCore-Patcher-T2.app\"\n"
-        _script += "shimAppPath=\"Applications/OpenCore-Patcher-T2.app\"\n"
+        _script += f"mainAppPath=\"{MAIN_APP_PATH}\"\n"
+        _script += f"shimAppPath=\"{SHIM_APP_PATH}\"\n"
+        if legacy_compatibility:
+            _script += f"legacyAppPath=\"{LEGACY_MAIN_APP_PATH}\"\n"
         if is_autopkg:
-            _script += "executablePath=\"$mainAppPath/Contents/MacOS/OpenCore-Patcher-T2\"\n"
+            _script += f"executablePath=\"{EXECUTABLE_PATH}\"\n"
 
         _script += "\n\n"
 
@@ -612,6 +710,11 @@ class GenerateScripts:
         _script += "\n"
         _script += self.zsh_functions.generate_load_update_check_agent()
         _script += "\n"
+        _script += self.zsh_functions.generate_migrate_launch_services()
+        _script += "\n"
+        if legacy_compatibility:
+            _script += self.zsh_functions.generate_create_legacy_compatibility_link()
+            _script += "\n"
         if is_autopkg:
             _script += self.zsh_functions.generate_start_patching()
             _script += "\n"
@@ -622,7 +725,7 @@ class GenerateScripts:
             _script += self.zsh_functions.generate_reboot()
             _script += "\n"
 
-        _script += self.zsh_functions.generate_postinstall_main(is_autopkg)
+        _script += self.zsh_functions.generate_postinstall_main(is_autopkg, legacy_compatibility)
         _script += "\n\n"
 
         _script += "# MARK: Main\n"
@@ -713,11 +816,14 @@ class GenerateScripts:
         return self._generate_preinstall_script(is_autopkg=True)
 
 
-    def postinstall_pkg(self) -> str:
+    def postinstall_pkg(self, legacy_compatibility: bool = False) -> str:
         """
         Generate postinstall script for PKG
+
+        legacy_compatibility: for OpenCore-Patcher-T2.pkg, see
+        generate_create_legacy_compatibility_link()
         """
-        return self._generate_postinstall_script()
+        return self._generate_postinstall_script(legacy_compatibility=legacy_compatibility)
 
 
     def postinstall_autopkg(self) -> str:
