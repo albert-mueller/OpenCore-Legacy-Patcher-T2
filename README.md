@@ -98,7 +98,7 @@ Thanks to recent testing and optimizations, the following models are fully opera
 * **Unsupported T2 Macs, such as 2018 Mac mini**
     * requires some testing and work to get reliably to the desktop
 
-Noteworthy features of OpenCore Legacy Patcher:
+Noteworthy features of OpenCore Legacy Patcher T2:
 
 * Support for macOS Monterey, Ventura, Sonoma, Sequoia and eventually add support for Tahoe.
 * Native Over the Air (OTA) System Updates
@@ -117,7 +117,7 @@ Note: Only clean-installs and upgrades are supported. macOS Big Sur installs alr
 
 * You can, however, reinstall macOS with this patcher and retain your original data
 
-Note 2: Currently, OpenCore Legacy Patcher officially supports patching to run macOS Monterey through Tahoe installs. For older OSes, OpenCore may function; however, support is currently not provided from Albert Müller.
+Note 2: Currently, OpenCore Legacy Patcher T2 officially supports patching to run macOS Monterey through Tahoe installs. For older OSes, OpenCore may function; however, support is currently not provided from Albert Müller.
 
 * For macOS Mojave and Catalina support, we recommend the use of [dosdude1's patchers](http://dosdude1.com)
 
@@ -130,10 +130,6 @@ To start using the project, please see our in-depth guide:
 ## Support
 
 This project is offered on an AS-IS basis, we do not guarantee support for any issues that may arise. However, there is a community server with other passionate users and developers that can aid you:
-
-* [OpenCore Patcher Paradise Discord Server](https://discord.gg/rqdPgH8xSN)
-  * Keep in mind that the Discord server is maintained by the community, so we ask everyone to be respectful.
-  * Please review our docs on [how to debug with OpenCore](https://oclp-t2.github.io/OpenCore-Legacy-Patcher-T2/DEBUG.html) to gather important information to help others with troubleshooting.
 
 ## Running from source
 
