@@ -129,7 +129,7 @@ To start using the project, please see our in-depth guide:
 
 ## Support
 
-This project is offered on an AS-IS basis, we do not guarantee support for any issues that may arise. However, there is a community server with other passionate users and developers that can aid you:
+This project is offered on an AS-IS basis, and we do not guarantee support for any issues that may arise. Community support for this independent fork is provided through [GitHub Discussions](https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/discussions).
 
 ## Running from source
 

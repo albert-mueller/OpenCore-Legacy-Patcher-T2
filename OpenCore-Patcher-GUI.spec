@@ -28,6 +28,9 @@ datas = [
 if (SPEC_DIR / "DortaniaInternalResources.dmg").exists():
    datas.append((str(SPEC_DIR / 'DortaniaInternalResources.dmg'), '.'))
 
+# Include the complete upstream and fork license terms in binary distributions.
+datas.append((str(SPEC_DIR / "LICENSE.txt"), "."))
+
 
 a = Analysis([str(SPEC_DIR / 'OpenCore-Patcher-GUI.command')],
              pathex=[],
@@ -74,7 +77,7 @@ coll = COLLECT(exe,
 app = BUNDLE(coll,
              name='OpenCore-Patcher-T2.app',
              icon=str(SPEC_DIR / "payloads/Resources/AppIcons/OC-Patcher.icns"), # Fix: Use the corrected SPEC_DIR variable and Resources path
-             bundle_identifier="com.dortania.opencore-legacy-patcher-t2",
+             bundle_identifier=constants.Constants().bundle_identifier,
              info_plist={
                 "CFBundleName": "OpenCore Legacy Patcher T2",
                 "CFBundleVersion": constants.Constants().patcher_version,

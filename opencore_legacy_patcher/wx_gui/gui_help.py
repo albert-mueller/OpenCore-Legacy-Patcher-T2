@@ -46,10 +46,10 @@ class HelpFrame(wx.Frame):
         Format:
             - Title: Patcher Resources
             - Text:  Following resources are available:
-            - Button: Official Guide
-            - Button: Community Discord Server
-            - Button: Bug Reports / GitHub Issues  <-- Added
-            - Button: Community Discussions        <-- Added
+            - Button: T2 project guide
+            - Button: T2 project repository
+            - Button: GitHub Issues
+            - Button: GitHub Discussions
             - Button Gemini
             - Button: Return to Main Menu
         """
@@ -59,8 +59,8 @@ class HelpFrame(wx.Frame):
         # Referenced directly so a missing constant fails loudly instead of
         # silently falling back to a hardcoded URL.
         resource_links = [
-            ("Official OpenCore Legacy Patcher T2 guide",                  self.constants.guide_link),
-            ("View official OpenCore Legacy Patcher T2 GitHub repository", self.constants.repo_link),
+            ("OpenCore Legacy Patcher T2 project guide",                   self.constants.guide_link),
+            ("OpenCore Legacy Patcher T2 GitHub repository",               self.constants.repo_link),
             ("View GitHub Issues",                                          self.constants.github_issues_link),
             ("Join GitHub Discussions",                                     self.constants.github_discussions_link),
         ]
