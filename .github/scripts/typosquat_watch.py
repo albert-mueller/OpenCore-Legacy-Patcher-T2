@@ -144,6 +144,14 @@ def looks_like(candidate, original):
     return skeleton(candidate) == skeleton(original) or lev(fold(candidate), fold(original)) <= MAX_DIST
 
 
+def contains_name(candidate, names):
+    """True if candidate's name contains one of names, ignoring case, separators and
+    lookalike letters (e.g. "OpenCore-Legacy-Patcher-T2-Fork" contains "OpenCore-Legacy-Patcher-T2")."""
+    flat = lambda s: re.sub(r"[^a-z0-9]", "", fold(s))
+    c = flat(candidate)
+    return any(flat(n) and flat(n) in c for n in names)
+
+
 def variants(name):
     n = name.lower()
     out = {n, n.replace("-", ""), n.replace("-", "_"), n.replace("_", "-")}
@@ -247,6 +255,19 @@ Thanks for understanding!
 """
 
 
+def former_name_request(full):
+    return f"""Hi! 👋
+
+This repository's name still uses a former name of [{ORIGINAL}](https://github.com/{ORIGINAL}) ({", ".join(ALIASES)}). The project has been renamed, and repositories still using the old name look like typosquats of it (and of Dortania's OpenCore Legacy Patcher) to users.
+
+We're assuming this wasn't intentional. Could you **rename the repository** (Settings → General → Repository name) to something that doesn't use the old project name?
+
+Thanks for understanding!
+
+{THEIR_MARKER}
+"""
+
+
 def suspicious_notice(full, sha, reasons):
     bullet = "\n".join(f"- {r}" for r in reasons)
     return f"""**Notice for users of this repository**
@@ -326,7 +347,8 @@ def main():
             c_owner, c_name = item["owner"]["login"], item["name"]
             if c_owner.lower() == owner.lower() or full.lower() in ALLOWLIST:
                 continue
-            name_sq = c_name.lower() in aliases or any(looks_like(c_name, n) for n in names)
+            name_sq = (c_name.lower() in aliases or any(looks_like(c_name, n) for n in names)
+                       or contains_name(c_name, ALIASES))
             owner_sq = looks_like(c_owner, owner)
             if name_sq or (owner_sq and c_name.lower() in {n.lower() for n in names}):
                 candidates[full] = owner_sq
@@ -354,11 +376,16 @@ def main():
         sha, own = shared_history(full)
         if not sha:
             sha, own = copied_commit(full, shas), None
-        if not sha:
+        # A repo that isn't a GitHub fork but still carries one of this project's former
+        # names (e.g. "OpenCore-Legacy-Patcher-T2-Fork") counts even without copied code
+        former = not cand.get("fork") and contains_name(cand["name"], ALIASES)
+        if not sha and not former:
             continue  # similar name, but not a copy of this project
 
         found += 1
         suspicious, reasons = assess(cand, owner_sq, owner)
+        if former:
+            reasons.insert(0, f"uses this project's former name ({', '.join(ALIASES)})")
         verdict = "suspicious" if suspicious else "likely unintentional"
         summary(f"- **{full}** — {verdict}; {describe_copy(sha, own)}; "
                 + ("; ".join(reasons) or "no extra signals"))
@@ -382,7 +409,8 @@ def main():
             else:
                 title = (f"Notice: this repository is an unofficial copy of {ORIGINAL}" if suspicious
                          else f"Please consider renaming: name is very close to {ORIGINAL}")
-                body = suspicious_notice(full, sha, reasons) if suspicious else rename_request(full, sha)
+                body = (suspicious_notice(full, sha, reasons) if suspicious and sha
+                        else rename_request(full, sha) if sha else former_name_request(full))
                 status, data = post(f"/repos/{full}/issues", {"title": title, "body": body})
                 if status < 300:
                     their_url = data["html_url"]

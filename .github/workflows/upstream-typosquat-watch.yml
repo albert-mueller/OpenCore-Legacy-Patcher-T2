@@ -61,6 +61,9 @@ jobs:
           # Owners / repos (owner/name) that are never listed
           ALLOWLIST_OWNERS: "bridgepatcher albert-mueller"
           ALLOWLIST_REPOS: ""
+          # Former names of this project: repos that aren't GitHub forks but still use one
+          # in their name are listed too (forks of this project are left to the fork name check)
+          FORMER_NAMES: "OpenCore-Legacy-Patcher-T2 OCLP-T2"
           # --- Websites ---
           # Names whose typo variants are checked as domains under each TLD
           KEYWORDS: "opencore-legacy-patcher opencorelegacypatcher oclp opencore-patcher opencore-legacy-patcher-t2 oclp-t2"
