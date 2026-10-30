@@ -62,7 +62,7 @@ from .package_scripts import GenerateScripts
 
 class GeneratePackage:
     """
-    Generate OpenCore-Patcher-T2.pkg
+    Generate BridgePatcher.pkg
     """
 
     def __init__(self) -> None:
@@ -144,7 +144,7 @@ class GeneratePackage:
 
         _welcome += "# PLEASE DO NOT RUN AUTOPKG-ASSETS MANUALLY!\n\n"
         _welcome += "## THIS WILL CORRUPT THE OPERATING SYSTEM!\n\n"
-        _welcome += "This package is intented to be used only by the Patcher application itslef, not run manually by a user. Download the OpenCore-Patcher-T2.pkg on the Github Repository.\n\n"
+        _welcome += "This package is intented to be used only by the Patcher application itslef, not run manually by a user. Download the BridgePatcher.pkg on the Github Repository.\n\n"
         _welcome += f"[BridgePatcher GitHub Release]({constants.Constants().repo_link})"
 
         return _welcome
@@ -152,7 +152,7 @@ class GeneratePackage:
 
     def generate(self) -> None:
         """
-        Generate OpenCore-Patcher-T2.pkg
+        Generate BridgePatcher.pkg
         """
         try:
             self._generate_packages()
@@ -193,8 +193,8 @@ class GeneratePackage:
         )
 
         self._build_package(
-            "OpenCore-Patcher-T2.pkg",
-            pkg_output="./dist/OpenCore-Patcher-T2.pkg",
+            "BridgePatcher.pkg",
+            pkg_output="./dist/BridgePatcher.pkg",
             pkg_bundle_id="com.dortania.opencore-legacy-patcher-t2",
             pkg_version=constants.Constants().patcher_version,
             pkg_allow_relocation=False,

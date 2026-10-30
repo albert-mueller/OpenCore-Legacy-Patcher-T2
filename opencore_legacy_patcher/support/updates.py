@@ -23,6 +23,10 @@ from . import endpoint_health
 from .. import constants
 
 
+# Installer asset names in a release, in order of preference.
+INSTALLER_ASSET_NAMES = ("BridgePatcher.pkg", "OpenCore-Patcher-T2.pkg")
+
+
 # The releases URL is generated from constants.update_repo_link, i.e. from the
 # update channel selected in Settings (official T2 repository or a fork).
 
@@ -359,10 +363,15 @@ class CheckBinaryUpdates:
 
         # Only reached for a newer build, or for an explicitly selected channel switch
         # (behebt eine Sicherheitslücke, die erlaubt Angreifern, Downgrade-Angriffen in Hintergrund ohne das Wissen von Benutzer zu starten)
-        for asset in data_set["assets"]:
-            logging.info("A new version is available")
-            logging.info(f"Found asset: {asset['name']}")
-            if asset["name"] == "OpenCore-Patcher-T2.pkg":
+        # The installer was renamed to BridgePatcher.pkg; releases from the transition
+        # period also carry it as OpenCore-Patcher-T2.pkg, and older releases only
+        # under the old name. Prefer the new name, fall back to the old one.
+        assets_by_name = {asset.get("name"): asset for asset in data_set["assets"]}
+        for asset_name in INSTALLER_ASSET_NAMES:
+            asset = assets_by_name.get(asset_name)
+            if asset is not None:
+                logging.info("A new version is available")
+                logging.info(f"Found asset: {asset['name']}")
                 self.latest_details = {
                     "Name": asset["name"],
                     "Version": latest_remote_version,
@@ -376,7 +385,7 @@ class CheckBinaryUpdates:
                 return self.latest_details
 
         if channel_switch:
-            self.last_error = f"The newest release of the {self.constants.update_channel_label} channel has no OpenCore-Patcher-T2.pkg asset."
+            self.last_error = f"The newest release of the {self.constants.update_channel_label} channel has no BridgePatcher.pkg asset."
         return None
 
     def _mark_channel_installed(self) -> None:

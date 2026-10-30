@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build-Project.command: Generates OpenCore-Patcher-T2.app and OpenCore-Patcher-T2.pkg
+Build-Project.command: Generates OpenCore-Patcher-T2.app and BridgePatcher.pkg
 """
 
 import os
@@ -246,6 +246,10 @@ from ci_tooling.build_modules import (
 
 TOTAL_STEPS = 9
 
+# Old installer name, still shipped as an identical copy of BridgePatcher.pkg so that
+# installed versions from before the rename can find the update. Remove after a few releases.
+LEGACY_INSTALLER_NAMES = ["OpenCore-Patcher-T2.pkg"]
+
 # Written by the build thread, read by the spinner in the main thread.
 status = f"[0/{TOTAL_STEPS}] Starting"
 
@@ -464,7 +468,7 @@ def main() -> None:
             # AutoPkg-Assets-T2.pkg is installed by the app itself during auto patching,
             # so it needs a signature just as much as the two user facing packages.
             step = 6
-            for pkg in ["OpenCore-Patcher-T2.pkg", "OpenCore-Patcher-Uninstaller.pkg", "AutoPkg-Assets-T2.pkg"]:
+            for pkg in ["BridgePatcher.pkg", "OpenCore-Patcher-Uninstaller.pkg", "AutoPkg-Assets-T2.pkg"]:
                 pkg_path = Path(f"dist/{pkg}")
                 check_file_exists(pkg_path)
                 status = f"[{step}/{TOTAL_STEPS}] Signing {pkg}"
@@ -476,6 +480,12 @@ def main() -> None:
                     notarization_team_id=args.notarization_team_id,
                 ).sign_and_notarize()
                 step += 1
+
+            # Transition: installed copies older than the BridgePatcher rename only look
+            # for "OpenCore-Patcher-T2.pkg" in a release. Ship the signed installer under
+            # both names (upload both to the release) until those versions are gone.
+            for legacy_name in LEGACY_INSTALLER_NAMES:
+                shutil.copy2(Path("dist/BridgePatcher.pkg"), Path(f"dist/{legacy_name}"))
 
             status = f"[{TOTAL_STEPS}/{TOTAL_STEPS}] Generating hashes"
             hash_pkg.GenerateHash()
