@@ -19,7 +19,6 @@ class GenerateApplication:
 
     def __init__(self, reset_pyinstaller_cache: bool = False, git_branch: str = None,
                  git_commit_url: str = None, git_commit_date: str = None,
-                 analytics_key: str = None, analytics_endpoint: str = None,
                  update_channel: str = None) -> None:
         """
         Initialize
@@ -37,12 +36,6 @@ class GenerateApplication:
         # support/defaults.py at launch. None keeps the app on "official".
         self._update_channel = update_channel
 
-        self._analytics_key = analytics_key
-        self._analytics_endpoint = analytics_endpoint
-
-        # Back to your original target file path
-        self._analytics_source_file = Path("./opencore_legacy_patcher/support/analytics_handler.py")
-
 
     def _generate_application(self) -> None:
         """
@@ -56,51 +49,6 @@ class GenerateApplication:
             _args.append("--clean")
 
         subprocess_wrapper.run_and_verify(_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-
-    def _update_analytics_source(self, key: str, endpoint: str) -> None:
-        """
-        Safely writes specific variables into the analytics source code.
-        Uses Python representation format to eliminate code injection threats.
-        """
-        if not self._analytics_source_file.exists():
-            raise FileNotFoundError(f"Source file not found: {self._analytics_source_file}")
-
-        with open(self._analytics_source_file, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-
-        # repr() automatically wraps the string in quotes and safely escapes
-        # hazardous characters (like internal quotes, newlines, or backslashes)
-        safe_key = repr(key or "")
-        safe_endpoint = repr(endpoint or "")
-
-        for i, line in enumerate(lines):
-            if line.startswith("SITE_KEY:         str = "):
-                lines[i] = f"SITE_KEY:         str = {safe_key}\n"
-            elif line.startswith("ANALYTICS_SERVER: str = "):
-                lines[i] = f"ANALYTICS_SERVER: str = {safe_endpoint}\n"
-
-        with open(self._analytics_source_file, "w", encoding="utf-8") as f:
-            f.writelines(lines)
-
-
-    def _embed_analytics_key(self) -> None:
-        """
-        Embed analytics key safely into the script
-        """
-        if not all([self._analytics_key, self._analytics_endpoint]):
-            rich.print("[yellow]Analytics key or endpoint not provided, skipping embedding[/yellow]")
-            return
-
-        self._update_analytics_source(self._analytics_key, self._analytics_endpoint)
-
-
-    def _remove_analytics_key(self) -> None:
-        """
-        Remove analytics key safely from the script
-        """
-        if all([self._analytics_key, self._analytics_endpoint]):
-            self._update_analytics_source("", "")
 
 
     def _patch_load_command(self) -> None:
@@ -346,12 +294,10 @@ class GenerateApplication:
         """
         about_file = None
         try:
-            self._embed_analytics_key()
             about_file = self.embed_readme()
             self._generate_application()
         finally:
-            # Always sanitizes the local source code file even if the build crashes
-            self._remove_analytics_key()
+            # Always restores the local source code file even if the build crashes
             if about_file is not None:
                 self.remove_hard_readme(about_file=about_file)
 

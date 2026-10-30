@@ -11,6 +11,7 @@ This version:
 - the bundle ID is now io.github.bridgepatcher.bridgepatcher (previously io.github.albert-mueller.opencore-legacy-patcher-t2) and the privileged helper is now io.github.bridgepatcher.privileged-helper. The old helper is removed when installing or uninstalling
 - also replaces the build icon and the drive icons (internal, external, SSD, SD card) with our own artwork, and replaces Apple’s System Settings icon with our own Settings icon
 - the About screen no longer loads an image from Dortania’s servers
+- removes the analytics and crash reporting inherited from Dortania’s OpenCore Legacy Patcher. The patcher no longer contains any code that sends information about your Mac (hashed system UUID, app and macOS version, Mac model, GPUs, firmware vendor and the country set in System Settings) to an analytics server, and the "Allow Reporting" setting is gone. Leftover reporting settings from older versions are removed on launch, the build scripts no longer embed an analytics key or server, and the privacy policy has been updated accordingly
 - the Help menu no longer links to the Discord server; support is now offered through GitHub Discussions and GitHub Issues of this project
 - the copyright notice now updates its end year automatically and credits Dortania and the OpenCore Legacy Patcher contributors alongside this fork
 

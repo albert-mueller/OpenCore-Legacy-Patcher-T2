@@ -25,7 +25,6 @@ from .support import (
     reroute_payloads,
     commit_info,
     logging_handler,
-    analytics_handler,
     update_channel_availability
 )
 
@@ -289,12 +288,6 @@ class OpenCoreLegacyPatcher:
         if self.constants.computer.build_model is None:
             logging.info(f"Initializing build_model to native host: {self.computer.real_model}")
             self.constants.computer.build_model = self.computer.real_model
-        # The background update check (update-check LaunchAgent) runs every few hours;
-        # it must not send analytics every time. If it finds an update and opens the
-        # GUI, that counts as a normal launch only from the user's point of view.
-        if "--check_updates" not in sys.argv:
-            self.constants.analytics_thread = threading.Thread(target=analytics_handler.Analytics(self.constants).send_analytics)
-            self.constants.analytics_thread.start()
 
         if utilities.check_cli_args() is None:
             self.constants.cli_mode = False
