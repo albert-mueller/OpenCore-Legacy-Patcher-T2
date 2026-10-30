@@ -19,11 +19,11 @@
 # ------------------------------------------------------
 
 CERT_NAME="${OCLP_CERT_NAME:-OCLP Self Signed}"
-CLIENT_ID="${OCLP_CLIENT_ID:-com.dortania.opencore-legacy-patcher-t2}"
+CLIENT_ID="${OCLP_CLIENT_ID:-io.github.bridgepatcher.bridgepatcher}"
 SIGNING_KEYCHAIN="${HOME}/Library/Keychains/oclp-signing.keychain-db"
 
 appPath="${1:-/Library/Application Support/albert-mueller/OpenCore-Patcher-T2/OpenCore-Patcher-T2.app}"
-helperPath="${2:-/Library/PrivilegedHelperTools/com.albert-mueller.opencore-patcher-t2.privileged-helper}"
+helperPath="${2:-/Library/PrivilegedHelperTools/io.github.bridgepatcher.privileged-helper}"
 expectedSHA1="${3:-$OCLP_CERT_SHA1}"
 expectedSHA1="${expectedSHA1:u}"
 

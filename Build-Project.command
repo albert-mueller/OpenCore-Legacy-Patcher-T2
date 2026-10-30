@@ -429,7 +429,7 @@ def main() -> None:
         if (args.run_as_individual_steps is False) or (args.run_as_individual_steps and args.prepare_application):
             status = f"[2/{TOTAL_STEPS}] Signing Helper Tool"
             sign_notarize.SignAndNotarize(
-                path=Path("./ci_tooling/privileged_helper_tool/com.albert-mueller.opencore-patcher-t2.privileged-helper"),
+                path=Path("./ci_tooling/privileged_helper_tool/io.github.bridgepatcher.privileged-helper"),
                 signing_identity=application_signing_identity,
                 notarization_apple_id=args.notarization_apple_id,
                 notarization_password=notarization_password,

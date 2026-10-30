@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 
-OCLP_PRIVILEGED_HELPER = "/Library/PrivilegedHelperTools/com.albert-mueller.opencore-patcher-t2.privileged-helper"
+OCLP_PRIVILEGED_HELPER = "/Library/PrivilegedHelperTools/io.github.bridgepatcher.privileged-helper"
 OCLP_PRIVILEGED_HELPER_EXPECTED_MODE = 0o4755
 
 ADMIN_PASSWORD_PROMPT_MESSAGE = (

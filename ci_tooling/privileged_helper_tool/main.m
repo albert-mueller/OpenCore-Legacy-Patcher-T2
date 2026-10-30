@@ -59,7 +59,7 @@
     grafted onto any binary, so a modified copy of the app passed the check.
 */
 #ifndef OCLP_CLIENT_IDENTIFIER
-#define OCLP_CLIENT_IDENTIFIER "com.dortania.opencore-legacy-patcher-t2"
+#define OCLP_CLIENT_IDENTIFIER "io.github.bridgepatcher.bridgepatcher"
 #endif
 
 // kSecCodeSignatureRuntime (SDK 10.14+); the literal keeps older SDKs building.

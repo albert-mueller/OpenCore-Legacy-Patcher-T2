@@ -26,7 +26,10 @@ class Constants:
         # deduplicates registered apps by CFBundleIdentifier, so sharing Dortania's
         # identifier makes Launchpad display only whichever of the two patchers was
         # registered first (see issue #395).
-        self.bundle_identifier:               str = "io.github.albert-mueller.opencore-legacy-patcher-t2"
+        # Was io.github.albert-mueller.opencore-legacy-patcher-t2 before the rename to BridgePatcher.
+        # The privileged helper only accepts callers signed with this identifier
+        # (OCLP_CLIENT_IDENTIFIER in ci_tooling/privileged_helper_tool/main.m) - change both together.
+        self.bundle_identifier:               str = "io.github.bridgepatcher.bridgepatcher"
 
         # URLs
         self.url_patcher_support_pkg:         str = "https://github.com/bridgepatcher/PatcherSupportPkg/releases/download/"
