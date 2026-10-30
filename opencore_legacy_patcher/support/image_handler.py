@@ -211,7 +211,7 @@ def get_bitmap(icon, size: tuple = None):
     path = Path(str(icon))
     image = None
 
-    # wx.LogNull suppresses wx's modal "OpenCore Legacy Patcher T2 Error"
+    # wx.LogNull suppresses wx's modal "BridgePatcher Error"
     # dialog; failures are reported through logging instead.
     with wx.LogNull():
         if path.is_absolute() and path.exists():

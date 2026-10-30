@@ -178,7 +178,7 @@ class UpdateFrame(wx.Frame):
             allow_cancel=not self.mandatory,
             cancel_message=(
                 "Are you sure you want to cancel the update?\n\n"
-                "Staying on an older version of OpenCore Legacy Patcher T2 means you "
+                "Staying on an older version of BridgePatcher means you "
                 "won't get the latest fixes, which can include security fixes. "
                 "Running outdated software may leave your Mac exposed to known vulnerabilities "
                 "that attackers could exploit."
@@ -540,7 +540,7 @@ class UpdateFrame(wx.Frame):
             logging.info(f"Opened {target} in the macOS Installer")
             self._handle_fatal_failure(
                 f"The update could not be installed automatically, so it was opened in the macOS Installer.\n\n"
-                f"Follow the steps there to finish updating. OpenCore Legacy Patcher T2 will now close so it can be replaced.\n\n"
+                f"Follow the steps there to finish updating. BridgePatcher will now close so it can be replaced.\n\n"
                 f"A copy of the package was saved to {target}.",
                 "Finish Updating in the Installer",
                 is_handoff=True,

@@ -79,7 +79,7 @@ app = BUNDLE(coll,
              icon=str(SPEC_DIR / "payloads/Resources/AppIcons/OC-Patcher.icns"), # Fix: Use the corrected SPEC_DIR variable and Resources path
              bundle_identifier=constants.Constants().bundle_identifier,
              info_plist={
-                "CFBundleName": "OpenCore Legacy Patcher T2",
+                "CFBundleName": "BridgePatcher",
                 "CFBundleVersion": constants.Constants().patcher_version,
                 "CFBundleShortVersionString": constants.Constants().patcher_version,
                 "NSHumanReadableCopyright": constants.Constants().copyright_date,

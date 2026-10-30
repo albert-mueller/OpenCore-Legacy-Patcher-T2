@@ -307,7 +307,7 @@ class BuildSecurity:
                 needs_amfipass = True
         else:
             if self.model in model_array.T2Macs:
-                logging.error(f"By accident, we executed logic for non-T2 Macs while {self.model} has the T2 chip. Aborting. Try reinstalling OpenCore Legacy Patcher T2.")
+                logging.error(f"By accident, we executed logic for non-T2 Macs while {self.model} has the T2 chip. Aborting. Try reinstalling BridgePatcher.")
                 sys.exit(3) # sollte normalerweise niemals hier erreichen - falls die Programme durch einen Angreifer ausgetrickst wurde, dass ein T2 Mac nicht ein T2 Mac ist, nur denn wird es hier erreichen
             else:
                 if smbios_data.smbios_dictionary[self.model]["Max OS Supported"] < os_data.os_data.sonoma or self.model == "MacBookPro14,3":
@@ -383,7 +383,7 @@ class BuildSecurity:
         # ==============================================================
         else:
             if self.model in model_array.T2Macs:
-                logging.error(f"By accident, we executed logic for non-T2 Macs while {self.model} has the T2 chip. Aborting. Try reinstalling OpenCore Legacy Patcher T2.")
+                logging.error(f"By accident, we executed logic for non-T2 Macs while {self.model} has the T2 chip. Aborting. Try reinstalling BridgePatcher.")
                 sys.exit(3) # sollte normalerweise niemals hier erreichen - falls die Programme durch einen Angreifer ausgetrickst wurde, dass ein T2 Mac nicht ein T2 Mac ist, nur denn wird es hier erreichen
             else:
                 logging.info("- Non-T2 Mac detected — isolating legacy environment execution chain")

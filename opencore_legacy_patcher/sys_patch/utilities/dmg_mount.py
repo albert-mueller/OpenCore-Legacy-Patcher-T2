@@ -113,7 +113,7 @@ class PatcherSupportPkgMount:
         if not self.constants.launcher_script:
             logging.error("- PatcherSupportPkg resources missing, Patcher likely corrupted!!!")
             logging.error(f"- Expected Universal-Binaries.dmg at: {dmg_path}")
-            logging.error("- Please re-download OpenCore Legacy Patcher T2 and try again.")
+            logging.error("- Please re-download BridgePatcher and try again.")
             return False
 
         if dmg_path.exists():

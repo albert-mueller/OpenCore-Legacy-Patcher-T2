@@ -823,7 +823,7 @@ Hardware Information:
             logging.warning("Auto updates turned off, but ignored while a required service is gone")
             wx.CallAfter(
                 wx.MessageBox,
-                "Some online services OpenCore Legacy Patcher T2 depends on are no longer reachable, "
+                "Some online services BridgePatcher depends on are no longer reachable, "
                 "so the next update is required and will still be installed automatically.\n\n"
                 "This setting applies again once these services are back.",
                 "Auto Updates Required",
@@ -1022,7 +1022,7 @@ Hardware Information:
         self._snooze_limit_notice_shown = True
         if getattr(self, "_snooze_forced", False):
             message = (
-                "Some online services OpenCore Legacy Patcher T2 depends on are no longer reachable, "
+                "Some online services BridgePatcher depends on are no longer reachable, "
                 "so updates can't be snoozed right now.\n\n"
                 "The next update is required. Snoozing works again once these services are back."
             )
@@ -1062,7 +1062,7 @@ Hardware Information:
 
             try:
                 rights = (Security.AuthorizationItem(Security.kAuthorizationRightExecute, 0, None, 0),)
-                prompt = b"OpenCore Legacy Patcher T2 needs administrator permission to fix the Developer Mode marker file, which appears to be owned by another user."
+                prompt = b"BridgePatcher needs administrator permission to fix the Developer Mode marker file, which appears to be owned by another user."
                 environment = (Security.AuthorizationItem(Security.kAuthorizationEnvironmentPrompt, len(prompt), prompt, 0),)
 
                 status, _ = Security.AuthorizationCopyRights(

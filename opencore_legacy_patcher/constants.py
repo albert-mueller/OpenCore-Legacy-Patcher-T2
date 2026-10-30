@@ -1143,8 +1143,8 @@ class Constants:
     ]
 
     @property
-    def patcher_name(self) -> str: # sollte hier niemals T1 returnen, sonst es würde den Patcher selbst verwirren
-        return "OpenCore Legacy Patcher T2"
+    def patcher_name(self) -> str: # Anzeigename der App (früher "OpenCore Legacy Patcher T2"); sollte hier niemals T1 returnen, sonst es würde den Patcher selbst verwirren
+        return "BridgePatcher"
 
     @property
     def update_repo_link(self) -> str:

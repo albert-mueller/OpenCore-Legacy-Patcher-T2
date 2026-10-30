@@ -24,7 +24,7 @@ OCLP_PRIVILEGED_HELPER = "/Library/PrivilegedHelperTools/com.albert-mueller.open
 OCLP_PRIVILEGED_HELPER_EXPECTED_MODE = 0o4755
 
 ADMIN_PASSWORD_PROMPT_MESSAGE = (
-    "OpenCore Legacy Patcher needs your administrator password to apply root patches. "
+    "BridgePatcher needs your administrator password to apply root patches. "
     "You will only be asked once - it is kept in memory until the app quits."
 )
 ADMIN_PASSWORD_RETRY_MESSAGE = "Incorrect password, please try again. " + ADMIN_PASSWORD_PROMPT_MESSAGE
@@ -197,7 +197,7 @@ def privileged_helper_needs_setuid_repair() -> bool:
         return False
     else:
         logging.error("We failed to assess the safety of repairing the Priveleged Helper Tool. It won't be repaired, just to be on the safe side.")
-        logging.info("Please ensure that OpenCore Legacy Patcher T2 is downloaded only from the official GitHub repository.")
+        logging.info("Please ensure that BridgePatcher is downloaded only from the official GitHub repository.")
         return False
 
 
@@ -206,7 +206,7 @@ def repair_privileged_helper_permissions():
         if not _helper_path_is_safe_to_repair():
             return False
 
-        prompt = "OpenCore Legacy Patcher T2 needs administrator permission to repair the permissions of its privileged helper tool."
+        prompt = "BridgePatcher needs administrator permission to repair the permissions of its privileged helper tool."
 
         result=utilities.get_admin_permission(
             action="/bin/chmod",
@@ -643,7 +643,7 @@ def request_admin_password(icon_path=None, message: str = ADMIN_PASSWORD_PROMPT_
 
     script = (
         f'set theResult to display dialog "{applescript_quote(message)}" default answer "" with hidden answer '
-        f'with title "OpenCore Legacy Patcher"{applescript_icon_clause(icon_path)}\n'
+        f'with title "BridgePatcher"{applescript_icon_clause(icon_path)}\n'
         'return the text returned of theResult'
     )
 

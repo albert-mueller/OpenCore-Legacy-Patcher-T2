@@ -59,8 +59,8 @@ class HelpFrame(wx.Frame):
         # Referenced directly so a missing constant fails loudly instead of
         # silently falling back to a hardcoded URL.
         resource_links = [
-            ("OpenCore Legacy Patcher T2 project guide",                   self.constants.guide_link),
-            ("OpenCore Legacy Patcher T2 GitHub repository",               self.constants.repo_link),
+            ("BridgePatcher project guide",                   self.constants.guide_link),
+            ("BridgePatcher GitHub repository",               self.constants.repo_link),
             ("View GitHub Issues",                                          self.constants.github_issues_link),
             ("Join GitHub Discussions",                                     self.constants.github_discussions_link),
         ]

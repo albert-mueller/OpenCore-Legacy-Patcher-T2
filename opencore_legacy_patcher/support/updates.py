@@ -260,7 +260,7 @@ class CheckBinaryUpdates:
         if project_status.is_untrusted(self.constants) and self.constants.update_repo_link == self.constants.update_channels["official"]["repo"]:
             logging.warning("Main project repository is gone or was replaced, refusing to look for updates there")
             self.last_error = (
-                "OpenCore Legacy Patcher T2 has reached its end of life - its repository no longer exists. "
+                "BridgePatcher has reached its end of life - its repository no longer exists. "
                 "Updates are disabled. Please switch to OpenCore Legacy Patcher from Dortania."
             )
             return None
