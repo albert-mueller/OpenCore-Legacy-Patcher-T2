@@ -502,7 +502,7 @@ class BuildOpenCore:
                 logging.info("")
                 logging.info("Wi-Fi:")
                 if getattr(self.constants, "computer", None) is not None and self.constants.computer.wifi:
-                    from opencore_legacy_patcher.support import utilities
+                    from bridge_patcher.support import utilities
                     vendor_id = utilities.friendly_hex(self.constants.computer.wifi.vendor_id).upper()
                     device_id = utilities.friendly_hex(self.constants.computer.wifi.device_id).upper()
                     logging.info(f"Found Wireless Device {vendor_id}:{device_id}")
@@ -717,7 +717,7 @@ class BuildOpenCore:
 
                 wifi_id = "14E4:43BA"
                 if getattr(self.constants, "computer", None) is not None and self.constants.computer.wifi:
-                    from opencore_legacy_patcher.support import utilities
+                    from bridge_patcher.support import utilities
                     wifi_id = f"{utilities.friendly_hex(self.constants.computer.wifi.vendor_id).upper()}:{utilities.friendly_hex(self.constants.computer.wifi.device_id).upper()}"
                 logging.info(f"Wi-Fi: {wifi_id}")
 

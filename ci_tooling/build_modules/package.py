@@ -55,7 +55,7 @@ def _patched_prepare_distribution_file(self, input_file) -> None:
 
 macos_pkg_builder.distribution_pkg.DistributionPackage._prepare_distribution_file = _patched_prepare_distribution_file
 
-from opencore_legacy_patcher import constants
+from bridge_patcher import constants
 
 from .package_scripts import GenerateScripts
 

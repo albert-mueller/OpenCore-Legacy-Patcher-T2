@@ -8,8 +8,8 @@ import rich
 from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn
 from pathlib import Path
 
-from opencore_legacy_patcher import constants
-from opencore_legacy_patcher.support import subprocess_wrapper
+from bridge_patcher import constants
+from bridge_patcher.support import subprocess_wrapper
 
 class GenerateDiskImages:
 

@@ -34,7 +34,7 @@ jobs:
         with:
           script: |
             // ---- Settings ----------------------------------------------------
-            const VERSION_FILE  = 'opencore_legacy_patcher/constants.py';
+            const VERSION_FILE  = 'bridge_patcher/constants.py';
             const CHANGELOG     = 'CHANGELOG.md';
             const TRUSTED       = ['OWNER', 'MEMBER', 'COLLABORATOR']; // may change the version
             const FLAG_SCORE    = 3;

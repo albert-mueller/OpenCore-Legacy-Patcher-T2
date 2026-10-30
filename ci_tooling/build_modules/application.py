@@ -8,8 +8,8 @@ import base64
 import json
 from pathlib import Path
 
-from opencore_legacy_patcher.volume import generate_copy_arguments
-from opencore_legacy_patcher.support import subprocess_wrapper
+from bridge_patcher.volume import generate_copy_arguments
+from bridge_patcher.support import subprocess_wrapper
 
 
 class GenerateApplication:
@@ -41,7 +41,7 @@ class GenerateApplication:
         self._analytics_endpoint = analytics_endpoint
 
         # Back to your original target file path
-        self._analytics_source_file = Path("./opencore_legacy_patcher/support/analytics_handler.py")
+        self._analytics_source_file = Path("./bridge_patcher/support/analytics_handler.py")
 
 
     def _generate_application(self) -> None:
@@ -287,7 +287,7 @@ class GenerateApplication:
         """
         repository_root = Path(__file__).resolve().parents[2]
         readme_file = repository_root / "README.md"
-        about_file_path = repository_root / "opencore_legacy_patcher" / "wx_gui" / "gui_about.py"
+        about_file_path = repository_root / "bridge_patcher" / "wx_gui" / "gui_about.py"
         if not readme_file.exists():
             raise FileNotFoundError(f"README.md not found: {readme_file}")
         if not about_file_path.exists():
@@ -336,7 +336,7 @@ class GenerateApplication:
         Remove hardcoded README from the about frame logic
         """
         repository_root = Path(__file__).resolve().parents[2]
-        about_file_path = repository_root / "opencore_legacy_patcher" / "wx_gui" / "gui_about.py"
+        about_file_path = repository_root / "bridge_patcher" / "wx_gui" / "gui_about.py"
         with open(about_file_path, "w", encoding="utf-8") as f:
             f.write(about_file)
 

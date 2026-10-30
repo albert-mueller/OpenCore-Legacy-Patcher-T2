@@ -318,7 +318,7 @@ def _worker(root: str, case: str, out_path: str) -> None:
         _install_stubs()
     logging.disable(logging.CRITICAL)
 
-    from opencore_legacy_patcher.support import utilities
+    from bridge_patcher.support import utilities
     try:
         utilities.disable_cls()
     except Exception:
@@ -346,12 +346,12 @@ def _worker_flow(case: str):
     import shutil
     import subprocess as real_subprocess
 
-    from opencore_legacy_patcher import constants
-    from opencore_legacy_patcher.datasets import example_data
-    from opencore_legacy_patcher.support import subprocess_wrapper, utilities
-    from opencore_legacy_patcher.sys_patch import sys_patch as sp_mod
-    from opencore_legacy_patcher.sys_patch import sys_patch_helpers
-    from opencore_legacy_patcher.sys_patch.patchsets import HardwarePatchsetSettings, PatchType
+    from bridge_patcher import constants
+    from bridge_patcher.datasets import example_data
+    from bridge_patcher.support import subprocess_wrapper, utilities
+    from bridge_patcher.sys_patch import sys_patch as sp_mod
+    from bridge_patcher.sys_patch import sys_patch_helpers
+    from bridge_patcher.sys_patch.patchsets import HardwarePatchsetSettings, PatchType
 
     problems, checked, errors = [], 0, []
 
@@ -366,7 +366,7 @@ def _worker_flow(case: str):
         OSError(f"simulator: Popen not supported ({argv!r})"))
     try:
         import importlib
-        copy_mod = importlib.import_module("opencore_legacy_patcher.volume.copy")
+        copy_mod = importlib.import_module("bridge_patcher.volume.copy")
         copy_mod.can_copy_on_write = lambda *a, **k: False
     except Exception:
         pass
@@ -421,8 +421,8 @@ def _worker_flow(case: str):
         builtins.open = recording_open
         io.open = recording_open
 
-        for modname, clsname in (("opencore_legacy_patcher.efi_builder.build", "BuildOpenCore"),
-                                 ("opencore_legacy_patcher.support.defaults", "GenerateDefaults")):
+        for modname, clsname in (("bridge_patcher.efi_builder.build", "BuildOpenCore"),
+                                 ("bridge_patcher.support.defaults", "GenerateDefaults")):
             try:
                 cls = getattr(importlib.import_module(modname), clsname)
             except Exception:
@@ -484,7 +484,7 @@ def _worker_flow(case: str):
         _plistlib.dump, _plistlib.dumps = recording_dump, recording_dumps
 
         try:
-            from opencore_legacy_patcher.support import global_settings
+            from bridge_patcher.support import global_settings
 
             def recording_write(self, key, value):
                 sb["settings"].append((str(key), value))
@@ -855,7 +855,7 @@ def _worker_flow(case: str):
     if case == "flow:secure-boot":
         import ast
         # Belt and braces: nothing in the root patcher may assign secure_status at all
-        for path in sorted(Path("opencore_legacy_patcher/sys_patch").rglob("*.py")):
+        for path in sorted(Path("bridge_patcher/sys_patch").rglob("*.py")):
             try:
                 tree = ast.parse(path.read_bytes(), filename=str(path))
             except SyntaxError as e:
@@ -884,10 +884,10 @@ def _worker_static():
     import copy
     import posixpath
 
-    from opencore_legacy_patcher import constants
-    from opencore_legacy_patcher.datasets import example_data
-    from opencore_legacy_patcher.sys_patch.patchsets import detect
-    from opencore_legacy_patcher.sys_patch.patchsets.base import PatchType, DynamicPatchset
+    from bridge_patcher import constants
+    from bridge_patcher.datasets import example_data
+    from bridge_patcher.sys_patch.patchsets import detect
+    from bridge_patcher.sys_patch.patchsets.base import PatchType, DynamicPatchset
 
     problems, checked, errors = [], 0, []
     case = "static:patchsets"
@@ -1019,10 +1019,10 @@ def _worker_gate():
 
     import py_sip_xnu
 
-    from opencore_legacy_patcher import constants
-    from opencore_legacy_patcher.datasets import example_data, sip_data
-    from opencore_legacy_patcher.support import utilities, global_settings
-    from opencore_legacy_patcher.sys_patch.patchsets import detect
+    from bridge_patcher import constants
+    from bridge_patcher.datasets import example_data, sip_data
+    from bridge_patcher.support import utilities, global_settings
+    from bridge_patcher.sys_patch.patchsets import detect
 
     problems, checked, errors = [], 0, []
     case = "gate:detect"
@@ -1097,7 +1097,7 @@ def _worker_gate():
         return d
 
     def lowered_sip(xnu):
-        from opencore_legacy_patcher.datasets.sip_data import system_integrity_protection as s
+        from bridge_patcher.datasets.sip_data import system_integrity_protection as s
         configs = s.root_patch_sip_ventura if xnu >= 22 else s.root_patch_sip_big_sur
         value = 0
         for cfg in configs:

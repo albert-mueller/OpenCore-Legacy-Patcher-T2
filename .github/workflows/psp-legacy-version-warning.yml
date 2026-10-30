@@ -31,7 +31,7 @@ jobs:
             const LEGACY_MAX = '2.0.4';
             const MARKER = '<!-- psp-legacy-version-warning -->';
             const CONSTANTS_PATHS = [
-              'opencore_legacy_patcher/constants.py',
+              'bridge_patcher/constants.py',
               'resources/constants.py', // very old layout
             ];
 

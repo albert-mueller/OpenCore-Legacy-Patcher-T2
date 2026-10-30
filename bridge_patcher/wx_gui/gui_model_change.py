@@ -2,9 +2,9 @@ import wx
 import logging
 
 
-from opencore_legacy_patcher.datasets import model_array
-from opencore_legacy_patcher.support import defaults
-from opencore_legacy_patcher.wx_gui import gui_support
+from bridge_patcher.datasets import model_array
+from bridge_patcher.support import defaults
+from bridge_patcher.wx_gui import gui_support
 
 from .. import constants
 class ModelPickerFrame(wx.Frame):

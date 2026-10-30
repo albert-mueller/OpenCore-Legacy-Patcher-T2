@@ -30,7 +30,7 @@ from .support import (
 )
 
 
-class OpenCoreLegacyPatcher:
+class BridgePatcher:
     """
     Initial entry point for starting OpenCore Legacy Patcher
     """
@@ -328,4 +328,4 @@ def main():
     """
     Main entry point
     """
-    OpenCoreLegacyPatcher()
+    BridgePatcher()

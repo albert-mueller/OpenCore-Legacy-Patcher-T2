@@ -39,7 +39,7 @@ EXIT_MIXED_UP:    int = 3
 MIXED_UP_MESSAGE: str = "The app couldn't be generated because the version is mixed up"
 
 DEFAULT_REPO:         str = "bridgepatcher/BridgePatcher"
-DEFAULT_VERSION_FILE: str = "opencore_legacy_patcher/constants.py"
+DEFAULT_VERSION_FILE: str = "bridge_patcher/constants.py"
 DEFAULT_VERSION_KEY:  str = "patcher_version"
 
 API_URL: str = "https://api.github.com/repos/{repo}/releases/latest"

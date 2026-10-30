@@ -34,7 +34,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "opencore_legacy_patcher/**"
+      - "bridge_patcher/**"
       - "payloads/Config/**"
       - "requirements.txt"
       - ".github/scripts/check_secure_boot_model.py"
@@ -89,7 +89,7 @@ jobs:
             echo "run=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          relevant=$(printf '%s\n' "$files" | grep -E '^(opencore_legacy_patcher/|payloads/Config/|requirements\.txt$|\.github/scripts/check_secure_boot_model\.py$|\.github/workflows/secure-boot-model-check\.yml$)' || true)
+          relevant=$(printf '%s\n' "$files" | grep -E '^(bridge_patcher/|payloads/Config/|requirements\.txt$|\.github/scripts/check_secure_boot_model\.py$|\.github/workflows/secure-boot-model-check\.yml$)' || true)
           if [ -n "$relevant" ]; then
             echo "Relevant changes:"; printf '  %s\n' $relevant
             echo "run=true" >> "$GITHUB_OUTPUT"
@@ -317,7 +317,7 @@ jobs:
       artifact: secure-boot-model-result
       cross-name: root patching check
       cross-script: .github/scripts/check_root_patching.py
-      allow: "opencore_legacy_patcher/ payloads/Config/"
-      context: "opencore_legacy_patcher/efi_builder/ opencore_legacy_patcher/support/utilities.py opencore_legacy_patcher/support/defaults.py opencore_legacy_patcher/sys_patch/patchsets/detect.py"
+      allow: "bridge_patcher/ payloads/Config/"
+      context: "bridge_patcher/efi_builder/ bridge_patcher/support/utilities.py bridge_patcher/support/defaults.py bridge_patcher/sys_patch/patchsets/detect.py"
       branch: auto-fix/secure-boot-model-check
       deps: "requests packaging py_sip_xnu markdown markdown2"

@@ -32,13 +32,13 @@ from urllib.parse import urlparse, urlunparse
 # To allow easy importing of OpenCore Legacy Patcher's utilities
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from opencore_legacy_patcher.support import (
+from bridge_patcher.support import (
     macos_installer_handler,
     network_handler,
     integrity_verification,
     utilities,
 )
-from opencore_legacy_patcher.datasets import os_data
+from bridge_patcher.datasets import os_data
 
 
 _DEFAULT_PATH: str = "/Volumes/macOS Installers"

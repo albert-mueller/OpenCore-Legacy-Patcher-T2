@@ -34,7 +34,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "opencore_legacy_patcher/**"
+      - "bridge_patcher/**"
       - "requirements.txt"
       - ".github/scripts/check_root_patching.py"
       - ".github/workflows/root-patching-check.yml"
@@ -88,7 +88,7 @@ jobs:
             echo "run=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          relevant=$(printf '%s\n' "$files" | grep -E '^(opencore_legacy_patcher/|requirements\.txt$|\.github/scripts/check_root_patching\.py$|\.github/workflows/root-patching-check\.yml$)' || true)
+          relevant=$(printf '%s\n' "$files" | grep -E '^(bridge_patcher/|requirements\.txt$|\.github/scripts/check_root_patching\.py$|\.github/workflows/root-patching-check\.yml$)' || true)
           if [ -n "$relevant" ]; then
             echo "Relevant changes:"; printf '  %s\n' $relevant
             echo "run=true" >> "$GITHUB_OUTPUT"
@@ -316,7 +316,7 @@ jobs:
       artifact: root-patching-result
       cross-name: SecureBootModel check
       cross-script: .github/scripts/check_secure_boot_model.py
-      allow: "opencore_legacy_patcher/"
-      context: "opencore_legacy_patcher/sys_patch/"
+      allow: "bridge_patcher/"
+      context: "bridge_patcher/sys_patch/"
       branch: auto-fix/root-patching-check
       deps: "requests packaging py_sip_xnu markdown markdown2"

@@ -112,10 +112,10 @@ def _worker(root: str, case: str, out_path: str) -> None:
         _install_stubs()
     logging.disable(logging.CRITICAL)
 
-    from opencore_legacy_patcher import constants
-    from opencore_legacy_patcher.efi_builder import build
-    from opencore_legacy_patcher.datasets import example_data, model_array, os_data, smbios_data
-    from opencore_legacy_patcher.support import utilities
+    from bridge_patcher import constants
+    from bridge_patcher.efi_builder import build
+    from bridge_patcher.datasets import example_data, model_array, os_data, smbios_data
+    from bridge_patcher.support import utilities
 
     try:
         utilities.disable_cls()
@@ -208,7 +208,7 @@ def _worker(root: str, case: str, out_path: str) -> None:
             expect_disabled(case, model, security, why)
 
     elif case == "defaults:stale-gui":
-        from opencore_legacy_patcher.support import defaults, global_settings
+        from bridge_patcher.support import defaults, global_settings
 
         settings_file = Path(tempfile.mkdtemp()) / "settings.plist"
         with settings_file.open("wb") as f:
@@ -286,7 +286,7 @@ def _worker(root: str, case: str, out_path: str) -> None:
                 problems.append(_problem(case, subject, msg, value=str(result)))
 
         # detect.py must still use that gate to block root patching
-        detect_src = Path("opencore_legacy_patcher/sys_patch/patchsets/detect.py")
+        detect_src = Path("bridge_patcher/sys_patch/patchsets/detect.py")
         try:
             src = detect_src.read_text(encoding="utf-8")
         except OSError as e:
