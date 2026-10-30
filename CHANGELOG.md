@@ -5,7 +5,7 @@ This version:
 - replaces Dortania’s icons with our own ones
 - now includes the license of the patcher inside the binary itself
 - fixes a bug where the bundle ID inside OpenCore-Patcher-GUI is hardcoded, so upon launch it did never trusted even the patcher's own helper tool
-- 
+- the user agent the patcher sends when downloading Kernel Debug Kits, Metallibs and the AppleDB catalog, and when fetching the release notes of an update, now ends in BridgePatcher/<version> instead of OpenCoreLegacyPatcherT2/<version>. The rest of the user agent stays the same
 
 ## 4.0.0.1900019 - 4.0.0 alpha 19.19
 I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://oclp-t2.github.io/issues/599.html on this patcher's page or https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
