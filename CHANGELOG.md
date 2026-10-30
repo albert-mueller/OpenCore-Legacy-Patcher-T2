@@ -12,7 +12,6 @@ This version:
 - also replaces the build icon and the drive icons (internal, external, SSD, SD card) with our own artwork, and replaces Apple’s System Settings icon with our own Settings icon
 - the About screen no longer loads an image from Dortania’s servers
 - the Help menu no longer links to the Discord server; support is now offered through GitHub Discussions and GitHub Issues of this project
-- to request deletion of your analytics record, open a topic in GitHub Discussions instead of contacting us on Discord. Do not post your system UUID publicly; it is only shared through a private channel arranged by the maintainers
 - the copyright notice now updates its end year automatically and credits Dortania and the OpenCore Legacy Patcher contributors alongside this fork
 
 In the repository:
