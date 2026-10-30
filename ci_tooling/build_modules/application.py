@@ -9,12 +9,13 @@ import json
 from pathlib import Path
 
 from opencore_legacy_patcher.volume import generate_copy_arguments
-from opencore_legacy_patcher.support import subprocess_wrapper
+from opencore_legacy_patcher import constants
+from opencore_legacy_patcher.support import subprocess_wrapper, image_handler
 
 
 class GenerateApplication:
     """
-    Generate OpenCore-Patcher-T2.app
+    Generate BridgePatcher.app
     """
 
     def __init__(self, reset_pyinstaller_cache: bool = False, git_branch: str = None,
@@ -24,7 +25,7 @@ class GenerateApplication:
         Initialize
         """
         self._pyinstaller = [sys.executable, "-m", "PyInstaller"]
-        self._application_output = Path("./dist/OpenCore-Patcher-T2.app")
+        self._application_output = Path("./dist") / constants.APP_BUNDLE_NAME
 
         self._reset_pyinstaller_cache = reset_pyinstaller_cache
 
@@ -55,7 +56,7 @@ class GenerateApplication:
         """
         Patch LC_VERSION_MIN_MACOSX in Load Command to report 10.13.6
         """
-        _file = self._application_output / "Contents" / "MacOS" / "OpenCore-Patcher-T2"
+        _file = self._application_output / "Contents" / "MacOS" / constants.APP_EXECUTABLE_NAME
 
         _find    = b'\x00\x0D\x0A\x00' # 10.13
         _replace = b'\x06\x0D\x0A\x00' # 10.13.6
@@ -76,7 +77,7 @@ class GenerateApplication:
         """
         Patch LC_BUILD_VERSION in Load Command to report the macOS 26 SDK
         """
-        _file = self._application_output / "Contents" / "MacOS" / "OpenCore-Patcher-T2"
+        _file = self._application_output / "Contents" / "MacOS" / constants.APP_EXECUTABLE_NAME
 
         _find    = b'\x00\x01\x0C\x00'
         _replace = b'\x00\x00\x1A\x00'
@@ -189,7 +190,7 @@ class GenerateApplication:
         """
         Embed resources
 
-        - *.png  -> packed into Contents/Resources/OpenCore-Patcher-T2.assets
+        - *.png  -> packed into Contents/Resources/BridgePatcher.assets
                     (read at runtime by support/image_handler.py)
         - others -> copied as files (.icns, Assets.car). These must stay real
                     files: macOS reads Assets.car for the app icon, and the
@@ -222,7 +223,7 @@ class GenerateApplication:
         if not images:
             raise RuntimeError(f"No PNG icons found in {app_icons_dir}")
 
-        assets_file = resources_dir / "OpenCore-Patcher-T2.assets"
+        assets_file = resources_dir / image_handler.ASSETS_FILE_NAME
         with open(assets_file, "w", encoding="utf-8") as f:
             json.dump({"format": 1, "images": images}, f, separators=(",", ":"))
 
@@ -290,7 +291,7 @@ class GenerateApplication:
 
     def generate(self) -> None:
         """
-        Generate OpenCore-Patcher-T2.app
+        Generate BridgePatcher.app
         """
         about_file = None
         try:

@@ -601,20 +601,20 @@ def check_cli_args():
     else:
         return args
 
-def get_admin_permission(action: str = "/usr/bin/whoami", args: list =None, reason: str = "OpenCore-Patcher-T2 needs your administrative permission"):
+def get_admin_permission(action: str = "/usr/bin/whoami", args: list =None, reason: str = "BridgePatcher needs your administrative permission"):
     """
     run the give action as root without using the Privileged Helper Tool
 
     * action: a str path to the progra being executed
     * args: a list of all the arguments to be sent to the program
-    * reason: the message that tells the user why they are seeing this format it like this: why you are seeing this (e.g "OpenCore-Patcher-T2 needs your administrative permission") and what will [...]
+    * reason: the message that tells the user why they are seeing this format it like this: why you are seeing this (e.g "BridgePatcher needs your administrative permission") and what will [...]
     * confirm_button: the name of the OK button that is desplayed to the user if the default doesn't work
     * deny_button: the name of the Cancel button that is desplayed to the user if the default doesn't work
     """
     if not isinstance(reason, str) or not reason:
         # A non-str here (e.g. a bound method) used to raise "encoding without a string argument"
         logging.warning(f"get_admin_permission() called with invalid reason {type(reason).__name__}, using default prompt")
-        reason = "OpenCore-Patcher-T2 needs your administrative permission"
+        reason = "BridgePatcher needs your administrative permission"
     # Callers hand us whatever they built their argv from: str, bytes, and very often
     # pathlib.Path (e.g. install.py: ["/bin/mkdir", "-p", mount_path / "EFI"]).
     # bytes(<Path>, encoding="utf-8") raises "TypeError: encoding without a string

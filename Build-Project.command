@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Build-Project.command: Generates OpenCore-Patcher-T2.app and OpenCore-Patcher-T2.pkg
+Build-Project.command: Generates BridgePatcher.app and BridgePatcher.pkg
+(plus OpenCore-Patcher-T2.pkg with --legacy-installer)
 """
 
 import os
@@ -85,7 +86,7 @@ def _install_openssl3_macports() -> Path:
             shell_command = " ".join(install)
             result = subprocess.run(
                 ["/usr/bin/osascript", "-e",
-                 f'do shell script "{shell_command}" with prompt "OpenCore-Patcher-T2 needs to install OpenSSL 3 via MacPorts." with administrator privileges'],
+                 f'do shell script "{shell_command}" with prompt "BridgePatcher needs to install OpenSSL 3 via MacPorts." with administrator privileges'],
                 capture_output=True, text=True,
             )
 
@@ -242,8 +243,10 @@ from ci_tooling.build_modules import (
     sign_notarize,
     hash as hash_pkg
 )
+from opencore_legacy_patcher import constants
 
 
+# One more with --legacy-installer (signing OpenCore-Patcher-T2.pkg), set in main()
 TOTAL_STEPS = 9
 
 # Written by the build thread, read by the spinner in the main thread.
@@ -367,7 +370,7 @@ def resolve_application_identity(requested: str, auto_detect: bool) -> "str | No
 
 
 def main() -> None:
-    global status
+    global status, TOTAL_STEPS
     parser = argparse.ArgumentParser(description="Build OpenCore Legacy Patcher Suite")
 
     # Signing & Notarization
@@ -387,6 +390,12 @@ def main() -> None:
     parser.add_argument("--ignore-release", action="store_true", help="Build even when the version does not line up with the latest release")
     parser.add_argument("--no-install-openssl", action="store_true", help="Fail instead of installing OpenSSL 3 via MacPorts when it is missing")
     parser.add_argument("--update-channel", type=str, default=None, choices=["official", "medelcartelinc"], help="Set the default update channel for this build")
+    parser.add_argument(
+        "--legacy-installer", action="store_true",
+        help=f"Also build {constants.LEGACY_INSTALLER_PKG_NAME} next to {constants.INSTALLER_PKG_NAME}. "
+             f"Same app. Needed on any release that installs from before the rename to BridgePatcher "
+             f"should be offered, as their updater only looks for {constants.LEGACY_INSTALLER_PKG_NAME}",
+    )
 
     # Steps
     parser.add_argument("--run-as-individual-steps", action="store_true")
@@ -395,6 +404,10 @@ def main() -> None:
     parser.add_argument("--prepare-assets", action="store_true")
 
     args = parser.parse_args()
+
+    if args.legacy_installer:
+        TOTAL_STEPS += 1
+        rich.print(f"[cyan]Also building {constants.LEGACY_INSTALLER_PKG_NAME} for installs from before the rename[/cyan]")
 
     # Passwort-Sicherheit: Umgebungsvariable hat Vorrang vor CLI-Argument
     notarization_password = os.environ.get("NOTARIZATION_PASSWORD") or args.notarization_password
@@ -445,10 +458,10 @@ def main() -> None:
                 update_channel=args.update_channel,
             ).generate()
 
-            check_file_exists(Path("dist/OpenCore-Patcher-T2.app"))
+            check_file_exists(Path("dist") / constants.APP_BUNDLE_NAME)
             status = f"[4/{TOTAL_STEPS}] Signing the app"
             sign_notarize.SignAndNotarize(
-                path=Path("dist/OpenCore-Patcher-T2.app"),
+                path=Path("dist") / constants.APP_BUNDLE_NAME,
                 signing_identity=application_signing_identity,
                 notarization_apple_id=args.notarization_apple_id,
                 notarization_password=notarization_password,
@@ -459,12 +472,13 @@ def main() -> None:
         # 3. Packages
         if (args.run_as_individual_steps is False) or (args.run_as_individual_steps and args.prepare_package):
             status = f"[5/{TOTAL_STEPS}] Building packages"
-            package.GeneratePackage().generate()
+            package_generator = package.GeneratePackage(legacy_installer=args.legacy_installer)
+            package_generator.generate()
 
             # AutoPkg-Assets-T2.pkg is installed by the app itself during auto patching,
-            # so it needs a signature just as much as the two user facing packages.
+            # so it needs a signature just as much as the user facing packages.
             step = 6
-            for pkg in ["OpenCore-Patcher-T2.pkg", "OpenCore-Patcher-Uninstaller.pkg", "AutoPkg-Assets-T2.pkg"]:
+            for pkg in package_generator.installer_packages + ["OpenCore-Patcher-Uninstaller.pkg", "AutoPkg-Assets-T2.pkg"]:
                 pkg_path = Path(f"dist/{pkg}")
                 check_file_exists(pkg_path)
                 status = f"[{step}/{TOTAL_STEPS}] Signing {pkg}"

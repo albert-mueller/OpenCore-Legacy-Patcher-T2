@@ -76,7 +76,7 @@ def _is_ready(path: Path) -> bool:
 def _get_temp_dir() -> Path:
     global _temp_dir
     if _temp_dir is None or not _temp_dir.exists():
-        _temp_dir = Path(tempfile.mkdtemp(prefix="OpenCore-Patcher-T2-tools-"))
+        _temp_dir = Path(tempfile.mkdtemp(prefix="BridgePatcher-tools-"))
         atexit.register(shutil.rmtree, str(_temp_dir), True)
     return _temp_dir
 

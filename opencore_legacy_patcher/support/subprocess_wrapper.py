@@ -329,7 +329,7 @@ def _run_via_authorization_services(command: list, timeout: Optional[float] = No
     err_path = os.path.join(work_dir, "stderr")
     status_path = os.path.join(work_dir, "status")
     try:
-        reason = kwargs.get("reason", "OpenCore-Patcher-T2 needs your administrative permission")
+        reason = kwargs.get("reason", "BridgePatcher needs your administrative permission")
         launch = utilities.get_admin_permission(
             action="/bin/sh",
             args=["-c", _AUTH_SERVICES_WRAPPER, "oclp-elevated", out_path, err_path, status_path] + command,

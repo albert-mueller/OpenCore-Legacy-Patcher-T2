@@ -1,7 +1,7 @@
 """
 image_handler.py: Loads the GUI's PNG icons, fully offline
 
-Built app:   the PNGs are packed into Contents/Resources/OpenCore-Patcher-T2.assets
+Built app:   the PNGs are packed into Contents/Resources/BridgePatcher.assets
              by ci_tooling/build_modules/application.py (JSON: name -> base64 PNG).
 From source: the PNGs are read straight from payloads/Resources/AppIcons.
 
@@ -22,7 +22,9 @@ from typing import Optional
 from pathlib import Path
 
 
-ASSETS_FILE_NAME = "OpenCore-Patcher-T2.assets"
+# Was OpenCore-Patcher-T2.assets before the rename to BridgePatcher. Only ever
+# read from the running bundle, which is built together with this module.
+ASSETS_FILE_NAME = "BridgePatcher.assets"
 ASSETS_FORMAT = 1
 
 __all__ = [
@@ -39,8 +41,8 @@ __all__ = [
 
 def _assets_file() -> Path:
     """
-    Contents/Resources/OpenCore-Patcher-T2.assets of the running app bundle
-    (sys.executable is Contents/MacOS/OpenCore-Patcher-T2 when frozen).
+    Contents/Resources/BridgePatcher.assets of the running app bundle
+    (sys.executable is Contents/MacOS/BridgePatcher when frozen).
     """
     return Path(sys.executable).resolve().parent.parent / "Resources" / ASSETS_FILE_NAME
 

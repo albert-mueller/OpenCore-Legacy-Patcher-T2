@@ -22,7 +22,7 @@ CERT_NAME="${OCLP_CERT_NAME:-OCLP Self Signed}"
 CLIENT_ID="${OCLP_CLIENT_ID:-io.github.bridgepatcher.bridgepatcher}"
 SIGNING_KEYCHAIN="${HOME}/Library/Keychains/oclp-signing.keychain-db"
 
-appPath="${1:-/Library/Application Support/albert-mueller/OpenCore-Patcher-T2/OpenCore-Patcher-T2.app}"
+appPath="${1:-/Library/Application Support/albert-mueller/OpenCore-Patcher-T2/BridgePatcher.app}"
 helperPath="${2:-/Library/PrivilegedHelperTools/io.github.bridgepatcher.privileged-helper}"
 expectedSHA1="${3:-$OCLP_CERT_SHA1}"
 expectedSHA1="${expectedSHA1:u}"

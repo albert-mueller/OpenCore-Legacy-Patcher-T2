@@ -3,7 +3,7 @@
 `io.github.bridgepatcher.privileged-helper` is OpenCore Legacy Patcher's Privileged Helper Tool.
 
 The architecture is as such:
-1. The main application (OpenCore-Patcher-T2.app) will send arguments to the privileged helper tool to execute.
+1. The main application (BridgePatcher.app) will send arguments to the privileged helper tool to execute.
 2. The privileged helper tool checks the code signature of the calling process: it must be the app (identifier
    `io.github.bridgepatcher.bridgepatcher`), signed with exactly the certificate the helper itself is signed with,
    validly signed and using the hardened runtime (see "What the helper checks" below).
@@ -22,7 +22,7 @@ Alternatively, compile the privileged helper tool with debug:
 make debug
 ```
 
-Then when you build OpenCore-Patcher-T2.pkg, the debug version of the helper tool will be used.
+Then when you build BridgePatcher.pkg, the debug version of the helper tool will be used.
 
 
 ### Security Considerations
@@ -132,7 +132,7 @@ python3 Build-Project.command --application-signing-identity "OCLP Self Signed"
 A self signed *code signing* certificate cannot sign installer packages (that needs a "Developer ID Installer"
 certificate), so the `.pkg` files stay unsigned - leave `--installer-signing-identity` empty.
 
-Install `dist/OpenCore-Patcher-T2.pkg`. It puts the app into `/Library/Application Support/albert-mueller/` and the
+Install `dist/BridgePatcher.pkg`. It puts the app into `/Library/Application Support/albert-mueller/` and the
 helper into `/Library/PrivilegedHelperTools/` with the setuid bit.
 
 ### 3b. Sign and install the helper by hand (helper only)
@@ -154,7 +154,7 @@ Signing the app by hand works the same way, but needs `--deep`, the hardened run
 
 ```
 codesign -f --deep -s "OCLP Self Signed" --options runtime \
-  --entitlements ../entitlements/entitlements.plist ../../dist/OpenCore-Patcher-T2.app
+  --entitlements ../entitlements/entitlements.plist ../../dist/BridgePatcher.app
 ```
 
 ### 4. Verify what you run

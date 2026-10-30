@@ -40,7 +40,7 @@ class PatcherSupportPkgMount:
             # this to utilities.get_admin_permission() as 'reason', so it must be a str.
             # A bound method here raised "encoding without a string argument" (see c7ae533,
             # which fixed the same thing in reroute_payloads.py but missed this call site).
-            admin_password_prompt="OpenCore-Patcher-T2 needs administrator permission to mount Universal-Binaries.dmg.",
+            admin_password_prompt="BridgePatcher needs administrator permission to mount Universal-Binaries.dmg.",
             retry_on_auth_error=retry_on_auth_error
         )
 

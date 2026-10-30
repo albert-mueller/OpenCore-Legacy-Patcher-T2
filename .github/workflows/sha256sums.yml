@@ -9,6 +9,12 @@ name: Publish SHA256SUMS
 #   2. a cron sweep that backfills any recent release still missing SHA256SUMS,
 #      which covers uploads that arrive long after the release went live
 #
+# Hashing only starts once an installer is attached: BridgePatcher.pkg, or for
+# releases from before the rename (and as the optional side-by-side package built
+# with Build-Project.command --legacy-installer) OpenCore-Patcher-T2.pkg. A release
+# that never gets either is still hashed once its assets stop changing and
+# MAX_WAIT_SECONDS has passed, with a warning.
+#
 # Note: this is separate from dist/certificates.txt, which Build-Project.command
 # writes at build time (pkgs + privileged helper) and which keeps its own format.
 
@@ -43,6 +49,9 @@ jobs:
       # the whole release history on every run.
       SCAN_DAYS: "7"
       SCAN_LIMIT: "10"
+      # Installer packages, current name first. Space separated, no spaces in names.
+      INSTALLER_ASSETS: "BridgePatcher.pkg OpenCore-Patcher-T2.pkg"
+      PRIMARY_INSTALLER: "BridgePatcher.pkg"
     steps:
       - name: Determine target releases
         env:
@@ -71,15 +80,29 @@ jobs:
             TAG="$1"
             echo "::group::$TAG"
 
-            # Wait until the asset count stops changing. Protects against the
-            # release being published before the pkgs finish uploading.
+            # Wait until an installer is attached and the asset count stops
+            # changing. Protects against the release being published before the
+            # pkgs finish uploading.
             PREV=-1
             WAITED=0
             while true; do
-              COUNT="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
-                --jq '[.assets[] | select(.name != "SHA256SUMS")] | length')"
+              NAMES="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
+                --jq '.assets[] | select(.name != "SHA256SUMS") | .name')"
+              COUNT="$(printf '%s\n' "$NAMES" | grep -c . || true)"
+              FOUND=""
+              for pkg in $INSTALLER_ASSETS; do
+                if printf '%s\n' "$NAMES" | grep -qxF "$pkg"; then
+                  FOUND="$FOUND $pkg"
+                fi
+              done
               if [ "$COUNT" -gt 0 ] && [ "$COUNT" -eq "$PREV" ]; then
-                break
+                if [ -n "$FOUND" ]; then
+                  break
+                fi
+                if [ "$WAITED" -ge "$MAX_WAIT_SECONDS" ]; then
+                  echo "::warning::$TAG has no installer ($INSTALLER_ASSETS) - hashing its $COUNT asset(s) anyway."
+                  break
+                fi
               fi
               if [ "$WAITED" -ge "$MAX_WAIT_SECONDS" ]; then
                 echo "Timed out waiting for assets on $TAG (currently $COUNT) - the cron sweep will retry."
@@ -104,6 +127,18 @@ jobs:
             (cd work && LC_ALL=C find . -maxdepth 1 -type f -printf '%P\n' \
               | LC_ALL=C sort \
               | xargs -d '\n' -r sha256sum) > SHA256SUMS
+
+            # Every installer on the release must be covered
+            for pkg in $FOUND; do
+              if ! awk -v f="$pkg" '$2 == f { found = 1 } END { exit !found }' SHA256SUMS; then
+                echo "::error::$pkg is attached to $TAG but missing from SHA256SUMS."
+                exit 1
+              fi
+            done
+            case " $FOUND " in
+              *" $PRIMARY_INSTALLER "*) ;;
+              *" "*[a-zA-Z]*) echo "::notice::$TAG has no $PRIMARY_INSTALLER, only:$FOUND" ;;
+            esac
 
             if [ ! -s SHA256SUMS ]; then
               echo "Nothing to hash for $TAG."
