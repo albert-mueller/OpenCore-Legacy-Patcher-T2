@@ -22,7 +22,7 @@ Alternatively, compile the privileged helper tool with debug:
 make debug
 ```
 
-Then when you build OpenCore-Patcher-T2.pkg, the debug version of the helper tool will be used.
+Then when you build BridgePatcher.pkg, the debug version of the helper tool will be used.
 
 
 ### Security Considerations
@@ -132,7 +132,7 @@ python3 Build-Project.command --application-signing-identity "OCLP Self Signed"
 A self signed *code signing* certificate cannot sign installer packages (that needs a "Developer ID Installer"
 certificate), so the `.pkg` files stay unsigned - leave `--installer-signing-identity` empty.
 
-Install `dist/OpenCore-Patcher-T2.pkg`. It puts the app into `/Library/Application Support/albert-mueller/` and the
+Install `dist/BridgePatcher.pkg`. It puts the app into `/Library/Application Support/albert-mueller/` and the
 helper into `/Library/PrivilegedHelperTools/` with the setuid bit.
 
 ### 3b. Sign and install the helper by hand (helper only)

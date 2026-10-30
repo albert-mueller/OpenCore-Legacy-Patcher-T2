@@ -97,7 +97,7 @@ class UpdateFrame(wx.Frame):
         # Same cut as gui_main_menu.py: the asset table at the end is not useful here.
         self.changelog = str(changelog).split("## Asset Information")[0] if changelog else ""
 
-        # Our own releases ship a raw "OpenCore-Patcher-T2.pkg" asset (see updates.py),
+        # Our own releases ship a raw "BridgePatcher.pkg" asset (see updates.py),
         # while the upstream Dortania nightly.link fallback (gui_macos_configeration.py)
         # still ships the original "OpenCore-Patcher.pkg" zipped up - keep expecting
         # whichever one this URL actually points to instead of hardcoding one name.
@@ -115,9 +115,9 @@ class UpdateFrame(wx.Frame):
         # "[Errno 13] Permission denied" and the download aborted with
         # "Could not prepare working directory". The update package has nothing
         # to do with the payloads, so it should not depend on that mount at all.
-        self.update_work_dir = Path(tempfile.mkdtemp(prefix="OpenCore-Patcher-T2-update-"))
+        self.update_work_dir = Path(tempfile.mkdtemp(prefix="BridgePatcher-update-"))
         atexit.register(shutil.rmtree, self.update_work_dir, ignore_errors=True)
-        self.pkg_download_path = self.update_work_dir / ("OpenCore-Patcher.pkg" if self.url.endswith(".zip") else "OpenCore-Patcher-T2.pkg")
+        self.pkg_download_path = self.update_work_dir / ("OpenCore-Patcher.pkg" if self.url.endswith(".zip") else "BridgePatcher.pkg")
         # The download is written here and _extract_update() reads it back from the
         # same path. These used to be two different hardcoded names
         # ("OpenCore-Patcher-T2.pkg.zip" vs "OpenCore-Patcher.pkg.zip"), so the ZIP
@@ -525,7 +525,7 @@ class UpdateFrame(wx.Frame):
         temporary directory removed when this app quits, which happens right after
         the package has been handed to the Installer.
         """
-        target = Path.home() / "Downloads" / f"OpenCore-Patcher-T2-{self.version_label}.pkg"
+        target = Path.home() / "Downloads" / f"BridgePatcher-{self.version_label}.pkg"
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             if target.exists():
