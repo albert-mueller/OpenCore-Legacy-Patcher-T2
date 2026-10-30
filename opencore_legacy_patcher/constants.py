@@ -2,7 +2,6 @@
 constants.py: Defines versioning, file paths and other settings for the patcher
 """
 
-import datetime
 import logging
 from pathlib   import Path
 from typing    import Optional
@@ -20,9 +19,7 @@ class Constants:
         self.patcher_version:                 str = "4.0.0.2000000"
         self.patcher_version_label=self.patcher_version
         self.patcher_support_pkg_version:     str = "2.11"  # PatcherSupportPkg (needs a 2.11 release built from bridgepatcher/PatcherSupportPkg master: GMA X3100 + non-metal screen saver payloads)
-        _year = datetime.date.today().year
-        _fork_years = "2026" if _year <= 2026 else f"2026-{_year}"
-        self.copyright_date:                  str = f"Copyright © 2020-{_year} Dortania and OpenCore Legacy Patcher contributors · T2 fork © {_fork_years} Albert Müller"
+        self.copyright_date:                  str = "Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors"
 
         # Application identity
         # Must NOT be "com.dortania.opencore-legacy-patcher": Launch Services
