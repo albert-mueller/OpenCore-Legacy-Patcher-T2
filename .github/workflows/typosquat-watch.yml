@@ -42,5 +42,6 @@ jobs:
           FINGERPRINT_COMMITS: "20"    # how many of your commits to look for in copies
           CONTACT_SUSPICIOUS: "true"   # also post a notice on repos that look malicious
           ALLOWLIST: ""                # space-separated owner/repo names to ignore
-          ALIASES: "OCLP-T2"           # other names of the project; lookalikes of these count too
+          # Former names of the project: copies still named like these count as typosquats
+          ALIASES: "OpenCore-Legacy-Patcher-T2 OCLP-T2"
         run: python .github/scripts/typosquat_watch.py

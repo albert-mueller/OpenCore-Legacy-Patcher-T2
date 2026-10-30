@@ -23,7 +23,8 @@ CONTACT_SUSPICIOUS = os.environ.get("CONTACT_SUSPICIOUS", "true").lower() == "tr
 # here, but it can't open issues in other people's repositories.
 HAS_PAT = os.environ.get("HAS_PAT", "false").lower() == "true"
 ALLOWLIST = {s.lower() for s in os.environ.get("ALLOWLIST", "").split()}
-# Other names the project goes by (e.g. OCLP-T2); copies named like these count as squats too
+# Extra names that count as squats of this project: its former names (OpenCore-Legacy-Patcher-T2,
+# OCLP-T2). Copies named exactly like these, or like a lookalike of them, are flagged too.
 ALIASES = os.environ.get("ALIASES", "").split()
 LABEL = "typosquat"
 OUR_MARKER = "<!-- typosquat:{} -->"

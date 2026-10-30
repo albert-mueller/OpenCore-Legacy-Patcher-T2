@@ -56,13 +56,14 @@ jobs:
           MENTIONS: "khronokernel dhinakg albert-mueller gandolf243"
           # --- GitHub repositories ---
           # Repo names whose lookalikes (and non-fork copies) are checked
-          REPO_NAMES: "OpenCore-Legacy-Patcher"
+          # OpenCore-Legacy-Patcher-T2 (this project's former name) imitates Dortania's too
+          REPO_NAMES: "OpenCore-Legacy-Patcher OpenCore-Legacy-Patcher-T2"
           # Owners / repos (owner/name) that are never listed
           ALLOWLIST_OWNERS: "bridgepatcher albert-mueller"
           ALLOWLIST_REPOS: ""
           # --- Websites ---
           # Names whose typo variants are checked as domains under each TLD
-          KEYWORDS: "opencore-legacy-patcher opencorelegacypatcher oclp opencore-patcher"
+          KEYWORDS: "opencore-legacy-patcher opencorelegacypatcher oclp opencore-patcher opencore-legacy-patcher-t2 oclp-t2"
           TLDS: "com net org io app dev info site xyz top online shop pro co cc"
           # Substrings searched for in certificate-transparency logs (crt.sh)
           CT_KEYWORDS: "opencore-legacy-patcher opencorelegacypatcher legacy-patcher legacypatcher"
@@ -80,5 +81,5 @@ jobs:
           FORGET_DAYS: "365"
           OFFICIAL_SOURCES: |
             - **OpenCore Legacy Patcher** by Dortania: https://github.com/dortania/OpenCore-Legacy-Patcher and https://dortania.github.io/OpenCore-Legacy-Patcher/
-            - **OpenCore Legacy Patcher T2** (this project): https://github.com/bridgepatcher/BridgePatcher and https://bridgepatcher.github.io/
+            - **BridgePatcher** (formerly OpenCore Legacy Patcher T2, not affiliated with Dortania): https://github.com/bridgepatcher/BridgePatcher and https://bridgepatcher.github.io/ . Anything else still called "OpenCore Legacy Patcher T2" or "OCLP-T2" is not official.
         run: python .github/scripts/upstream_typosquat_watch.py

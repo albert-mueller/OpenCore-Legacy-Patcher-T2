@@ -128,7 +128,7 @@ class ReleaseGuard:
             API_URL.format(repo=self.repo),
             headers={
                 "Accept":               "application/vnd.github+json",
-                "User-Agent":           "oclp-t2-release-guard",
+                "User-Agent":           "bridgepatcher-release-guard",
                 "X-GitHub-Api-Version": "2022-11-28",
             },
         )

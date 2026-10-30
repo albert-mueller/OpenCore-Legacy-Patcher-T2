@@ -86,7 +86,8 @@ def readme_download_links(full):
         parts = urllib.parse.urlsplit(url)
         if BIN_EXT.search(parts.path) or host_in((parts.hostname or "").lower(), FILE_HOSTS):
             urls.add(url)
-    own = {full.lower(), UPSTREAM.lower()}
+    # The repo itself, upstream and this project (links to our releases are fine)
+    own = {full.lower(), UPSTREAM.lower(), ISSUE_REPO.lower()}
     found = set()
     for url in urls:
         parts = urllib.parse.urlsplit(url)
