@@ -52,6 +52,8 @@ jobs:
           # Former names of this project: a working website with one in its address (including
           # <name>.github.io) counts as a lookalike even if its page doesn't mention the project
           FORMER_NAMES: "OpenCore-Legacy-Patcher-T2 OCLP-T2"
+          # Former official addresses: always reported as typosquats, online or not
+          FORMER_HOSTS: "oclp-t2.github.io"
           # --- Content farms (any domain), found through the Brave Search API ---
           # Free key from https://api-dashboard.search.brave.com, stored as repo secret
           # BRAVE_SEARCH_API_KEY. Without it this part is skipped.

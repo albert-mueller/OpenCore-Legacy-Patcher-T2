@@ -33,6 +33,10 @@ ALLOWLIST = {h.lower() for h in os.environ.get("ALLOWLIST", "").split()}
 # Former names of the project (e.g. OpenCore-Legacy-Patcher-T2): a working website whose address
 # contains one counts as a lookalike even if its page doesn't mention the project
 FORMER_NAMES = os.environ.get("FORMER_NAMES", "").split()
+# Former official addresses of the project (e.g. oclp-t2.github.io). They no longer belong to it,
+# so they are always reported, whether or not anything is online there.
+FORMER_HOSTS = [h.lower() for h in os.environ.get("FORMER_HOSTS", "").split()]
+FORMER_HOST_MARK = "former official address of this project, no longer ours"
 # Newly registered domains: how many past days of registrations to check, and the
 # names to look for in them (compared without dots, dashes or underscores)
 NRD_DAYS = int(os.environ.get("NRD_DAYS", "3"))
@@ -485,7 +489,11 @@ def issue_body(r, reg):
                   "[Google Safe Browsing](https://safebrowsing.google.com/safebrowsing/report_phish/).")
     shown = unpuny(r["host"])
     name = f"**{r['host']}**" + (f" (shown in browsers as **{shown}**)" if shown != r["host"] else "")
-    if r["markers"] and r["markers"][0].startswith("former project name"):
+    if r["markers"] and r["markers"][0] == FORMER_HOST_MARK:
+        intro = (f"Marked {name} as a typosquat: it was this project's official address before the rename "
+                 "to BridgePatcher and no longer belongs to it. Anything published there now is not from "
+                 "this project, even if it looks official.")
+    elif r["markers"] and r["markers"][0].startswith("former project name"):
         intro = f"Found a website that uses this project's former name in its address: {name}"
     elif r["markers"]:
         intro = f"Found a website with a lookalike name that presents itself as this project: {name}"
@@ -572,6 +580,19 @@ def main():
             "host": host, "url": f"http://{host}/", "status": None, "ips": resolve(host),
             "title": "", "markers": [], "download_hosts": [], "links_official": False,
             "new_registration": True,
+        })
+
+    # Former official addresses are reported whether or not they serve anything yet
+    found_hosts = {r["host"] for r in results}
+    for host in FORMER_HOSTS:
+        if host in found_hosts:
+            next(r for r in results if r["host"] == host)["markers"].insert(0, FORMER_HOST_MARK)
+            continue
+        status, final, _ = fetch(f"https://{host}/")
+        results.append({
+            "host": host, "url": final, "status": status, "ips": resolve(host),
+            "title": "", "markers": [FORMER_HOST_MARK], "download_hosts": [], "links_official": False,
+            "new_registration": False,
         })
 
     tracked = set()

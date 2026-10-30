@@ -187,6 +187,10 @@ def scan_sites(watch):
             "downloads": cell(", ".join(r["download_hosts"]) or "no download links", 60),
         }
         watch.pop(r["host"], None)  # it has content now, so it's listed normally
+    # BridgePatcher's former official addresses are always listed: they no longer belong to it
+    for h in ts.FORMER_HOSTS:
+        info = found.setdefault(h, {"title": "—", "downloads": "—"})
+        info["title"] = cell("former BridgePatcher address, no longer official · " + info["title"])
     return found
 
 
