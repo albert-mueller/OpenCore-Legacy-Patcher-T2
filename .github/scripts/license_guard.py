@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 License Guard
-Scans a git diff for changes that would strip or replace ANY upstream copyright
+Scans a git diff (and, for known copyrighted artwork, the whole tree) for changes that would strip or replace ANY upstream copyright
 notice (Dortania, Dhinak G / Mykola Grymalyuk, ASentientBot, dosdude1, Apple, ...)
 or the license text itself, e.g.
     - Copyright (c) 2020-2026 Dortania
@@ -13,6 +13,7 @@ Usage: license_guard.py <git-diff-range>     e.g. "abc123...pr-head"
 Env:   UPSTREAM_HOLDER (default "Dortania"), REPORT_PATH (default license-report.md)
 """
 import fnmatch
+import io
 import os
 import re
 import subprocess
@@ -70,6 +71,105 @@ def load_relocated():
     except FileNotFoundError:
         pass
     return entries
+
+
+# Known copyrighted artwork. Unlike the checks above, this scans EVERY file in the audited
+# tree (not just the diff), so an old copy anywhere in the fork is found too.
+# Only fingerprints are stored here, never the images themselves.
+# Fingerprint = 256-bit dHash (16x16) of the image composited on grey, white and black,
+# so resized, recompressed or flattened copies still match.
+KNOWN_ART = {
+    "dortania-oclp-icon": {
+        "name": "Dortania's OpenCore Legacy Patcher icon",
+        "holder": "Dortania",
+        "hashes": [
+            "2002461d90f6233b0e0f18a718f71967196718e71ae70f8f271b90f6469c2002",
+            "2002469d90fe233b0e0f18a718f7196719671ce71be70d8f233b10f60c0c0000",
+            "2002471d88ce33332e0b0a271cf7186719671ce71aa70fcf231b90f60e8c0000",
+            "20284e8030f063384e0cd8a498f6996699669ce4dbe4cd8ce33870f1bc02417c",
+            "20304e1c90f6233b0e0f18a718f61966196618e61ae54f8d271bd0f26e840030",
+            "3002471c88ce33332e0b1a271cf7186799669ce6daa4cfcce31870f13e820024",
+            "4004371068c9d334ee08da24dcf4d864d964dce4daa4cfccc31c70f13e800000",
+            "40043e8070f1e338ce0cd8a4d8f4d964d964d8e4dae4cf8ce71870f13e804004",
+            "4004be8270f1e338ce0cd8a4d8f4d964d964dce4dbe4cd8ce33870f1bc024004",
+        ],
+    },
+    "apple-system-settings-icon": {
+        "name": "Apple's System Settings icon",
+        "holder": "Apple",
+        "hashes": [
+            "200243bd8cce30f3231b2b4b09af1c8f1c8f09af2b4b231b30f38cc6001c2002",
+            "300243bc9cce30f3231b2b4b09af5c8d5c8d49adcb49e319f0f17cc038000040",
+            "40043b607cc1e0f0e31ccb4cc9acdc8cdc8cc9accb4cc31cc0f87cc138004004",
+        ],
+    },
+}
+# Hamming distance (of 256 bits). Measured on this repo: copies 0-17, icons that embed
+# the logo 39-51, unrelated icons 59+.
+ART_COPY_MAX = 30      # -> violation
+ART_DERIVED_MAX = 52   # -> warning (probably contains the artwork, check by hand)
+ART_MAX_BYTES = 20_000_000
+IMAGE_EXT = (".png", ".icns", ".jpg", ".jpeg", ".gif", ".webp", ".tif", ".tiff", ".bmp", ".ico")
+TEXT_EXT = (".md", ".markdown", ".html", ".htm", ".js", ".jsx", ".ts", ".tsx", ".vue", ".css",
+            ".scss", ".py", ".plist", ".json", ".yml", ".yaml", ".txt", ".rst")
+# Dortania's images used directly from their repo or website (e.g. the old README logo).
+HOTLINK_RE = re.compile(
+    r"(?:raw\.githubusercontent\.com/dortania/|github\.com/dortania/[^\s\"'()<>]*/(?:raw|blob)/"
+    r"|dortania\.github\.io/)[^\s\"'()<>]*\.(?:png|icns|svg|jpe?g|gif|webp)", re.I)
+
+
+def dhash256(data, bg):
+    from PIL import Image
+    with Image.open(io.BytesIO(data)) as im:
+        im.load()
+        im = im.convert("RGBA")
+    base = Image.new("RGBA", im.size, bg + (255,))
+    base.alpha_composite(im)
+    g = base.convert("L").resize((17, 16), Image.LANCZOS).tobytes()
+    bits = 0
+    for r in range(16):
+        for c in range(16):
+            bits = (bits << 1) | (g[r * 17 + c] > g[r * 17 + c + 1])
+    return bits
+
+
+def scan_artwork(head, add):
+    try:
+        from PIL import Image
+        Image.MAX_IMAGE_PIXELS = 50_000_000
+    except ImportError:
+        add("warning", "-", "Artwork check skipped: Pillow is not installed")
+        return
+    known = {k: [int(h, 16) for h in v["hashes"]] for k, v in KNOWN_ART.items()}
+    for row in git("ls-tree", "-r", "-l", head).splitlines():
+        meta, path = row.split("\t", 1)
+        _, kind, sha, size = meta.split()
+        if kind != "blob" or is_self(path) or size == "-" or int(size) > ART_MAX_BYTES:
+            continue
+        low = path.lower()
+        if low.endswith(IMAGE_EXT):
+            data = subprocess.run(["git", "cat-file", "blob", sha], capture_output=True, check=True).stdout
+            try:
+                h = dhash256(data, (128, 128, 128))
+            except Exception:
+                continue  # not a decodable image
+            for key, hashes in known.items():
+                d = min(bin(h ^ x).count("1") for x in hashes)
+                art = KNOWN_ART[key]
+                if d <= ART_COPY_MAX:
+                    add("violation", path, f"Copyrighted artwork: {art['name']}",
+                        [f"  Matches {art['holder']}'s artwork (distance {d}/256).",
+                         "  Replace it with your own artwork."])
+                elif d <= ART_DERIVED_MAX:
+                    add("warning", path, f"Probably contains {art['name']}",
+                        [f"  Similar to {art['holder']}'s artwork (distance {d}/256).",
+                         "  Check by hand; if it embeds the artwork, replace it."])
+        elif low.endswith(TEXT_EXT):
+            text = git("cat-file", "blob", sha)
+            urls = sorted(set(m.group(0) for m in HOTLINK_RE.finditer(text)))
+            if urls:
+                add("violation", path, "Dortania artwork used from Dortania's servers",
+                    [f"- {u}" for u in urls[:10]])
 
 
 YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
@@ -189,13 +289,17 @@ def main():
                 add("info", path, "Lines added to license file",
                     [f"+ {show(l)}" for l in f["add"] if l.strip()][:15])
 
+
+    # 4) Known copyrighted artwork anywhere in the audited tree
+    scan_artwork(re.split(r"\.\.\.?", DIFF_RANGE)[-1], add)
+
     v = [x for x in findings if x[0] == "violation"]
     w = [x for x in findings if x[0] == "warning"]
     i = [x for x in findings if x[0] == "info"]
 
     out = [MARKER, "## 🛡️ License Guard", ""]
     if not v and not w:
-        out.append(f"✅ No changes found that would affect upstream copyright notices or license text (`{DIFF_RANGE}`).")
+        out.append(f"✅ No changes found that would affect upstream copyright notices or license text (`{DIFF_RANGE}`), and no known copyrighted artwork.")
     else:
         out.append(f"Checked `{DIFF_RANGE}`: **{len(v)} violation(s)**, {len(w)} warning(s), {len(i)} info.")
     def section(items):
@@ -217,7 +321,9 @@ def main():
             f"{HOLDER}'s code is under licenses that require keeping every existing copyright notice and "
             "the license text in redistributed source (e.g. BSD 3-Clause, clause 1). Adding your own "
             "copyright line *alongside* the existing ones is fine; replacing or removing them is not. "
-            "Year bumps like `2020-2024` → `2020-2026` are ignored.",
+            "Year bumps like `2020-2024` → `2020-2026` are ignored.", "",
+            "Artwork such as Dortania's OpenCore Legacy Patcher icon or Apple's System Settings icon is "
+            "not covered by the code license and must not be shipped or hotlinked; use your own artwork.",
             "", "</details>"]
 
     report = "\n".join(out) + "\n"

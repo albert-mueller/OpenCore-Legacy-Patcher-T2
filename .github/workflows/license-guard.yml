@@ -66,6 +66,14 @@ jobs:
             echo "range=${UP}..${HEAD_REF}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Set up Python (for the artwork check)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Pillow
+        run: python -m pip install --disable-pip-version-check "pillow==11.3.0"
+
       - name: Scan fork against upstream
         id: scan
         env:
@@ -116,7 +124,7 @@ jobs:
               }
               return;
             }
-            const title = `License Guard: ${violations} possible ${process.env.UPSTREAM_HOLDER} license violation(s)`;
+            const title = `License Guard: ${violations} possible license violation(s)`;
             if (issue) {
               if (issue.body !== body || issue.title !== title) {
                 await github.rest.issues.update({ owner, repo, issue_number: issue.number, title, body });
