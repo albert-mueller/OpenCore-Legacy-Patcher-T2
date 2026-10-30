@@ -1,0 +1,98 @@
+name: Fork Name Check
+
+# Forks made before the rename to BridgePatcher are often still called
+# "OpenCore-Legacy-Patcher-T2". Ask the fork owner to rename it and keep the
+# "Fork name" status red until they do. Make "Fork name" a required status check
+# in the branch protection of main so such PRs can't be merged.
+on:
+  # pull_request_target so it can comment on and set statuses for PRs from forks.
+  # SAFE: nothing from the PR is checked out or executed.
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+  # Renaming a repo doesn't trigger any PR event, so re-check waiting PRs hourly.
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+
+permissions:
+  pull-requests: write
+  issues: write
+  statuses: write
+
+concurrency:
+  group: fork-name-${{ github.event.pull_request.number || 'scheduled' }}
+  cancel-in-progress: false
+
+jobs:
+  fork-name:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const marker = '<!-- fork-name-check -->';
+            const label = 'fork-rename-needed';
+            const isOldName = name =>
+              (name || '').toLowerCase().replace(/[^a-z0-9]/g, '').includes('opencorelegacypatchert2');
+
+            async function check(pr) {
+              const head = pr.head.repo;   // null if the fork was deleted
+              const isFork = head && head.full_name.toLowerCase() !== `${owner}/${repo}`.toLowerCase();
+              const bad = Boolean(isFork && isOldName(head.name));
+
+              await github.rest.repos.createCommitStatus({
+                owner, repo, sha: pr.head.sha, context: 'Fork name',
+                state: bad ? 'failure' : 'success',
+                description: bad ? `Rename your fork "${head.name}" first` : 'Fork name OK',
+              });
+
+              const comments = await github.paginate(github.rest.issues.listComments,
+                { owner, repo, issue_number: pr.number, per_page: 100 });
+              const existing = comments.find(c => c.user?.type === 'Bot' && c.body?.includes(marker));
+              const hasLabel = pr.labels.some(l => l.name === label);
+
+              if (bad) {
+                if (!existing) {
+                  await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body:
+                    `${marker}\n👋 Hi @${pr.user.login}, thanks for the pull request!\n\n` +
+                    `Your fork is still called **\`${head.full_name}\`**. This project is now **${repo}**, ` +
+                    `so please rename your fork before this PR can be merged:\n\n` +
+                    `1. Open https://github.com/${head.full_name}/settings\n` +
+                    `2. Under **Repository name**, enter \`${repo}\` (or anything without "OpenCore Legacy Patcher T2")\n` +
+                    `3. Click **Rename**\n\n` +
+                    `Your PR keeps working after the rename. This check runs again automatically within an hour, ` +
+                    `or right away when you push a new commit.` });
+                }
+                if (!hasLabel) {
+                  try {
+                    await github.rest.issues.createLabel({ owner, repo, name: label, color: 'fbca04',
+                      description: 'Fork still uses the old project name' });
+                  } catch (e) { if (e.status !== 422) throw e; }
+                  await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: [label] });
+                }
+              } else {
+                if (existing && !existing.body.includes('✅')) {
+                  await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body:
+                    `${marker}\n✅ Thanks for renaming your fork! The fork name check passes now.` });
+                }
+                if (hasLabel) {
+                  await github.rest.issues.removeLabel({ owner, repo, issue_number: pr.number, name: label })
+                    .catch(e => { if (e.status !== 404) throw e; });
+                }
+              }
+            }
+
+            if (context.eventName === 'pull_request_target') {
+              await check(context.payload.pull_request);
+              return;
+            }
+            // Scheduled / manual: re-check every open PR still waiting for a rename
+            // (fetched fresh, so the current fork name is used).
+            const prs = await github.paginate(github.rest.pulls.list,
+              { owner, repo, state: 'open', per_page: 100 });
+            for (const pr of prs) {
+              if (context.eventName === 'workflow_dispatch' || pr.labels.some(l => l.name === label)) {
+                await check(pr);
+              }
+            }

@@ -297,6 +297,12 @@ def main():
     w = [x for x in findings if x[0] == "warning"]
     i = [x for x in findings if x[0] == "info"]
 
+    # One line per violation, so the workflow can tell which ones a PR adds vs. which are
+    # already on the base branch (only PR-added violations may auto-close a fork PR).
+    if os.environ.get("VIOLATIONS_LIST"):
+        with open(os.environ["VIOLATIONS_LIST"], "w", encoding="utf-8") as fh:
+            fh.write("".join(f"{title} — {path}\n" for _, path, title, _ in v))
+
     out = [MARKER, "## 🛡️ License Guard", ""]
     if not v and not w:
         out.append(f"✅ No changes found that would affect upstream copyright notices or license text (`{DIFF_RANGE}`), and no known copyrighted artwork.")
