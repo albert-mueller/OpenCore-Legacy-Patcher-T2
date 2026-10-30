@@ -30,6 +30,9 @@ CT_KEYWORDS = os.environ.get("CT_KEYWORDS", "").split()
 TLDS = os.environ.get("TLDS", "com net org io app dev").split()
 MARKERS = [fold(m.strip()) for m in os.environ.get("CONTENT_MARKERS", "").split("|") if m.strip()]
 ALLOWLIST = {h.lower() for h in os.environ.get("ALLOWLIST", "").split()}
+# Former names of the project (e.g. OpenCore-Legacy-Patcher-T2): a working website whose address
+# contains one counts as a lookalike even if its page doesn't mention the project
+FORMER_NAMES = os.environ.get("FORMER_NAMES", "").split()
 # Newly registered domains: how many past days of registrations to check, and the
 # names to look for in them (compared without dots, dashes or underscores)
 NRD_DAYS = int(os.environ.get("NRD_DAYS", "3"))
@@ -153,6 +156,26 @@ def homograph_variants(keyword):
         except UnicodeError:
             pass
     return out
+
+
+def _flat(text):
+    return re.sub(r"[^a-z0-9]", "", fold(text))
+
+
+def former_name_in_host(host):
+    """Former project names contained in a hostname (ignoring the TLD, separators and lookalike letters)."""
+    flat = _flat("".join(unpuny(host).lower().split(".")[:-1]))
+    return [n for n in FORMER_NAMES if _flat(n) and _flat(n) in flat]
+
+
+def former_name_pages():
+    """<former name>.github.io: GitHub Pages addresses anyone could claim with a former project name."""
+    hosts = set()
+    for n in FORMER_NAMES:
+        for v in {n.lower(), n.lower().replace("-", "")}:
+            if HOST_LABEL.match(v):
+                hosts.add(f"{v}.github.io")
+    return hosts
 
 
 def domain_candidates(keywords):
@@ -296,7 +319,10 @@ def inspect(host, path):
     low = fold(page)
     hits = [m for m in MARKERS if m in low]
     if not hits:
-        return None  # resolves, but doesn't present itself as this project
+        former = former_name_in_host(host)
+        if not former:
+            return None  # resolves, but doesn't present itself as this project
+        hits = [f"former project name in the address ({', '.join(former)})"]
     title = re.search(r"<title[^>]*>(.*?)</title>", page, re.I | re.S)
     dl_hosts = sorted({describe_host(u) for u in download_links(page, final)})
     return {
@@ -459,7 +485,9 @@ def issue_body(r, reg):
                   "[Google Safe Browsing](https://safebrowsing.google.com/safebrowsing/report_phish/).")
     shown = unpuny(r["host"])
     name = f"**{r['host']}**" + (f" (shown in browsers as **{shown}**)" if shown != r["host"] else "")
-    if r["markers"]:
+    if r["markers"] and r["markers"][0].startswith("former project name"):
+        intro = f"Found a website that uses this project's former name in its address: {name}"
+    elif r["markers"]:
         intro = f"Found a website with a lookalike name that presents itself as this project: {name}"
     else:
         intro = (f"Found a newly registered domain with a lookalike name: {name}\n\n"
@@ -515,6 +543,8 @@ def main():
         for h in ct_hosts(kw):
             targets.setdefault(h, "/")
     targets.update(github_pages_candidates(site_host, site_path))
+    for h in former_name_pages():
+        targets.setdefault(h, "/")
     new_regs = {d for d in nrd_domains(NRD_DAYS) if nrd_match(d)} if NRD_KEYWORDS else set()
     for h in new_regs:
         targets.setdefault(h, "/")

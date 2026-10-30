@@ -161,6 +161,8 @@ def scan_repos():
 
 def scan_sites(watch):
     targets = {h: "/" for h in ts.domain_candidates(ts.KEYWORDS)}
+    for h in ts.former_name_pages():
+        targets.setdefault(h, "/")
     for kw in ts.CT_KEYWORDS:
         for h in ts.ct_hosts(kw):
             targets.setdefault(h, "/")
