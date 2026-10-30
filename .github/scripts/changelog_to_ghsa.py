@@ -106,28 +106,50 @@ def heading_version(title):
     return re.sub(r"\s+", " ", rest).strip() or None
 
 
+# A line that only announces the security fixes listed below it, e.g.
+# "This release also fixes a vulnerability, too:". It is not an entry of its own
+# and must not be glued onto the bullet above it: it marks the following
+# bullets as security fixes instead.
+SECURITY_INTRO_RE = re.compile(
+    r"^(?:this (?:release|version|build)\s+)?(?:also\s+)?(?:fix(?:es|ed)?|patch(?:es|ed)?|address(?:es|ed)?)\s+"
+    r"(?:(?:a|an|the|the following|following|several|some|these|multiple|two|three|\d+)\s+)?"
+    r"(?:(?:security|critical)\s+)?(?:vulnerabilit(?:y|ies)|security (?:issues?|fixes?|bugs?|holes?|flaws?))"
+    r"(?:,?\s*(?:too|as well))?\s*:\s*$"
+    # German: "Behebt außerdem die folgende Sicherheitslücke:"
+    r"|^(?:diese (?:version|release)\s+)?(?:behebt|schließt)\s+(?:(?:außerdem|auch|zudem)\s+)?"
+    r"(?:(?:die|eine|mehrere|folgende|die folgenden?|\d+)\s+)?(?:kritische\s+)?sicherheitsl(?:ü|ue)cken?"
+    r"(?:,?\s*(?:auch|ebenfalls))?\s*:\s*$",
+    re.I,
+)
+
+
 def parse_changelog(path):
-    entries, version, security_section, current = [], None, False, None
+    entries, version, current = [], None, None
+    heading_security = intro_security = False
     with open(path, encoding="utf-8") as f:
         for raw in f:
             line = raw.rstrip("\n")
             heading = re.match(r"^(#{1,6})\s+(.*)", line)
             if heading:
                 level, title = len(heading.group(1)), heading.group(2).strip()
-                current = None
+                current, intro_security = None, False
                 hv = heading_version(title) if level == 2 else None
                 if level == 1:
-                    version, security_section = None, False
+                    version, heading_security = None, False
                 elif hv:
-                    version, security_section = hv, False
+                    version, heading_security = hv, False
                     if STOP_AT and version == STOP_AT:
                         break
                 else:  # sub-section inside a release ("### Security fixes", "## Why ...")
-                    security_section = "security" in title.lower()
+                    heading_security = "security" in title.lower()
                 continue
 
             if not line.strip():
                 continue  # blank lines keep the current entry (Impact:/Severity: follow)
+
+            if line[:1] not in (" ", "\t") and SECURITY_INTRO_RE.match(line.strip()):
+                current, intro_security = None, True
+                continue
 
             bullet = re.match(r"^[-*+]\s+(.*)", line)
             if bullet or current is None:
@@ -136,7 +158,7 @@ def parse_changelog(path):
                     "version": version,
                     "first": text,
                     "text": text,
-                    "security_section": security_section,
+                    "security_section": heading_security or intro_security,
                 }
                 entries.append(current)
             else:  # indented sub-bullets, code, Impact:/Severity:/PoC paragraphs

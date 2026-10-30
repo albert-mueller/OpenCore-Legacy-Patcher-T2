@@ -21,7 +21,7 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2020-2026 Dortania</string>
+	<string>Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors · T2 fork © 2026 Albert Müller</string>
 	<key>SMPrivilegedExecutables</key>
 	<dict>
 		<key>com.albert-mueller.opencore-patcher-t2.privileged-helper</key>
