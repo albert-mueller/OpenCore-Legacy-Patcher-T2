@@ -134,7 +134,7 @@ class Constants:
         ## https://github.com/bridgepatcher
         self.appleans2disabler_version:  str = "1.0.0"  #      AppleANS2Disabler (T2 internal SSD)
         self.t2tahoefixup_version:       str = "1.0.17" #      T2TahoeFixup
-        #TODO: did Metteo make the above kext? if so then his name should be here instead of BridgePatcher's
+        #TODO: did Matteo make the above kext? if so then his name should be here instead of BridgePatcher's
 
         ## Apple
         ## https://www.apple.com
