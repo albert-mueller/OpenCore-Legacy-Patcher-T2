@@ -22,10 +22,5 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors · T2 fork © 2026 Albert Müller</string>
-	<key>SMPrivilegedExecutables</key>
-	<dict>
-		<key>io.github.bridgepatcher.privileged-helper</key>
-		<string>identifier "io.github.bridgepatcher.privileged-helper" and anchor apple generic</string>
-	</dict>
 </dict>
 </plist>
