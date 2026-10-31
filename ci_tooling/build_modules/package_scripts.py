@@ -20,6 +20,9 @@ LEGACY_SHIM_APP_PATH   = f"Applications/{constants.LEGACY_APP_BUNDLE_NAME}"
 LEGACY_EXECUTABLE_PATH = f"{LEGACY_MAIN_APP_PATH}/Contents/MacOS/{constants.LEGACY_APP_EXECUTABLE_NAME}"
 
 
+_VERIFY_BODY = '    local packageHash=""\n    if [[ -f $pathToPackage ]]; then\n        packageHash=$(/usr/bin/shasum -a 256 "$pathToPackage" | /usr/bin/awk \'{print $1}\')\n        echo "Package SHA256: $packageHash"\n    else\n        echo "Package file not found ($pathToPackage), can\'t compute its checksum"\n    fi\n\n    local url list reached=0\n    for url in $checksumUrls; do\n        list=$(/usr/bin/curl --fail --silent --location --max-time 20 "$url" 2>/dev/null) || continue\n        reached=1\n        if [[ -n $packageHash ]] && print -r -- "$list" | /usr/bin/grep -qiwF -- "$packageHash"; then\n            echo "Verified: checksum matches $url"\n            return 0\n        fi\n    done\n\n    local reason\n    if [[ -z $packageHash ]]; then\n        reason="The installer couldn\'t compute this package\'s checksum."\n    elif (( reached )); then\n        reason="Its SHA256 checksum doesn\'t match any checksum published for version @VERSION@."\n    else\n        reason="The published checksums for version @VERSION@ couldn\'t be downloaded (no internet connection, or this version was never released)."\n    fi\n    echo "WARNING: this package is not verified. $reason"\n\n    # \'installer\' on the command line (the app\'s own updater, MDM): nobody to ask\n    if [[ -n $COMMAND_LINE_INSTALL ]]; then\n        echo "Command line install, continuing without asking"\n        return 0\n    fi\n\n    local consoleUser=$(/usr/bin/stat -f%Su /dev/console)\n    if [[ -z $consoleUser || $consoleUser == root || $consoleUser == loginwindow ]]; then\n        echo "No logged-in user to confirm installing an unverified package, cancelling"\n        return 1\n    fi\n\n    local answer\n    answer=$(/bin/launchctl asuser $(/usr/bin/id -u $consoleUser) /usr/bin/sudo -u $consoleUser \\\n        /usr/bin/osascript - "$reason" "${packageHash:-unknown}" 2>/dev/null <<\'APPLESCRIPT\'\non run argv\n    set msg to "This build of BridgePatcher @VERSION@ has not been verified and could include malware." & return & return & (item 1 of argv) & return & return & "Official builds are only published on @SOURCES@. Only continue if you built this package yourself or fully trust where you downloaded it." & return & return & "SHA256: " & (item 2 of argv)\n    try\n        set r to display dialog msg with title "Unverified BridgePatcher build" buttons {"Cancel Installation", "Install Anyway"} default button "Cancel Installation" cancel button "Cancel Installation" with icon caution giving up after 600\n        if gave up of r then return "cancel"\n        return button returned of r\n    on error\n        return "cancel"\n    end try\nend run\nAPPLESCRIPT\n)\n    if [[ $answer == "Install Anyway" ]]; then\n        echo "User chose to install the unverified package"\n        return 0\n    fi\n    echo "Installation of the unverified package cancelled"\n    return 1\n'
+
+
 class ZSHFunctions:
 
     def __init__(self) -> None:
@@ -436,6 +439,30 @@ class ZSHFunctions:
         return _script
 
 
+    def generate_verify_package(self) -> str:
+        """
+        ZSH function that checks the installer's SHA256 against the checksums published on
+        the release of this version (SHA256SUMS or certificates.txt) in every update channel's
+        repository. If it matches none, the user has to confirm the install in a warning
+        dialog; cancelling makes the preinstall script, and so the installation, fail.
+        """
+        version = constants.Constants().patcher_version
+        repos = [channel["repo"].rstrip("/") for channel in constants.Constants().update_channels.values()]
+        sources = " or ".join(repo.replace("https://", "") for repo in repos)
+
+        _script = ""
+        _script += "function _verifyPackage() {\n"
+        _script += "    local -a checksumUrls=(\n"
+        for repo in repos:
+            for name in ("SHA256SUMS", "certificates.txt"):
+                _script += f"        \"{repo}/releases/download/{version}/{name}\"\n"
+        _script += "    )\n"
+        _script += _VERIFY_BODY.replace("@VERSION@", version).replace("@SOURCES@", sources)
+        _script += "}\n"
+
+        return _script
+
+
     def generate_load_update_check_agent(self) -> str:
         """
         ZSH function to (re)load the background update check for the logged-in user
@@ -651,6 +678,9 @@ class GenerateScripts:
         _script += self.zsh_functions.generate_clean_legacy_install_location()
         _script += "\n"
         _script += self.zsh_functions.generate_preinstall_main()
+        if not is_autopkg:
+            _script += "\n"
+            _script += self.zsh_functions.generate_verify_package()
         _script += "\n\n"
 
         _script += "# MARK: Main\n"
@@ -658,6 +688,8 @@ class GenerateScripts:
         _script += "\n"
 
         _script += "echo \"Starting preinstall script...\"\n"
+        if not is_autopkg:
+            _script += "_verifyPackage || exit 1\n"
         _script += "_main\n"
 
         return _script

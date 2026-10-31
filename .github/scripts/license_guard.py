@@ -111,6 +111,26 @@ ART_DERIVED_MAX = 52   # -> warning (probably contains the artwork, check by han
 ART_MAX_BYTES = 20_000_000
 # Results per image blob, so the second scan of a PR (base branch) doesn't redo every image.
 ART_CACHE = os.environ.get("ART_CACHE", ".license-guard-art-cache.json")
+# Known artwork EMBEDDED in a larger picture - a logo put into a box, dropped into a trash can,
+# half covered by a badge, or shown small in a mockup. The whole-image fingerprint above can't
+# see those, so the ring core of the logo is searched for at every size and in 12 rotations
+# (template matching on a copy scaled to EMB_MAX_SIDE). The reference is read from the upstream
+# tree at run time, so no copy of the artwork is stored in this repository.
+EMBEDDED_ART = {
+    "dortania-oclp-icon": "payloads/Icon/AppIcons/OC-Patcher.icns",
+}
+EMB_VERSION = 1            # bump to invalidate cached results after changing the settings below
+EMB_T = 48                 # template diameter (px)
+EMB_ANGLES = range(0, 360, 30)
+EMB_MAX_SIDE = 600
+# (warning, violation) thresholds for the whole ring core and for a partial template (its upper
+# left part, for logos half hidden by a badge). Measured on this repo and on upstream: logos
+# 0.73-0.99 / 0.84-0.99, own artwork at most 0.59 / 0.77, small logos in screenshots ~0.66.
+EMB_FULL = (0.65, 0.75)
+EMB_PART = (0.80, 0.85)
+# Design/source files that keep images inside them (previews, placed images): every PNG and JPEG
+# stored in them is checked like a normal image.
+CONTAINER_EXT = (".afdesign", ".afphoto", ".afpub", ".psd", ".psb", ".ai", ".pdf", ".sketch", ".xcf", ".fig")
 IMAGE_EXT = (".png", ".icns", ".jpg", ".jpeg", ".gif", ".webp", ".tif", ".tiff", ".bmp", ".ico")
 TEXT_EXT = (".md", ".markdown", ".html", ".htm", ".js", ".jsx", ".ts", ".tsx", ".vue", ".css",
             ".scss", ".py", ".plist", ".json", ".yml", ".yaml", ".txt", ".rst")
@@ -226,6 +246,75 @@ def dhash256(data, bg):
     return bits
 
 
+def _emb_rgba(data):
+    from PIL import Image
+    with Image.open(io.BytesIO(data)) as im:
+        im.load()
+        return im.convert("RGBA")
+
+
+def _emb_grey(im):
+    import numpy as np
+    from PIL import Image
+    base = Image.new("RGBA", im.size, (128, 128, 128, 255))
+    base.alpha_composite(im)
+    return np.ascontiguousarray(np.array(base.convert("RGB")))
+
+
+def emb_templates(ref_data):
+    """Rotated templates of the logo's ring core: [whole core, upper-left part of the core]."""
+    from PIL import Image
+    import numpy as np
+    ref = _emb_rgba(ref_data).resize((1024, 1024), Image.LANCZOS)
+    a = np.array(ref)[..., 3]
+    ys, xs = np.where(a > 10)
+    cx, cy, r = (xs.min() + xs.max()) / 2, (ys.min() + ys.max()) / 2, (xs.max() - xs.min()) * 0.3
+    crops = [ref.crop((int(cx - r), int(cy - r), int(cx + r), int(cy + r))),
+             ref.crop((int(cx - r), int(cy - r), int(cx + 0.25 * r), int(cy + 0.25 * r)))]
+    return [[_emb_grey(c.rotate(ang, resample=Image.BICUBIC).resize((EMB_T, EMB_T), Image.LANCZOS))
+             for ang in EMB_ANGLES] for c in crops]
+
+
+def emb_scores(data, templates):
+    """Best match of each template set anywhere in the image, at any size from EMB_T px up."""
+    import cv2
+    import numpy as np
+    from PIL import Image
+    im = _emb_rgba(data)
+    side = max(im.size)
+    if side > EMB_MAX_SIDE:
+        im = im.resize((round(im.width * EMB_MAX_SIDE / side), round(im.height * EMB_MAX_SIDE / side)), Image.LANCZOS)
+    img = _emb_grey(im)
+    h, w = img.shape[:2]
+    best = []
+    for tpls in templates:
+        top, d = -1.0, EMB_T
+        while d <= min(h, w):
+            f = EMB_T / d
+            small = cv2.resize(img, (max(EMB_T, round(w * f)), max(EMB_T, round(h * f))), interpolation=cv2.INTER_AREA)
+            for t in tpls:
+                r = cv2.matchTemplate(small, t, cv2.TM_CCOEFF_NORMED)
+                r[~np.isfinite(r)] = -1
+                top = max(top, float(r.max()))
+            d = round(d * 1.2 + 0.5)
+        best.append(round(top, 3))
+    return best
+
+
+def embedded_images(data, limit=20):
+    """PNG and JPEG images stored inside a design/source file (previews, placed images)."""
+    found = []
+    for m in re.finditer(rb"\x89PNG\r\n\x1a\n", data):
+        end = data.find(b"IEND", m.start())
+        if end > 0:
+            found.append(data[m.start():end + 8])
+    for m in re.finditer(rb"\xff\xd8\xff[\xc0-\xfe]", data):
+        end = data.find(b"\xff\xd9", m.start())
+        if end > 0:
+            found.append(data[m.start():end + 2])
+    return [f for f in found if len(f) > 2000][:limit]
+
+
 # The upstream app's NAME shown inside an image (screenshots of Dortania's app, banners):
 # "OpenCore Legacy Patcher" (also "... T2" / "...-T2"). Found with OCR (tesseract), so it only runs
 # where tesseract is installed. Lines with a copyright notice are skipped on purpose - the upstream
@@ -326,6 +415,39 @@ def scan_artwork(head, add):
         return
     known = {k: [int(h, 16) for h in v["hashes"]] for k, v in KNOWN_ART.items()}
     cache = _load_cache()
+    emb = {}
+    try:
+        import cv2  # noqa: F401
+        upstream = re.split(r"\.\.\.?", DIFF_RANGE)[0]
+        for key, ref_path in EMBEDDED_ART.items():
+            ref = subprocess.run(["git", "show", f"{upstream}:{ref_path}"], capture_output=True)
+            if ref.returncode == 0:
+                emb[key] = emb_templates(ref.stdout)
+            else:
+                add("warning", "-", f"Embedded artwork check skipped for {KNOWN_ART[key]['name']}: "
+                    f"{ref_path} not found in {upstream}")
+    except ImportError:
+        add("warning", "-", "Embedded artwork check skipped: opencv-python-headless is not installed")
+
+    def check_embedded(path, sha, data, where=""):
+        for key, templates in emb.items():
+            ck = f"emb{EMB_VERSION}:{key}:{sha}"
+            if ck not in cache:
+                try:
+                    cache[ck] = emb_scores(data, templates)
+                except Exception:
+                    cache[ck] = [0, 0]
+            full, part = cache[ck]
+            art = KNOWN_ART[key]
+            score = f"(match {full:.2f} whole logo, {part:.2f} partly covered)"
+            if full >= EMB_FULL[1] or part >= EMB_PART[1]:
+                add("violation", path, f"Contains {art['name']}{where}",
+                    [f"  {art['holder']}'s artwork was found inside this image {score}, e.g. scaled, rotated,",
+                     "  placed in a box or partly covered.", "  Replace it with your own artwork."])
+            elif full >= EMB_FULL[0] or part >= EMB_PART[0]:
+                add("warning", path, f"Might contain {art['name']}{where}",
+                    [f"  Parts of this image look like {art['holder']}'s artwork {score}.",
+                     "  Check by hand; if it shows the artwork, replace it."])
     rows = git("ls-tree", "-r", "-l", head).splitlines()
     ocr_on = tesseract_available()
     if not ocr_on:
@@ -363,10 +485,12 @@ def scan_artwork(head, add):
                 h = dhash256(data, (128, 128, 128))
             except Exception:
                 continue  # not a decodable image
+            copied = False
             for key, hashes in known.items():
                 d = min(bin(h ^ x).count("1") for x in hashes)
                 art = KNOWN_ART[key]
                 if d <= ART_COPY_MAX:
+                    copied = True
                     add("violation", path, f"Copyrighted artwork: {art['name']}",
                         [f"  Matches {art['holder']}'s artwork (distance {d}/256).",
                          "  Replace it with your own artwork."])
@@ -374,6 +498,8 @@ def scan_artwork(head, add):
                     add("warning", path, f"Probably contains {art['name']}",
                         [f"  Similar to {art['holder']}'s artwork (distance {d}/256).",
                          "  Check by hand; if it embeds the artwork, replace it."])
+            if not copied:
+                check_embedded(path, sha, data)
             if ocr_on:
                 names = find_old_name_in_image(cache.get(f"ocr{OCR_VERSION}:{sha}", [[], []]))
                 if names:
@@ -381,6 +507,10 @@ def scan_artwork(head, add):
                         [f"  Text read in the image: {show(n)}" for n in names[:3]] +
                         ["  Screenshots/banners must show BridgePatcher, not Dortania's app name.",
                          "  Retake the screenshot or edit the text. Copyright lines are not affected."])
+        elif low.endswith(CONTAINER_EXT) and emb:
+            data = subprocess.run(["git", "cat-file", "blob", sha], capture_output=True, check=True).stdout
+            for i, inner in enumerate(embedded_images(data)):
+                check_embedded(path, f"{sha}#{i}", inner, f" (image {i + 1} stored inside this file)")
         elif low.endswith(TEXT_EXT):
             text = git("cat-file", "blob", sha)
             urls = sorted(set(m.group(0) for m in HOTLINK_RE.finditer(text)))

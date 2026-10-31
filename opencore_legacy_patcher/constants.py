@@ -37,6 +37,9 @@ APP_INSTALL_DIRECTORY:     str = "/Library/Application Support/albert-mueller/Op
 # those installs to see the update at all.
 INSTALLER_PKG_NAME:        str = f"{APP_NAME}.pkg"
 LEGACY_INSTALLER_PKG_NAME: str = f"{LEGACY_APP_NAME}.pkg"
+UNINSTALLER_PKG_NAME:      str = f"{APP_NAME}-Uninstaller.pkg"
+# Name of the uninstaller before the rename to BridgePatcher (releases up to 4.0.0 alpha 20)
+LEGACY_UNINSTALLER_PKG_NAME: str = "OpenCore-Patcher-Uninstaller.pkg"
 
 
 class Constants:
@@ -118,7 +121,7 @@ class Constants:
         self.nvmefix_version:            str = "1.1.3"  #      NVMeFix
         self.applealc_version:           str = "1.9.8"  #      AppleALC
         self.restrictevents_version:     str = "1.1.7"  #      RestrictEvents (rolling - acidanthera/RestrictEvents@b70aaa4, javascriptcore branch)
-        self.t2tahoefixup_version:       str = "1.0.17" #      T2TahoeFixup
+        self.t2tahoefixup_version:       str = "1.0.19" #      T2TahoeFixup
         self.appleans2disabler_version:  str = "1.0.0"  #      AppleANS2Disabler (T2 internal SSD)
         self.featureunlock_version:      str = "1.1.8"  #      FeatureUnlock
         self.debugenhancer_version:      str = "1.1.1"  #      DebugEnhancer

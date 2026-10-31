@@ -16,14 +16,26 @@ This version:
 - removes the analytics and crash reporting inherited from Dortania’s OpenCore Legacy Patcher. The patcher no longer contains any code that sends information about your Mac (hashed system UUID, app and macOS version, Mac model, GPUs, firmware vendor and the country set in System Settings) to an analytics server, and the "Allow Reporting" setting is gone. Leftover reporting settings from older versions are removed on launch, the build scripts no longer embed an analytics key or server, and the privacy policy has been updated accordingly
 - the Help menu no longer links to the Discord server; support is now offered through GitHub Discussions and GitHub Issues of this project
 - the copyright notice now updates its end year automatically and credits Dortania and the OpenCore Legacy Patcher contributors alongside this fork
+- removes outdated, unused T2TahoeFixup versions to reduce the size of the patcher
+- the installer, uninstaller and AutoPkg-Assets packages now show BridgePatcher's own icon in their background (in the box, in the trash can and behind the badge) instead of Dortania's OpenCore Legacy Patcher icon
+- the uninstaller package is now called BridgePatcher-Uninstaller.pkg (previously OpenCore-Patcher-Uninstaller.pkg)
+- on T2 Macs, updates T2TahoeFixup.kext to 1.0.19, which additionally hooks `_namei` so that `open`, `stat` and `mmap` calls from UpdateBrainService are redirected to the shadow BuildManifest in /private/tmp, aliases the dropped models' manifests (j132ap, j174ap, j680ap and others) to j214kap in memory, and lets `image4_trust_evaluate` succeed during Stage 2 to address the MobileSoftwareUpdate Error 81 on MacBookPro15,2 and Mac mini (#639). Not yet confirmed by testers. The kext's Info.plist still reports version 1.0.18, as its version wasn't bumped in this build. Thanks @matteoiacca
 
 In the repository:
+- License Guard now also finds Dortania's icon when it is only part of a larger image (scaled, rotated, placed in a box or partly covered by a badge, as in the old package backgrounds), and checks the images stored inside design files such as .afdesign, .psd and .pdf. The reference icon is read from Dortania's repository during the check, so no copy of it is stored here
+- removes the Affinity source file of the package backgrounds (ci_tooling/pkg_assets/PkgBackground-Source-File.afdesign), which still contained Dortania's icon
 - the former name OpenCore Legacy Patcher T2 / OCLP-T2 is now treated as a typosquat: repositories that are not GitHub forks but still use the former name, and websites using it in their address (including <name>.github.io), are flagged. The former address oclp-t2.github.io is always marked as a typosquat, and former official addresses are only reported once they serve content again
 - forks still named OpenCore-Legacy-Patcher-T2 are asked to rename
 - the SHA256SUMS workflow now waits for BridgePatcher.pkg (or OpenCore-Patcher-T2.pkg on older releases) before hashing, and fails if an installer attached to the release is missing from SHA256SUMS
 - License Guard now detects Dortania’s OCLP icon and Apple’s System Settings icon as well as images hotlinked from Dortania’s servers, and automatically closes pull requests from forks that add license violations
 - the duplicate issue check now skips issues opened by workflow bots
 - README: removes Dortania’s logo and the Discord server, and links to GitHub Discussions for community support
+
+fixes the following vulnerabilities:
+- an attacker could set up a fake site or a typosquatting site claiming to be the T2 team or Dortania team to spread malware by not warning that their site is unofficial
+Impact: an attacker could trick users into trusting a typosquatting site whose installer has been tampered and they added malware to it without any warning. This is fixed by when installing the application, it checks if the SHA256 certificates match the official ones and if not, display a warning that it could be malicious like this:
+<img width="532" height="460" alt="Bildschirmfoto 2026-10-31 um 17 37 34" src="https://github.com/user-attachments/assets/21a4467f-2240-4f45-8710-f4387c150528" />
+
 
 ## 4.0.0.1900019 - 4.0.0 alpha 19.19
 I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://oclp-t2.github.io/issues/599.html on this patcher's page or https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
