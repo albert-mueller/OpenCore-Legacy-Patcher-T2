@@ -5,7 +5,15 @@ name: License compliance
 #   - the app build still bundles LICENSE.txt (condition 2)
 #   - README.md still shows the required acknowledgement (condition 3)
 # License Guard and Attribution guard look at what a change removes; this one looks at
-# what's left, and the weekly run also notices when Dortania changes their license text.
+# what's left.
+#
+# When it runs:
+#   - every PR and every push to main (our own changes)
+#   - every 15 minutes a cheap poll asks the GitHub API for the last commit that touched
+#     Dortania's LICENSE.txt; the full check only runs when that commit is new
+#     (the last checked commit is remembered as a cache key)
+#   - Mondays 06:00 UTC a full run regardless, as a safety net
+#   - manually
 #
 # PRs use pull_request_target like the other guards: the check script comes from the
 # base branch, the PR's files are only read (never imported or executed).
@@ -16,27 +24,70 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "0 6 * * 1"   # Mondays 06:00 UTC
+    - cron: "7,22,37,52 * * * *"   # poll Dortania's LICENSE.txt (offset so it never collides with the weekly run)
+    - cron: "0 6 * * 1"            # Mondays 06:00 UTC: full run regardless
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: write   # save the "last checked upstream commit" cache
+
+env:
+  WEEKLY_CRON: "0 6 * * 1"
 
 concurrency:
-  group: license-compliance-${{ github.event.pull_request.number || github.ref }}
+  # event_name keeps a scheduled poll from cancelling a push run on main (same ref)
+  group: license-compliance-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      - name: Look up Dortania's latest LICENSE.txt commit
+        id: upstream
+        if: github.event_name != 'pull_request_target'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(gh api "repos/dortania/OpenCore-Legacy-Patcher/commits?path=LICENSE.txt&sha=main&per_page=1" --jq '.[0].sha' 2>/dev/null || true)
+          if [ -z "$sha" ]; then
+            echo "::warning::Couldn't look up Dortania's LICENSE.txt commit, running the full check"
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "$sha" > "$RUNNER_TEMP/license-upstream-sha"
+
+      - name: Already checked this upstream commit?
+        id: seen
+        if: steps.upstream.outputs.sha != ''
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/license-upstream-sha
+          key: dortania-license-${{ steps.upstream.outputs.sha }}
+          lookup-only: true
+
+      - name: Decide
+        id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          CRON: ${{ github.event.schedule }}
+          SEEN: ${{ steps.seen.outputs.cache-hit }}
+        run: |
+          if [ "$EVENT" = "schedule" ] && [ "$CRON" != "$WEEKLY_CRON" ] && [ "$SEEN" = "true" ]; then
+            echo "Dortania's LICENSE.txt hasn't changed since the last check, nothing to do."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout (trusted base code)
+        if: steps.decide.outputs.run == 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || github.sha }}
 
       - name: Fetch PR files (read only)
-        if: github.event_name == 'pull_request_target'
+        if: steps.decide.outputs.run == 'true' && github.event_name == 'pull_request_target'
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
@@ -48,9 +99,21 @@ jobs:
           done
 
       - name: Set up Python
+        if: steps.decide.outputs.run == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
       - name: Check license compliance
+        id: check
+        if: steps.decide.outputs.run == 'true'
         run: python3 .github/scripts/check_license_compliance.py "${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}"
+
+      # Saved even when the check fails: one red run per upstream change instead of one
+      # every 15 minutes. The next push to main still fails until it's fixed.
+      - name: Remember checked upstream commit
+        if: always() && steps.upstream.outputs.sha != '' && steps.seen.outputs.cache-hit != 'true' && (steps.check.conclusion == 'success' || steps.check.conclusion == 'failure')
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/license-upstream-sha
+          key: dortania-license-${{ steps.upstream.outputs.sha }}
