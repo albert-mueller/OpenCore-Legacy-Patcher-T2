@@ -72,8 +72,9 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install Pillow
-        run: python -m pip install --disable-pip-version-check "pillow==11.3.0"
+      # OpenCV finds known artwork that is only part of a larger image (EMBEDDED_ART in license_guard.py)
+      - name: Install Pillow and OpenCV
+        run: python -m pip install --disable-pip-version-check "pillow==11.3.0" "opencv-python-headless==4.11.0.86"
 
       # tesseract reads the text in screenshots/banners, so Dortania's app name
       # ("OpenCore Legacy Patcher") shown inside an image is found too.

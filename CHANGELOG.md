@@ -17,9 +17,12 @@ This version:
 - the Help menu no longer links to the Discord server; support is now offered through GitHub Discussions and GitHub Issues of this project
 - the copyright notice now updates its end year automatically and credits Dortania and the OpenCore Legacy Patcher contributors alongside this fork
 - removes outdated, unused T2TahoeFixup versions to reduce the size of the patcher
+- the installer, uninstaller and AutoPkg-Assets packages now show BridgePatcher's own icon in their background (in the box, in the trash can and behind the badge) instead of Dortania's OpenCore Legacy Patcher icon
 - on T2 Macs, updates T2TahoeFixup.kext to 1.0.19, which additionally hooks `_namei` so that `open`, `stat` and `mmap` calls from UpdateBrainService are redirected to the shadow BuildManifest in /private/tmp, aliases the dropped models' manifests (j132ap, j174ap, j680ap and others) to j214kap in memory, and lets `image4_trust_evaluate` succeed during Stage 2 to address the MobileSoftwareUpdate Error 81 on MacBookPro15,2 and Mac mini (#639). Not yet confirmed by testers. The kext's Info.plist still reports version 1.0.18, as its version wasn't bumped in this build. Thanks @matteoiacca
 
 In the repository:
+- License Guard now also finds Dortania's icon when it is only part of a larger image (scaled, rotated, placed in a box or partly covered by a badge, as in the old package backgrounds), and checks the images stored inside design files such as .afdesign, .psd and .pdf. The reference icon is read from Dortania's repository during the check, so no copy of it is stored here
+- removes the Affinity source file of the package backgrounds (ci_tooling/pkg_assets/PkgBackground-Source-File.afdesign), which still contained Dortania's icon
 - the former name OpenCore Legacy Patcher T2 / OCLP-T2 is now treated as a typosquat: repositories that are not GitHub forks but still use the former name, and websites using it in their address (including <name>.github.io), are flagged. The former address oclp-t2.github.io is always marked as a typosquat, and former official addresses are only reported once they serve content again
 - forks still named OpenCore-Legacy-Patcher-T2 are asked to rename
 - the SHA256SUMS workflow now waits for BridgePatcher.pkg (or OpenCore-Patcher-T2.pkg on older releases) before hashing, and fails if an installer attached to the release is missing from SHA256SUMS
