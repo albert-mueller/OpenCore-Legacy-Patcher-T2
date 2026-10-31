@@ -109,10 +109,103 @@ KNOWN_ART = {
 ART_COPY_MAX = 30      # -> violation
 ART_DERIVED_MAX = 52   # -> warning (probably contains the artwork, check by hand)
 ART_MAX_BYTES = 20_000_000
+# Results per image blob, so the second scan of a PR (base branch) doesn't redo every image.
+ART_CACHE = os.environ.get("ART_CACHE", ".license-guard-art-cache.json")
 IMAGE_EXT = (".png", ".icns", ".jpg", ".jpeg", ".gif", ".webp", ".tif", ".tiff", ".bmp", ".ico")
 TEXT_EXT = (".md", ".markdown", ".html", ".htm", ".js", ".jsx", ".ts", ".tsx", ".vue", ".css",
             ".scss", ".py", ".plist", ".json", ".yml", ".yaml", ".txt", ".rst")
 # Dortania's images used directly from their repo or website (e.g. the old README logo).
+# The project's former name. "OpenCore Legacy Patcher T2" / "OCLP-T2" / "OCLPT2" now counts as a
+# typosquat of BridgePatcher (and of Dortania's project), so it must not appear anywhere in the repo
+# any more: docs, issue forms, bot replies and AI prompts in workflows, app strings and docstrings.
+# URLs and Markdown link targets are removed before matching (other people's repos keep their names),
+# and it is case-sensitive on purpose: lowercase slugs, bundle IDs and keys (oclp-t2,
+# com.example.opencore-legacy-patcher-t2) are literal identifiers, not the name.
+OLD_NAME_RE = re.compile(r"(?<![\w.-])(?:OpenCore[ -]Legacy[ -]Patcher[ -]?T2|OCLP[- ]?T2)(?![\w])")
+OLD_NAME_URL_RE = re.compile(r"https?://[^\s\"'<>)\]]+|\]\([^)\s]*\)")
+# Lines that talk ABOUT the former name (rename notes, typosquat warnings) may name it.
+OLD_NAME_OK_RE = re.compile(
+    r"(?i)formerly|former names?|früher|ehemals|\brename[ds]?\b|umbenannt|typosquat|tippfehler|lookalike")
+# Files whose job is to DETECT the former name (search queries, patterns), plus the rename history.
+OLD_NAME_SKIP = (
+    "CHANGELOG.md",
+    ".github/scripts/license_guard.py",
+    ".github/scripts/typosquat_watch.py",
+    ".github/scripts/typosquat_sites.py",
+    ".github/scripts/upstream_typosquat_watch.py",
+    ".github/scripts/impersonation_watch.py",
+    ".github/moderation/blocked_terms.txt",
+    ".github/workflows/impersonation-watch.yml",
+    ".github/workflows/fork-name-check.yml",
+    ".github/workflows/typosquat-watch.yml",
+    ".github/workflows/typosquat-sites.yml",
+    ".github/workflows/upstream-typosquat-watch.yml",
+    ".github/workflows/license-guard.yml",
+    ".github/workflows/attribution-guard.yml",
+)
+OLD_NAME_EXT = TEXT_EXT + (".command", ".sh", ".zsh", ".spec", ".strings", ".m", ".h", ".c", ".swift",
+                           ".xml", ".toml", ".cfg", ".ini", ".webmanifest", ".xsl", ".mts")
+# Dortania's app name used as the name of THIS project ("Open the OpenCore Legacy Patcher app").
+# BSD licence: the upstream name must not be used to endorse or promote the fork. Allowed only
+# where the line clearly refers to Dortania's project: copyright/credit lines, lines that name
+# Dortania, the licence's title, "based on"/"fork of" statements and the upstream credits.
+UPSTREAM_NAME_RE = re.compile(r"(?i)(?<![\w/#.-])Open\s?Core[ \t]+Legacy[ \t]+Patcher(?![\w-])")
+UPSTREAM_NAME_OK_RE = re.compile(
+    r"(?i)dortania|©|\(c\)\s*\d|copyright|contributors|mitwirkende"
+    r"|OpenCore Legacy Patcher Licen[sc]e|Lizenz von OpenCore Legacy Patcher|started OpenCore Legacy Patcher"
+    r"|\b(?:based on|fork of|forked from|derived from|basiert auf|Fork von|abgeleitet von)\b")
+# The upstream-name check only covers user-facing docs and the issue/PR forms. Python code is left
+# out on purpose - e.g. the "OpenCore Legacy Patcher" key in the system patch plist must keep that name.
+NAME_CHECK_EXT = (".md", ".markdown", ".html", ".htm", ".vue", ".mts", ".ts", ".js", ".json", ".webmanifest", ".xsl")
+NAME_CHECK_DIRS = (".github/ISSUE_TEMPLATE/",)
+NAME_CHECK_SKIP = ("CHANGELOG.md",)
+
+
+def name_check_applies(path):
+    if path in NAME_CHECK_SKIP or LICENSE_FILE_RE.search(path):
+        return False
+    return path.lower().endswith(NAME_CHECK_EXT) or path.startswith(NAME_CHECK_DIRS) or (
+        path.startswith(".github/") and path.count("/") == 1 and path.lower().endswith(".md"))
+
+
+def old_name_check_applies(path):
+    if path in OLD_NAME_SKIP or LICENSE_FILE_RE.search(path):
+        return False
+    return path.lower().endswith(OLD_NAME_EXT) or path.startswith(NAME_CHECK_DIRS)
+
+
+def scan_names(head, add):
+    """Former project name and Dortania's app name in the whole audited tree (not just the diff).
+    Unlike the other checks this also reads .github/workflows and .github/scripts: bot replies and
+    AI prompts there are user-facing too. Files that detect the old name are in OLD_NAME_SKIP."""
+    for row in git("ls-tree", "-r", "-l", head).splitlines():
+        meta, path = row.split("\t", 1)
+        _, kind, sha, size = meta.split()
+        if kind != "blob" or size == "-" or int(size) > ART_MAX_BYTES:
+            continue
+        check_old, check_up = old_name_check_applies(path), name_check_applies(path) and not is_self(path)
+        if not (check_old or check_up):
+            continue
+        text = git("cat-file", "blob", sha)
+        old, upstream = [], []
+        for n, l in enumerate(text.splitlines(), 1):
+            bare = OLD_NAME_URL_RE.sub(" ", l)
+            if OLD_NAME_RE.search(bare):
+                if check_old and not OLD_NAME_OK_RE.search(l):
+                    old.append((n, l))
+            elif check_up and UPSTREAM_NAME_RE.search(l) and not UPSTREAM_NAME_OK_RE.search(l):
+                upstream.append((n, l))
+        if old:
+            add("violation", path, "Former project name (OpenCore Legacy Patcher T2 / OCLP-T2)",
+                [f"  line {n}: {show(l)}" for n, l in old[:5]] + (["  …"] if len(old) > 5 else []) +
+                ["  Use BridgePatcher instead; the old name is treated as a typosquat."])
+        if upstream:
+            add("violation", path, "Dortania's app name used for this project (OpenCore Legacy Patcher)",
+                [f"  line {n}: {show(l)}" for n, l in upstream[:5]] + (["  …"] if len(upstream) > 5 else []) +
+                ["  Say BridgePatcher, or make clear it is Dortania's project",
+                 "  (e.g. \"Dortania's OpenCore Legacy Patcher 2.0.0\"). Copyright/credit lines are fine."])
+
+
 HOTLINK_RE = re.compile(
     r"(?:raw\.githubusercontent\.com/dortania/|github\.com/dortania/[^\s\"'()<>]*/(?:raw|blob)/"
     r"|dortania\.github\.io/)[^\s\"'()<>]*\.(?:png|icns|svg|jpe?g|gif|webp)", re.I)
@@ -133,6 +226,97 @@ def dhash256(data, bg):
     return bits
 
 
+# The upstream app's NAME shown inside an image (screenshots of Dortania's app, banners):
+# "OpenCore Legacy Patcher" (also "... T2" / "...-T2"). Found with OCR (tesseract), so it only runs
+# where tesseract is installed. Lines with a copyright notice are skipped on purpose - the upstream
+# notice ("Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors") must stay.
+# Technical identifiers written without spaces (OCLP-Version, OpenCore-Legacy-Patcher repo/folder,
+# Dortania's URLs) are not matched: they are literal names, not the product name.
+IMG_NAME_RE = re.compile(r"(?i)\bOpen\s?Core\s+Legacy\s+Patcher\b")
+IMG_NAME_WRAP = (re.compile(r"(?i)\bOpen\s?Core(\s+Legacy)?\s*$"), re.compile(r"(?i)^\s*(Legacy\s+)?Patcher\b"))
+IMG_COPYRIGHT_RE = re.compile(r"(?i)(©|\(c\))\s*\d|copyright|contributors")
+OCR_VERSION = 2   # bump to invalidate cached OCR results after changing the OCR settings
+
+
+def ocr_lines(data):
+    """Text lines in an image (normal + inverted pass, so light-on-dark text is read too, plus a
+    binarized pass for dim text such as a dark-mode window title: grey ~80 on ~33 is too faint
+    for tesseract otherwise)."""
+    from PIL import Image, ImageOps
+    with Image.open(io.BytesIO(data)) as im:
+        im.load()
+        im = im.convert("RGBA")
+    base = Image.new("RGBA", im.size, (255, 255, 255, 255))
+    base.alpha_composite(im)   # translucent dialogs: read them as shown on a light page
+    g = base.convert("L")
+    s = 3 if max(g.size) <= 1200 else 2 if max(g.size) <= 1800 else 1   # small UI text needs upscaling
+    if s > 1:
+        g = g.resize((g.width * s, g.height * s), Image.LANCZOS)
+    images = [g, ImageOps.invert(g)]
+    hist = g.histogram()
+    half, acc, median = sum(hist) / 2, 0, 0
+    for median, n in enumerate(hist):
+        acc += n
+        if acc >= half:
+            break
+    if median < 100:     # dark UI: anything clearly brighter than the background is text
+        images.append(g.point(lambda v: 0 if v > median + 25 else 255))
+    elif median > 160:   # light UI: anything clearly darker than the background is text
+        images.append(g.point(lambda v: 0 if v < median - 40 else 255))
+    passes = []
+    for img in images:
+        buf = io.BytesIO()
+        img.save(buf, "PNG")
+        r = subprocess.run(["tesseract", "stdin", "stdout", "--psm", "11", "tsv"], input=buf.getvalue(),
+                           capture_output=True, env={**os.environ, "OMP_THREAD_LIMIT": "1"})
+        lines = {}
+        for row in r.stdout.decode("utf-8", "replace").splitlines()[1:]:
+            c = row.split("\t")
+            if len(c) == 12 and c[0] == "5" and c[11].strip() and float(c[10]) > 0:
+                lines.setdefault((int(c[2]), int(c[3]), int(c[4])), []).append(c[11].strip())
+        passes.append([" ".join(v) for _, v in sorted(lines.items())])
+    return passes
+
+
+def find_old_name_in_image(passes):
+    hits = []
+    for lines in passes:
+        for i, line in enumerate(lines):
+            if IMG_COPYRIGHT_RE.search(line):
+                continue
+            nxt = lines[i + 1] if i + 1 < len(lines) else ""
+            if IMG_NAME_RE.search(line) or (IMG_NAME_WRAP[0].search(line) and IMG_NAME_WRAP[1].search(nxt)
+                                            and not IMG_COPYRIGHT_RE.search(nxt)):
+                if line not in hits:
+                    hits.append(line)
+    return hits
+
+
+def tesseract_available():
+    try:
+        return subprocess.run(["tesseract", "--version"], capture_output=True).returncode == 0
+    except FileNotFoundError:
+        return False
+
+
+def _load_cache():
+    import json
+    try:
+        with open(ART_CACHE, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def _save_cache(cache):
+    import json
+    try:
+        with open(ART_CACHE, "w", encoding="utf-8") as fh:
+            json.dump(cache, fh)
+    except OSError:
+        pass
+
+
 def scan_artwork(head, add):
     try:
         from PIL import Image
@@ -141,7 +325,33 @@ def scan_artwork(head, add):
         add("warning", "-", "Artwork check skipped: Pillow is not installed")
         return
     known = {k: [int(h, 16) for h in v["hashes"]] for k, v in KNOWN_ART.items()}
-    for row in git("ls-tree", "-r", "-l", head).splitlines():
+    cache = _load_cache()
+    rows = git("ls-tree", "-r", "-l", head).splitlines()
+    ocr_on = tesseract_available()
+    if not ocr_on:
+        add("warning", "-", "Image text check skipped: tesseract is not installed")
+    else:
+        # OCR is slow, so run all uncached images in parallel up front (tesseract is a subprocess).
+        from concurrent.futures import ThreadPoolExecutor
+        todo = {}
+        for row in rows:
+            meta, path = row.split("\t", 1)
+            _, kind, sha, size = meta.split()
+            if (kind == "blob" and not is_self(path) and size != "-" and int(size) <= ART_MAX_BYTES
+                    and path.lower().endswith(IMAGE_EXT) and f"ocr{OCR_VERSION}:{sha}" not in cache):
+                todo[sha] = path
+
+        def run(sha):
+            data = subprocess.run(["git", "cat-file", "blob", sha], capture_output=True, check=True).stdout
+            try:
+                return sha, ocr_lines(data)
+            except Exception:
+                return sha, [[], []]
+
+        with ThreadPoolExecutor(max_workers=os.cpu_count() or 2) as ex:
+            for sha, passes in ex.map(run, todo):
+                cache[f"ocr{OCR_VERSION}:{sha}"] = passes
+    for row in rows:
         meta, path = row.split("\t", 1)
         _, kind, sha, size = meta.split()
         if kind != "blob" or is_self(path) or size == "-" or int(size) > ART_MAX_BYTES:
@@ -164,12 +374,20 @@ def scan_artwork(head, add):
                     add("warning", path, f"Probably contains {art['name']}",
                         [f"  Similar to {art['holder']}'s artwork (distance {d}/256).",
                          "  Check by hand; if it embeds the artwork, replace it."])
+            if ocr_on:
+                names = find_old_name_in_image(cache.get(f"ocr{OCR_VERSION}:{sha}", [[], []]))
+                if names:
+                    add("violation", path, "Upstream app name in image (OpenCore Legacy Patcher)",
+                        [f"  Text read in the image: {show(n)}" for n in names[:3]] +
+                        ["  Screenshots/banners must show BridgePatcher, not Dortania's app name.",
+                         "  Retake the screenshot or edit the text. Copyright lines are not affected."])
         elif low.endswith(TEXT_EXT):
             text = git("cat-file", "blob", sha)
             urls = sorted(set(m.group(0) for m in HOTLINK_RE.finditer(text)))
             if urls:
                 add("violation", path, "Dortania artwork used from Dortania's servers",
                     [f"- {u}" for u in urls[:10]])
+    _save_cache(cache)
 
 
 YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
@@ -292,6 +510,9 @@ def main():
 
     # 4) Known copyrighted artwork anywhere in the audited tree
     scan_artwork(re.split(r"\.\.\.?", DIFF_RANGE)[-1], add)
+
+    # 5) Former project name / Dortania's app name anywhere in the audited tree
+    scan_names(re.split(r"\.\.\.?", DIFF_RANGE)[-1], add)
 
     v = [x for x in findings if x[0] == "violation"]
     w = [x for x in findings if x[0] == "warning"]

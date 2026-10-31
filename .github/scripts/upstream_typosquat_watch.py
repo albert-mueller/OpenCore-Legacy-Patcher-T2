@@ -11,6 +11,7 @@ Closing the warning issue pauses the workflow; reopening it resumes it.
 import base64
 import concurrent.futures as cf
 import datetime
+import functools
 import html
 import json
 import os
@@ -39,6 +40,9 @@ FORMER_NAMES = os.environ.get("FORMER_NAMES", "").split()
 WATCH_DAYS = int(os.environ.get("WATCH_DAYS", "60"))
 # Entries not seen for this long are dropped from the list entirely
 FORGET_DAYS = int(os.environ.get("FORGET_DAYS", "365"))
+# Entries that stay taken down (🔴: deleted, blocked, domain gone, unreachable) for this many
+# days in a row are removed from the list. The delay keeps a short outage from deleting an entry.
+TAKEDOWN_DAYS = int(os.environ.get("TAKEDOWN_DAYS", "2"))
 OFFICIAL_SOURCES = os.environ.get("OFFICIAL_SOURCES", "").strip()
 PROJECT = os.environ.get("PROJECT_NAME", "OpenCore Legacy Patcher")
 # GitHub users mentioned once, in a comment when the warning issue is first created
@@ -56,6 +60,9 @@ FILE_HOSTS = ("mediafire.com", "mega.nz", "mega.io", "drive.google.com", "dropbo
 # Download links in a README that lead here are fine (Apple and the official project)
 README_OK_HOSTS = ("apple.com", "dortania.github.io")
 GITHUB_HOSTS = ("github.com", "www.github.com", "raw.githubusercontent.com")
+# Abuse report forms for providers that prefer them over e-mail
+ABUSE_FORMS = {"cloudflare": "https://abuse.cloudflare.com/",
+               "github": "https://github.com/contact/report-abuse"}
 MD_LINK = re.compile(r"\[((?:[^\[\]]|\[[^\[\]]*\])*)\]\((https?://[^)\s]+)\)")
 
 
@@ -128,7 +135,193 @@ def evaluate_repo(full, owner_sq, root, up_owner):
     suspicious, signals = assess(repo, owner_sq, up_owner)
     if not reasons and not suspicious:
         return None  # a harmless copy without its own downloads
-    return {"reasons": cell("; ".join(reasons + signals), 160)}
+    return {"reasons": cell("; ".join(reasons + signals), 160),
+            "owner": gh_account(repo["owner"]["login"]),
+            "status": repo_status(repo)}
+
+
+# ------------------------------------------------------- owner and status --
+
+_accounts, _networks = {}, {}
+
+
+def gh_account(login):
+    """Who a repository / github.io site belongs to, e.g. 'GitHub user Gvnnar (Name), account since 2024-03'."""
+    if login.lower() not in _accounts:
+        u = get(f"/users/{login}")
+        if not u:
+            text = f"no GitHub account {login} exists any more (the name is free, anyone can register it)"
+        else:
+            kind = "organization" if u.get("type") == "Organization" else "user"
+            name = (u.get("name") or "").strip()
+            text = f"GitHub {kind} {u['login']}"
+            if u.get("created_at"):
+                text += f", account since {u['created_at'][:7]}"
+            if name and name.lower() != u["login"].lower():
+                text += f" (name: {cell(name, 50)})"
+        _accounts[login.lower()] = cell(text, 140)
+    return _accounts[login.lower()]
+
+
+def repo_status(repo):
+    if repo.get("disabled"):
+        return "🔴 disabled by GitHub"
+    if repo.get("archived"):
+        return "🗄️ archived (read-only)"
+    pushed = (repo.get("pushed_at") or "")[:10]
+    return "🟢 active" + (f", last push {pushed}" if pushed else "")
+
+
+def gone_repo_status(full):
+    status, data, _ = request("GET", f"/repos/{full}")
+    if status == 451:
+        return "🔴 taken down (blocked by GitHub, e.g. DMCA)"
+    if status == 404:
+        return "🔴 deleted (or made private)"
+    if status < 300 and data:
+        return repo_status(data) + " · no longer matches (renamed, or downloads removed)"
+    return "status unknown"
+
+
+def _abuse_email(entities):
+    """First e-mail of an entity with the abuse role, searching nested entities too."""
+    for ent in entities or []:
+        if "abuse" in ent.get("roles", []):
+            for item in (ent.get("vcardArray") or [None, []])[1]:
+                if item and item[0] == "email" and item[3]:
+                    return str(item[3]).strip()
+        found = _abuse_email(ent.get("entities"))
+        if found:
+            return found
+    return ""
+
+
+def network_info(ip):
+    """Hosting provider / network that an IP address belongs to and its abuse e-mail
+    (RDAP, best effort)."""
+    if ip not in _networks:
+        name, abuse = "", ""
+        try:
+            data = ts.fetch_json(f"https://rdap.org/ip/{ip}")
+            for ent in data.get("entities", []):
+                if {"registrant", "administrative"} & set(ent.get("roles", [])):
+                    for item in (ent.get("vcardArray") or [None, []])[1]:
+                        if item and item[0] == "fn" and item[3]:
+                            name = str(item[3])
+                            break
+                if name:
+                    break
+            name = name or data.get("name") or ""
+            abuse = _abuse_email(data.get("entities"))
+        except Exception:
+            pass
+        _networks[ip] = {"name": name.strip(), "abuse": abuse}
+    return _networks[ip]
+
+
+def network_owner(ip):
+    return network_info(ip)["name"]
+
+
+@functools.lru_cache(maxsize=None)
+def domain_rdap(host):
+    return ts.rdap(host)
+
+
+def abuse_contact(name, email=""):
+    """'Name (abuse@…)', plus the provider's report form when it has one."""
+    form = next((url for key, url in ABUSE_FORMS.items() if key in (name or "").lower()), "")
+    contacts = ", ".join(c for c in (email, form) if c)
+    if not name:
+        return contacts or "—"
+    return f"{name} ({contacts})" if contacts else name
+
+
+def report_info(host, ips=None):
+    """Everything needed to report a site: its IP addresses, registrar and registration date,
+    DNS provider and hosting network, each with its abuse contact (public RDAP data)."""
+    ips = ips if ips is not None else ts.resolve(host)
+    v4 = [i for i in ips if ":" not in i]
+    v6 = [i for i in ips if ":" in i]
+    shown = v4[:4] + v6[:2]
+    info = {"ips": ", ".join(shown) + (" …" if len(ips) > len(shown) else "") or "none (no DNS)"}
+    if host.endswith(".github.io"):
+        info.update(registered="—", registrar="— (GitHub Pages)",
+                    dns="GitHub", hosting=abuse_contact("GitHub"))
+        info["dns"] = info["hosting"]
+        return {k: cell(v, 200) for k, v in info.items()}
+    reg = domain_rdap(host)
+    info["registered"] = reg.get("registered") or "—"
+    info["registrar"] = abuse_contact(reg.get("registrar") or "", reg.get("abuse") or "")
+    dns = "—"
+    nameservers = reg.get("nameservers") or []
+    if nameservers:
+        # The provider is whoever the nameservers' domain belongs to (e.g. cloudflare.com);
+        # their IP network can be someone else (a registrar's DNS hosted on Cloudflare)
+        ns_domain = ".".join(nameservers[0].split(".")[-2:])
+        brand = ns_domain.split(".")[0]
+        ns_ips = ts.resolve(nameservers[0])
+        ns_v4 = [i for i in ns_ips if ":" not in i] or ns_ips
+        net = network_info(ns_v4[0]) if ns_v4 else {"name": "", "abuse": ""}
+        if brand in re.sub(r"[^a-z0-9]", "", net["name"].lower()):
+            provider = abuse_contact(net["name"], net["abuse"])
+        elif brand in re.sub(r"[^a-z0-9]", "", (reg.get("registrar") or "").lower()):
+            provider = info["registrar"]  # the registrar runs the DNS too
+        else:
+            provider = abuse_contact(ns_domain)
+        dns = provider + " · NS " + ", ".join(nameservers[:2])
+    info["dns"] = dns
+    net = network_info((v4 or ips)[0]) if ips else {"name": "", "abuse": ""}
+    info["hosting"] = abuse_contact(net["name"], net["abuse"])
+    return {k: cell(v, 200) for k, v in info.items()}
+
+
+def domain_registered(host):
+    """True / False from the registry (RDAP), None if it couldn't be asked."""
+    domain = ".".join(host.split(".")[-2:])
+    try:
+        ts.fetch_json(f"https://rdap.org/domain/{domain}")
+        return True
+    except ts.urllib.error.HTTPError as e:
+        return False if e.code == 404 else None
+    except Exception:
+        return None
+
+
+def site_owner(host, ips=None):
+    """Who a website belongs to: the GitHub account for *.github.io, otherwise the registrant
+    (when the registry shows it - usually it's hidden behind privacy protection), the registrar,
+    the registration date and the hosting network."""
+    if host.endswith(".github.io"):
+        return gh_account(host[: -len(".github.io")].split(".")[-1])
+    reg = domain_rdap(host)
+    parts = [f"registrant {reg['registrant']}" if reg.get("registrant") else
+             ("owner hidden (privacy protection)" if reg else "no registration data")]
+    if reg.get("registrar"):
+        parts.append(f"via {reg['registrar']}")
+    if reg.get("registered"):
+        parts.append(f"registered {reg['registered']}")
+    ips = ips if ips is not None else ts.resolve(host)
+    v4 = [i for i in ips if ":" not in i] or ips
+    net = network_owner(v4[0]) if v4 else ""
+    if net:
+        parts.append(f"hosted by {net}")
+    return cell(", ".join(parts), 160)
+
+
+def site_status(host):
+    """Status of a site that isn't showing an imitating page right now."""
+    if host.endswith(".github.io"):
+        st, _, page = ts.fetch(f"https://{host}/")
+        return "🟢 online, page changed" if page else "🔴 down (nothing published)"
+    if ts.resolve(host):
+        return "🟡 registered, but no imitating page right now (parked, empty or blocked)"
+    reg = domain_registered(host)
+    if reg is True:
+        return "🟡 registered, not online (no DNS)"
+    if reg is False:
+        return "🔴 gone (domain no longer registered)"
+    return "🔴 down (not reachable)"
 
 
 def scan_repos():
@@ -185,13 +378,73 @@ def scan_sites(watch):
         found[r["host"]] = {
             "title": cell(html.unescape(r["title"])),
             "downloads": cell(", ".join(r["download_hosts"]) or "no download links", 60),
+            "status": "🟢 online" + (f" (HTTP {r['status']})" if r.get("status") not in (None, 200) else ""),
+            "ips": r.get("ips") or [],
         }
         watch.pop(r["host"], None)  # it has content now, so it's listed normally
     # BridgePatcher's former official addresses are always listed: they no longer belong to it
     for h in ts.FORMER_HOSTS:
-        info = found.setdefault(h, {"title": "—", "downloads": "—"})
+        info = found.setdefault(h, {"title": "—", "downloads": "—", "status": None, "ips": []})
         info["title"] = cell("former BridgePatcher address, no longer official · " + info["title"])
+    with cf.ThreadPoolExecutor(max_workers=4) as ex:  # RDAP servers rate-limit bursts
+        owners = dict(zip(found, ex.map(lambda h: site_owner(h, found[h]["ips"] or None), found)))
+        status = dict(zip(found, ex.map(lambda h: found[h]["status"] or site_status(h), found)))
+        reports = dict(zip(found, ex.map(lambda h: report_info(h, found[h]["ips"] or None), found)))
+    for h, info in found.items():
+        info.pop("ips", None)
+        info["owner"], info["status"], info["report"] = owners[h], status[h], reports[h]
     return found
+
+
+def describe_parked(watch):
+    """Newly registered lookalike domains that have no website yet."""
+    hosts = sorted(watch)
+    with cf.ThreadPoolExecutor(max_workers=4) as ex:
+        owners = list(ex.map(site_owner, hosts))
+        status = list(ex.map(site_status, hosts))
+        reports = list(ex.map(report_info, hosts))
+    return {h: {"since": watch[h], "owner": o, "status": s, "report": r}
+            for h, o, s, r in zip(hosts, owners, status, reports)}
+
+
+def refresh_gone(state):
+    """Status of entries that were listed before but aren't found any more (down, deleted, ...)."""
+    today = TODAY.isoformat()
+    gone_sites = [h for h, e in state["sites"].items() if e.get("last_seen") != today]
+    gone_repos = [r for r, e in state["repos"].items() if e.get("last_seen") != today]
+    with cf.ThreadPoolExecutor(max_workers=4) as ex:
+        for h, s in zip(gone_sites, ex.map(site_status, gone_sites)):
+            state["sites"][h]["status"] = s
+    for r in gone_repos:
+        state["repos"][r]["status"] = gone_repo_status(r)
+
+
+def taken_down(entry):
+    return str(entry.get("status") or "").startswith("🔴")
+
+
+def prune_taken_down(state):
+    """Remove entries that have been taken down for TAKEDOWN_DAYS in a row. Former official
+    addresses stay listed on purpose: anyone could take them over again."""
+    today = TODAY.isoformat()
+    cutoff = (TODAY - datetime.timedelta(days=TAKEDOWN_DAYS)).isoformat()
+    removed = []
+    for kind in ("sites", "repos"):
+        store = state[kind]
+        for key, entry in list(store.items()):
+            if entry.get("last_seen") == today or key in ts.FORMER_HOSTS or not taken_down(entry):
+                entry.pop("down_since", None)  # back online, or not fully gone: start over
+                continue
+            if entry.setdefault("down_since", today) <= cutoff:
+                del store[key]
+                removed.append(key)
+    # Watched new domains whose registration has lapsed won't come back as the same site
+    for host, entry in list(state["parked"].items()):
+        if str(entry.get("status") or "").startswith("🔴 gone"):
+            state["parked"].pop(host)
+            state["watch"].pop(host, None)
+            removed.append(host)
+    return removed
 
 
 # ------------------------------------------------------------ tracker issue --
@@ -199,9 +452,9 @@ def scan_sites(watch):
 def load_state(body):
     m = STATE_RE.search(body or "")
     if not m:
-        return {"sites": {}, "repos": {}, "watch": {}}
+        return {"sites": {}, "repos": {}, "watch": {}, "parked": {}}
     state = json.loads(base64.b64decode(m.group(1)))
-    for k in ("sites", "repos", "watch"):
+    for k in ("sites", "repos", "watch", "parked"):
         state.setdefault(k, {})
     return state
 
@@ -239,25 +492,52 @@ def render(state):
         f"### Websites ({len(sites)})",
     ]
     if sites:
-        out += ["| Site | Page title | Download links point to | First seen |", "|---|---|---|---|"]
-        out += [f"| `{h}` | {e['title']} | {e['downloads']} | {e['first_seen']} |" for h, e in sorted(sites.items())]
+        out += ["| Site | Status | Belongs to | Page title | Download links point to | First seen |",
+                "|---|---|---|---|---|---|"]
+        out += [f"| `{h}` | {e.get('status', '—')} | {e.get('owner', '—')} | {e['title']} | {e['downloads']} "
+                f"| {e['first_seen']} |" for h, e in sorted(sites.items())]
     else:
         out.append("None found right now.")
+    parked = state.get("parked") or {}
+    if parked:
+        out += ["", f"### Registered lookalike domains without a website yet ({len(parked)})",
+                "Newly registered names that imitate the project but don't show a page (yet). "
+                "They're listed so you recognise them if they go live.", "",
+                "| Domain | Status | Belongs to | Noticed |", "|---|---|---|---|"]
+        out += [f"| `{h}` | {e['status']} | {e['owner']} | {e['since']} |" for h, e in sorted(parked.items())]
+    to_report = {h: e["report"] for h, e in {**sites, **parked}.items() if e.get("report")}
+    if to_report:
+        out += ["", "<details><summary>Where to report these sites (IP addresses, registrar, DNS, hosting)"
+                "</summary>", "",
+                "Abuse contacts come from public RDAP records. The registrar can suspend the domain, the DNS "
+                "and hosting providers can stop serving it. Include the address and why it's a fake "
+                "(e.g. a link to this issue).", "",
+                "| Site | IP addresses | Registered | Registrar (abuse contact) | DNS provider (abuse contact) "
+                "| Hosting (abuse contact) |", "|---|---|---|---|---|---|"]
+        out += [f"| `{h}` | {r['ips']} | {r['registered']} | {r['registrar']} | {r['dns']} | {r['hosting']} |"
+                for h, r in sorted(to_report.items())]
+        out += ["", "</details>"]
     out += ["", f"### GitHub repositories ({len(repos)})"]
     if repos:
-        out += ["| Repository | Why it's listed | First seen |", "|---|---|---|"]
-        out += [f"| `{r}` | {e['reasons']} | {e['first_seen']} |" for r, e in sorted(repos.items())]
+        out += ["| Repository | Status | Belongs to | Why it's listed | First seen |", "|---|---|---|---|---|"]
+        out += [f"| `{r}` | {e.get('status', '—')} | {e.get('owner', '—')} | {e['reasons']} | {e['first_seen']} |"
+                for r, e in sorted(repos.items())]
     else:
         out.append("None found right now.")
     if gone_sites or gone_repos:
-        out += ["", f"<details><summary>No longer reachable ({len(gone_sites) + len(gone_repos)})</summary>", ""]
-        out += [f"- `{k}` (last seen {e['last_seen']})"
+        out += ["", f"<details><summary>No longer imitating or reachable ({len(gone_sites) + len(gone_repos)})"
+                "</summary>", "", "| Name | Status now | Belonged to | Last seen |", "|---|---|---|---|"]
+        out += [f"| `{k}` | {e.get('status', '—')} | {e.get('owner', '—')} | {e['last_seen']} |"
                 for k, e in sorted({**gone_sites, **gone_repos}.items())]
         out += ["", "</details>"]
     out += [
         "",
         "<sub>Found with automated checks: lookalike domain names, certificate-transparency logs, "
-        "newly registered domains and GitHub search. Repositories are only listed if they aren't forks "
+        "newly registered domains and GitHub search. **Belongs to** shows the GitHub account, or for domains the "
+        "registrant (often hidden by privacy protection), registrar and hosting network from public RDAP data. "
+        "**Status** is checked on every run; entries that stay taken down (🔴) for "
+        f"{TAKEDOWN_DAYS} day{'s' if TAKEDOWN_DAYS != 1 else ''} are removed automatically. "
+        "Repositories are only listed if they aren't forks "
         "and offer their own downloads or show other impersonation signals. A listing means the name "
         "imitates the project; it isn't proof that the content is malicious. Names are shown as code on "
         "purpose, so they aren't clickable.</sub>",
@@ -297,6 +577,9 @@ def main():
 
     new_sites = merge(state["sites"], scan_sites(state["watch"]))
     new_repos = merge(state["repos"], scan_repos())
+    state["parked"] = describe_parked(state["watch"])
+    refresh_gone(state)
+    removed = prune_taken_down(state)
     body = render(state)
     if len(body) > 65000:
         print("::warning::Warning issue is close to GitHub's size limit; consider lowering FORGET_DAYS.")
@@ -305,7 +588,9 @@ def main():
         summary(f"- new site: `{h}` — {state['sites'][h]['title']}")
     for r in new_repos:
         summary(f"- new repository: `{r}` — {state['repos'][r]['reasons']}")
-    summary(f"\n{len(new_sites)} new sites, {len(new_repos)} new repositories.")
+    for k in removed:
+        summary(f"- removed (taken down): `{k}`")
+    summary(f"\n{len(new_sites)} new sites, {len(new_repos)} new repositories, {len(removed)} removed.")
     if DRY_RUN:
         return
 

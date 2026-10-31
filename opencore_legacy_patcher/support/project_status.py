@@ -1,5 +1,5 @@
 """
-project_status.py: Detect whether the main project (OpenCore-Legacy-Patcher-T2) reached its end of life
+project_status.py: Detect whether the main project (BridgePatcher) reached its end of life
 
 The official repository (constants.repo_link) is checked once per session:
 

@@ -67,7 +67,7 @@ jobs:
             echo "range=${UP}..${HEAD_REF}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Set up Python (for the artwork check)
+      - name: Set up Python (for the artwork and image text checks)
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -75,11 +75,30 @@ jobs:
       - name: Install Pillow
         run: python -m pip install --disable-pip-version-check "pillow==11.3.0"
 
+      # tesseract reads the text in screenshots/banners, so Dortania's app name
+      # ("OpenCore Legacy Patcher") shown inside an image is found too.
+      - name: Install tesseract (OCR for the image text check)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends tesseract-ocr tesseract-ocr-eng
+          tesseract --version | head -1
+
+      # OCR results are cached per image blob, so only new or changed images are read again.
+      - name: Restore OCR cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/license-guard-art-cache.json
+          key: license-guard-art-${{ hashFiles('.github/scripts/license_guard.py') }}-${{ github.run_id }}
+          restore-keys: |
+            license-guard-art-${{ hashFiles('.github/scripts/license_guard.py') }}-
+
       - name: Scan fork against upstream
         id: scan
         env:
           RANGE: ${{ steps.range.outputs.range }}
           VIOLATIONS_LIST: head-violations.txt
+          # Shared between both scans, so unchanged images are only read once.
+          ART_CACHE: ${{ runner.temp }}/license-guard-art-cache.json
         run: python3 .github/scripts/license_guard.py "$RANGE"
 
       # PRs: also scan the base branch itself, so violations that are already in main
@@ -91,6 +110,8 @@ jobs:
           UP: ${{ steps.range.outputs.up }}
           REPORT_PATH: base-report.md
           VIOLATIONS_LIST: base-violations.txt
+          # Shared between both scans, so unchanged images are only read once.
+          ART_CACHE: ${{ runner.temp }}/license-guard-art-cache.json
         run: |
           set -euo pipefail
           if git merge-base "$UP" HEAD >/dev/null 2>&1; then R="${UP}...HEAD"; else R="${UP}..HEAD"; fi
@@ -118,6 +139,7 @@ jobs:
           script: |
             const fs = require('fs');
             const marker = '<!-- license-guard -->';
+            const forkMarker = '<!-- license-guard-fork -->';
             const { owner, repo } = context.repo;
             const violations = Number(process.env.VIOLATIONS || 0);
             const warnings = Number(process.env.WARNINGS || 0);
@@ -125,44 +147,88 @@ jobs:
             if (body.length > 60000) body = body.slice(0, 60000) + '\n\n…truncated, see the workflow log.';
             body += `\n\n<sub>Full audit against ${process.env.UPSTREAM_REPO} · [Workflow run](${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId})</sub>`;
 
+            // Who to ping for a fork: its owner, plus any extra people (e.g. the PR author).
+            // An organisation can't be @-mentioned, so for org-owned forks the person who
+            // triggered the run is pinged instead. Bots are never pinged.
+            const mentionsFor = (forkRepo, ...people) => {
+              const names = new Set(people);
+              const o = forkRepo?.owner;
+              if (o?.login) names.add(o.type === 'Organization' ? context.actor : o.login);
+              return [...names].filter(n => n && !n.endsWith('[bot]')).map(n => `@${n}`).join(' ');
+            };
+            // Fork note right under the report heading.
+            const withForkNote = (text, forkRepo, who, parent) => {
+              const org = forkRepo.owner?.type === 'Organization' ? ` (organisation **${forkRepo.owner.login}**)` : '';
+              const from = parent ? `, forked from \`${parent}\`` : '';
+              const note = `${forkMarker}\n> 🍴 **Fork:** [\`${forkRepo.full_name}\`](${forkRepo.html_url})${org}${from}` +
+                (who ? `\n> ${who} – please fix the license violation(s) below.` : '');
+              return text.replace('## 🛡️ License Guard\n', `## 🛡️ License Guard\n\n${note}\n`);
+            };
+
             // PR: one sticky comment, updated on every push (and flipped to ✅ once fixed)
             if (context.eventName === 'pull_request_target') {
-              const issue_number = context.payload.pull_request.number;
+              const pr = context.payload.pull_request;
+              const issue_number = pr.number;
+              const head = pr.head.repo;   // null if the fork was deleted
+              const fromFork = !!head && head.full_name !== `${owner}/${repo}`;
+              const who = fromFork ? mentionsFor(head, pr.user?.login) : '';
+              if (fromFork && violations > 0) body = withForkNote(body, head, who);
               const comments = await github.paginate(github.rest.issues.listComments,
                 { owner, repo, issue_number, per_page: 100 });
               const existing = comments.find(c => c.user?.type === 'Bot' && c.body?.includes(marker));
               if (existing) {
                 await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+                // Editing a comment doesn't notify anyone, so ping the fork once when an
+                // existing ✅ / warnings-only comment turns into one with violations.
+                if (fromFork && violations > 0 && who && !existing.body.includes(forkMarker)) {
+                  await github.rest.issues.createComment({ owner, repo, issue_number, body:
+                    `${who} License Guard found ${violations} license violation(s) in this pull request ` +
+                    `from \`${head.full_name}\` – see the License Guard comment above.` });
+                }
               } else if (violations + warnings > 0) {
                 await github.rest.issues.createComment({ owner, repo, issue_number, body });
               }
               return;
             }
 
-            // Push / schedule / manual: keep ONE issue up to date, close it when clean
-            const label = 'license-guard';
-            const open = await github.paginate(github.rest.issues.listForRepo,
-              { owner, repo, state: 'open', labels: label, per_page: 100 });
-            const issue = open.find(i => !i.pull_request);
-            if (violations === 0) {
-              if (issue) {
-                await github.rest.issues.createComment({ owner, repo, issue_number: issue.number,
-                  body: '✅ License Guard: no violations left in the latest full audit, closing.' });
-                await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed' });
-              }
-              return;
+            // Push / schedule / manual: keep ONE issue up to date, close it when clean.
+            // When this runs in a fork of the project, the fork's owner is pinged in the issue.
+            const { data: self } = await github.rest.repos.get({ owner, repo });
+            let who = '';
+            if (self.fork && violations > 0) {
+              who = mentionsFor(self);
+              body = withForkNote(body, self, who, self.parent?.full_name);
             }
-            const title = `License Guard: ${violations} possible license violation(s)`;
-            if (issue) {
-              if (issue.body !== body || issue.title !== title) {
-                await github.rest.issues.update({ owner, repo, issue_number: issue.number, title, body });
+            const label = 'license-guard';
+            try {
+              const open = await github.paginate(github.rest.issues.listForRepo,
+                { owner, repo, state: 'open', labels: label, per_page: 100 });
+              const issue = open.find(i => !i.pull_request);
+              if (violations === 0) {
+                if (issue) {
+                  await github.rest.issues.createComment({ owner, repo, issue_number: issue.number,
+                    body: '✅ License Guard: no violations left in the latest full audit, closing.' });
+                  await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed' });
+                }
+                return;
               }
-            } else {
-              try {
-                await github.rest.issues.createLabel({ owner, repo, name: label, color: 'b60205',
-                  description: 'Possible upstream license violation' });
-              } catch (e) { if (e.status !== 422) throw e; }
-              await github.rest.issues.create({ owner, repo, title, body, labels: [label] });
+              const title = `License Guard: ${violations} possible license violation(s)`;
+              if (issue) {
+                if (issue.body !== body || issue.title !== title) {
+                  await github.rest.issues.update({ owner, repo, issue_number: issue.number, title, body });
+                }
+              } else {
+                try {
+                  await github.rest.issues.createLabel({ owner, repo, name: label, color: 'b60205',
+                    description: 'Possible upstream license violation' });
+                } catch (e) { if (e.status !== 422) throw e; }
+                await github.rest.issues.create({ owner, repo, title, body, labels: [label] });
+              }
+            } catch (e) {
+              // Forks have Issues turned off by default (410 Gone): don't crash, point to the summary.
+              if (e.status !== 410) throw e;
+              core.warning(`Issues are disabled in ${self.full_name}, so no License Guard issue could be filed.` +
+                (who ? ` ${who}: see the job summary for the ${violations} violation(s).` : ''));
             }
 
       # Only PRs from forks, and only for violations the PR itself adds. PRs that fix
@@ -177,11 +243,17 @@ jobs:
             const fs = require('fs');
             const { owner, repo } = context.repo;
             const pr = context.payload.pull_request;
+            const head = pr.head.repo;   // null if the fork was deleted
+            // Ping the PR author and the fork's owner (org owners can't be @-mentioned).
+            const names = new Set([pr.user?.login]);
+            if (head?.owner?.login && head.owner.type !== 'Organization') names.add(head.owner.login);
+            const who = [...names].filter(n => n && !n.endsWith('[bot]')).map(n => `@${n}`).join(' ');
+            const fork = head ? `from the fork [\`${head.full_name}\`](${head.html_url}) ` : '';
             const list = fs.readFileSync('new-violations.txt', 'utf8').trim().split('\n')
               .filter(Boolean).map(l => `- ${l}`).join('\n');
             await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body:
-              `🛡️ **License Guard closed this pull request automatically.**\n\n` +
-              `It adds license violations that aren't in \`${pr.base.ref}\`:\n\n${list}\n\n` +
+              `🛡️ **License Guard closed this pull request automatically.**${who ? ' ' + who : ''}\n\n` +
+              `This pull request ${fork}adds license violations that aren't in \`${pr.base.ref}\`:\n\n${list}\n\n` +
               `Keep every upstream copyright notice and use your own artwork instead of Dortania's or Apple's, ` +
               `then open a new pull request. The License Guard comment above has the details.` });
             await github.rest.pulls.update({ owner, repo, pull_number: pr.number, state: 'closed' });

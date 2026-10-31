@@ -119,8 +119,16 @@ def fetch(url, limit=2_000_000):
 
 def fetch_json(url, timeout=30):
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read())
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            # rdap.org and crt.sh rate-limit bursts: wait and retry instead of reporting "no data"
+            if e.code not in (429, 502, 503, 504) or attempt == 3:
+                raise
+            wait = e.headers.get("retry-after")
+            time.sleep(min(int(wait), 30) if wait and wait.isdigit() else 3 * (attempt + 1))
 
 
 # ------------------------------------------------------------ discovery --
@@ -339,6 +347,11 @@ def inspect(host, path):
     }
 
 
+# Registrant names that are only a privacy placeholder, not the real owner
+REDACTED = re.compile(r"(?i)redact|privacy|private|protect|proxy|withheld|whois|not disclosed|"
+                      r"masking|anonymi[sz]ed|gdpr|domains by|contact information|data restricted")
+
+
 def rdap(host):
     """Registrar, abuse contact and registration date (best effort)."""
     domain = ".".join(host.split(".")[-2:])
@@ -355,6 +368,12 @@ def rdap(host):
 
     info = {}
     for ent in data.get("entities", []):
+        if "registrant" in ent.get("roles", []):
+            who = vcard(ent, "org") or vcard(ent, "fn")
+            if isinstance(who, list):
+                who = " ".join(str(w) for w in who if w)
+            if who and not REDACTED.search(str(who)):
+                info["registrant"] = str(who).strip()
         if "registrar" in ent.get("roles", []):
             info["registrar"] = vcard(ent, "fn")
             for sub in ent.get("entities", []):
@@ -363,6 +382,8 @@ def rdap(host):
     for ev in data.get("events", []):
         if ev.get("eventAction") == "registration":
             info["registered"] = ev.get("eventDate", "")[:10]
+    info["nameservers"] = sorted({(ns.get("ldhName") or "").lower().rstrip(".")
+                                  for ns in data.get("nameservers", []) if ns.get("ldhName")})
     return info
 
 
