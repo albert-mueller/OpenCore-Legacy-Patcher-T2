@@ -109,6 +109,8 @@ KNOWN_ART = {
 ART_COPY_MAX = 30      # -> violation
 ART_DERIVED_MAX = 52   # -> warning (probably contains the artwork, check by hand)
 ART_MAX_BYTES = 20_000_000
+# Results per image blob, so the second scan of a PR (base branch) doesn't redo every image.
+ART_CACHE = os.environ.get("ART_CACHE", ".license-guard-art-cache.json")
 IMAGE_EXT = (".png", ".icns", ".jpg", ".jpeg", ".gif", ".webp", ".tif", ".tiff", ".bmp", ".ico")
 TEXT_EXT = (".md", ".markdown", ".html", ".htm", ".js", ".jsx", ".ts", ".tsx", ".vue", ".css",
             ".scss", ".py", ".plist", ".json", ".yml", ".yaml", ".txt", ".rst")
@@ -133,6 +135,97 @@ def dhash256(data, bg):
     return bits
 
 
+# The upstream app's NAME shown inside an image (screenshots of Dortania's app, banners):
+# "OpenCore Legacy Patcher" (also "... T2" / "...-T2"). Found with OCR (tesseract), so it only runs
+# where tesseract is installed. Lines with a copyright notice are skipped on purpose - the upstream
+# notice ("Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors") must stay.
+# Technical identifiers written without spaces (OCLP-Version, OpenCore-Legacy-Patcher repo/folder,
+# Dortania's URLs) are not matched: they are literal names, not the product name.
+IMG_NAME_RE = re.compile(r"(?i)\bOpen\s?Core\s+Legacy\s+Patcher\b")
+IMG_NAME_WRAP = (re.compile(r"(?i)\bOpen\s?Core(\s+Legacy)?\s*$"), re.compile(r"(?i)^\s*(Legacy\s+)?Patcher\b"))
+IMG_COPYRIGHT_RE = re.compile(r"(?i)(©|\(c\))\s*\d|copyright|contributors")
+OCR_VERSION = 2   # bump to invalidate cached OCR results after changing the OCR settings
+
+
+def ocr_lines(data):
+    """Text lines in an image (normal + inverted pass, so light-on-dark text is read too, plus a
+    binarized pass for dim text such as a dark-mode window title: grey ~80 on ~33 is too faint
+    for tesseract otherwise)."""
+    from PIL import Image, ImageOps
+    with Image.open(io.BytesIO(data)) as im:
+        im.load()
+        im = im.convert("RGBA")
+    base = Image.new("RGBA", im.size, (255, 255, 255, 255))
+    base.alpha_composite(im)   # translucent dialogs: read them as shown on a light page
+    g = base.convert("L")
+    s = 3 if max(g.size) <= 1200 else 2 if max(g.size) <= 1800 else 1   # small UI text needs upscaling
+    if s > 1:
+        g = g.resize((g.width * s, g.height * s), Image.LANCZOS)
+    images = [g, ImageOps.invert(g)]
+    hist = g.histogram()
+    half, acc, median = sum(hist) / 2, 0, 0
+    for median, n in enumerate(hist):
+        acc += n
+        if acc >= half:
+            break
+    if median < 100:     # dark UI: anything clearly brighter than the background is text
+        images.append(g.point(lambda v: 0 if v > median + 25 else 255))
+    elif median > 160:   # light UI: anything clearly darker than the background is text
+        images.append(g.point(lambda v: 0 if v < median - 40 else 255))
+    passes = []
+    for img in images:
+        buf = io.BytesIO()
+        img.save(buf, "PNG")
+        r = subprocess.run(["tesseract", "stdin", "stdout", "--psm", "11", "tsv"], input=buf.getvalue(),
+                           capture_output=True, env={**os.environ, "OMP_THREAD_LIMIT": "1"})
+        lines = {}
+        for row in r.stdout.decode("utf-8", "replace").splitlines()[1:]:
+            c = row.split("\t")
+            if len(c) == 12 and c[0] == "5" and c[11].strip() and float(c[10]) > 0:
+                lines.setdefault((int(c[2]), int(c[3]), int(c[4])), []).append(c[11].strip())
+        passes.append([" ".join(v) for _, v in sorted(lines.items())])
+    return passes
+
+
+def find_old_name_in_image(passes):
+    hits = []
+    for lines in passes:
+        for i, line in enumerate(lines):
+            if IMG_COPYRIGHT_RE.search(line):
+                continue
+            nxt = lines[i + 1] if i + 1 < len(lines) else ""
+            if IMG_NAME_RE.search(line) or (IMG_NAME_WRAP[0].search(line) and IMG_NAME_WRAP[1].search(nxt)
+                                            and not IMG_COPYRIGHT_RE.search(nxt)):
+                if line not in hits:
+                    hits.append(line)
+    return hits
+
+
+def tesseract_available():
+    try:
+        return subprocess.run(["tesseract", "--version"], capture_output=True).returncode == 0
+    except FileNotFoundError:
+        return False
+
+
+def _load_cache():
+    import json
+    try:
+        with open(ART_CACHE, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def _save_cache(cache):
+    import json
+    try:
+        with open(ART_CACHE, "w", encoding="utf-8") as fh:
+            json.dump(cache, fh)
+    except OSError:
+        pass
+
+
 def scan_artwork(head, add):
     try:
         from PIL import Image
@@ -141,7 +234,33 @@ def scan_artwork(head, add):
         add("warning", "-", "Artwork check skipped: Pillow is not installed")
         return
     known = {k: [int(h, 16) for h in v["hashes"]] for k, v in KNOWN_ART.items()}
-    for row in git("ls-tree", "-r", "-l", head).splitlines():
+    cache = _load_cache()
+    rows = git("ls-tree", "-r", "-l", head).splitlines()
+    ocr_on = tesseract_available()
+    if not ocr_on:
+        add("warning", "-", "Image text check skipped: tesseract is not installed")
+    else:
+        # OCR is slow, so run all uncached images in parallel up front (tesseract is a subprocess).
+        from concurrent.futures import ThreadPoolExecutor
+        todo = {}
+        for row in rows:
+            meta, path = row.split("\t", 1)
+            _, kind, sha, size = meta.split()
+            if (kind == "blob" and not is_self(path) and size != "-" and int(size) <= ART_MAX_BYTES
+                    and path.lower().endswith(IMAGE_EXT) and f"ocr{OCR_VERSION}:{sha}" not in cache):
+                todo[sha] = path
+
+        def run(sha):
+            data = subprocess.run(["git", "cat-file", "blob", sha], capture_output=True, check=True).stdout
+            try:
+                return sha, ocr_lines(data)
+            except Exception:
+                return sha, [[], []]
+
+        with ThreadPoolExecutor(max_workers=os.cpu_count() or 2) as ex:
+            for sha, passes in ex.map(run, todo):
+                cache[f"ocr{OCR_VERSION}:{sha}"] = passes
+    for row in rows:
         meta, path = row.split("\t", 1)
         _, kind, sha, size = meta.split()
         if kind != "blob" or is_self(path) or size == "-" or int(size) > ART_MAX_BYTES:
@@ -164,12 +283,20 @@ def scan_artwork(head, add):
                     add("warning", path, f"Probably contains {art['name']}",
                         [f"  Similar to {art['holder']}'s artwork (distance {d}/256).",
                          "  Check by hand; if it embeds the artwork, replace it."])
+            if ocr_on:
+                names = find_old_name_in_image(cache.get(f"ocr{OCR_VERSION}:{sha}", [[], []]))
+                if names:
+                    add("violation", path, "Upstream app name in image (OpenCore Legacy Patcher)",
+                        [f"  Text read in the image: {show(n)}" for n in names[:3]] +
+                        ["  Screenshots/banners must show BridgePatcher, not Dortania's app name.",
+                         "  Retake the screenshot or edit the text. Copyright lines are not affected."])
         elif low.endswith(TEXT_EXT):
             text = git("cat-file", "blob", sha)
             urls = sorted(set(m.group(0) for m in HOTLINK_RE.finditer(text)))
             if urls:
                 add("violation", path, "Dortania artwork used from Dortania's servers",
                     [f"- {u}" for u in urls[:10]])
+    _save_cache(cache)
 
 
 YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")

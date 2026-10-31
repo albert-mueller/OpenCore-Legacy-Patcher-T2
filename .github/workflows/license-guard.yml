@@ -67,7 +67,7 @@ jobs:
             echo "range=${UP}..${HEAD_REF}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Set up Python (for the artwork check)
+      - name: Set up Python (for the artwork and image text checks)
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -75,11 +75,30 @@ jobs:
       - name: Install Pillow
         run: python -m pip install --disable-pip-version-check "pillow==11.3.0"
 
+      # tesseract reads the text in screenshots/banners, so Dortania's app name
+      # ("OpenCore Legacy Patcher") shown inside an image is found too.
+      - name: Install tesseract (OCR for the image text check)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends tesseract-ocr tesseract-ocr-eng
+          tesseract --version | head -1
+
+      # OCR results are cached per image blob, so only new or changed images are read again.
+      - name: Restore OCR cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/license-guard-art-cache.json
+          key: license-guard-art-${{ hashFiles('.github/scripts/license_guard.py') }}-${{ github.run_id }}
+          restore-keys: |
+            license-guard-art-${{ hashFiles('.github/scripts/license_guard.py') }}-
+
       - name: Scan fork against upstream
         id: scan
         env:
           RANGE: ${{ steps.range.outputs.range }}
           VIOLATIONS_LIST: head-violations.txt
+          # Shared between both scans, so unchanged images are only read once.
+          ART_CACHE: ${{ runner.temp }}/license-guard-art-cache.json
         run: python3 .github/scripts/license_guard.py "$RANGE"
 
       # PRs: also scan the base branch itself, so violations that are already in main
@@ -91,6 +110,8 @@ jobs:
           UP: ${{ steps.range.outputs.up }}
           REPORT_PATH: base-report.md
           VIOLATIONS_LIST: base-violations.txt
+          # Shared between both scans, so unchanged images are only read once.
+          ART_CACHE: ${{ runner.temp }}/license-guard-art-cache.json
         run: |
           set -euo pipefail
           if git merge-base "$UP" HEAD >/dev/null 2>&1; then R="${UP}...HEAD"; else R="${UP}..HEAD"; fi
