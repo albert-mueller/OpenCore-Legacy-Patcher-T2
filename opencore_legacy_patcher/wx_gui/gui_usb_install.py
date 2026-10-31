@@ -180,10 +180,12 @@ class InstallUSBFrame(wx.Frame):
         try:
             data = plistlib.loads(info.encode('utf-8'))
             self.mount_point = data.get("MountPoint")
-            self._append_log(f"Mounted at {self.mount_point}")
-        except: # behebt eine Sicherheitslücke, die erlaubt Angreifern, trotz Mount-Fehler zu probieren, EFI-Dateien zu schreiben, um der App zum Absturz zu bringen über speziell präpariertes Variable
-            logging.error("Failed to mount EFI or find mount point.")
-            sys.exit(3)
+        except Exception:
+            self.mount_point = None
+
+        if not self.mount_point:
+            raise Exception("Failed to mount EFI or find mount point.")
+        self._append_log(f"Mounted at {self.mount_point}")
 
     def _backup_efi(self):
         self._append_log(f"Backing up EFI to {self.backup_path}...")
