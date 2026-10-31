@@ -27,6 +27,12 @@ In the repository:
 - the duplicate issue check now skips issues opened by workflow bots
 - README: removes Dortania’s logo and the Discord server, and links to GitHub Discussions for community support
 
+fixes the following vulnerabilities:
+- an attacker could set up a fake site or a typosquatting site claiming to be the T2 team or Dortania team to spread malware by not warning that their site is unofficial
+Impact: an attacker could trick users into trusting a typosquatting site whose installer has been tampered and they added malware to it without any warning. This is fixed by when installing the application, it checks if the SHA256 certificates match the official ones and if not, display a warning that it could be malicious like this:
+<img width="532" height="460" alt="Bildschirmfoto 2026-10-31 um 17 37 34" src="https://github.com/user-attachments/assets/21a4467f-2240-4f45-8710-f4387c150528" />
+
+
 ## 4.0.0.1900019 - 4.0.0 alpha 19.19
 I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://oclp-t2.github.io/issues/599.html on this patcher's page or https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
 
