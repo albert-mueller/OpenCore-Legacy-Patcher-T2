@@ -5,6 +5,7 @@ security.py: Class for handling macOS Security Patches, invocation from build.py
 import logging
 import binascii
 import sys
+from typing import Any
 
 from . import support
 from .. import constants
@@ -127,7 +128,7 @@ class BuildSecurity:
         else:
             self.config["NVRAM"]["Add"][uuid][key] = " ".join(tokens_to_add)
 
-    def _set_nvram_value(self, uuid: str, key: str, value: any, overwrite: bool = False) -> None:
+    def _set_nvram_value(self, uuid: str, key: str, value: Any, overwrite: bool = False) -> None:
         """
         Sets an NVRAM variable. If overwrite is False, only sets if the
         key is absent.
@@ -259,7 +260,7 @@ class BuildSecurity:
 
                 logging.info("  > T2 iGPU configuration parameters applied successfully.")
 
-            except Exception as e:
+            except Exception:
                 logging.error(f"Whoops, injecting common framebuffer patches for {self.model} failed because of the following error:")
                 logging.exception("Stack Trace:")
                 logging.info("Please try again later.")
@@ -400,7 +401,11 @@ class BuildSecurity:
 
                     if self.constants.custom_sip_value:
                         logging.info(f"- Setting SIP value to: {self.constants.custom_sip_value}")
-                        sip_hex = utilities.string_to_hex(self.constants.custom_sip_value.lstrip("0x"))
+                        sip_value = self.constants.custom_sip_value
+                        # str.lstrip("0x") strips a character set, not a prefix: it would also eat leading zeros of the value itself
+                        if sip_value[:2].lower() == "0x":
+                            sip_value = sip_value[2:]
+                        sip_hex = utilities.string_to_hex(sip_value)
                         self._set_nvram_value(APPLE_NVRAM_UUID, "csr-active-config", sip_hex, overwrite=True)
                     elif self.constants.sip_status is False:
                         logging.info("- Set SIP to allow Root Volume patching")

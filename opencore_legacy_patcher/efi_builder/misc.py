@@ -7,6 +7,7 @@ import logging
 import binascii
 import sys
 from pathlib import Path
+from typing import Any
 
 from . import support
 from .. import constants
@@ -64,7 +65,7 @@ class BuildMiscellaneous:
         else:
             self.config["NVRAM"]["Add"][uuid][key] = " ".join(tokens_to_add)
 
-    def _set_nvram_value(self, uuid: str, key: str, value: any, overwrite: bool = False) -> None:
+    def _set_nvram_value(self, uuid: str, key: str, value: Any, overwrite: bool = False) -> None:
         """Sets an NVRAM variable. If overwrite is False, it only sets if the key is missing."""
         self._ensure_nvram_path(uuid)
         if overwrite or key not in self.config["NVRAM"]["Add"][uuid]:
