@@ -84,6 +84,8 @@ jobs:
           ALLOWLIST: "github.com githubusercontent.com dortania.github.io bridgepatcher.github.io oclp.net"
           # Entries not seen for this many days are removed from the list
           FORGET_DAYS: "365"
+          # Entries taken down (🔴) this many days in a row are removed from the list
+          TAKEDOWN_DAYS: "2"
           OFFICIAL_SOURCES: |
             - **OpenCore Legacy Patcher** by Dortania: https://github.com/dortania/OpenCore-Legacy-Patcher and https://dortania.github.io/OpenCore-Legacy-Patcher/
             - **BridgePatcher** (formerly OpenCore Legacy Patcher T2, not affiliated with Dortania): https://github.com/bridgepatcher/BridgePatcher and https://bridgepatcher.github.io/ . Anything else still called "OpenCore Legacy Patcher T2" or "OCLP-T2" is not official.

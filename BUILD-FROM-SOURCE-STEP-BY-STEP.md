@@ -1,10 +1,10 @@
 # Build from source
 
-OpenCore Legacy Patcher T2 at its core is a Python-based GUI/CLI-based application. In turn, to run the project from source, you simply need to invoke the OpenCore-Patcher-GUI.command file via Python.
+BridgePatcher at its core is a Python-based GUI/CLI-based application. In turn, to run the project from source, you simply need to invoke the OpenCore-Patcher-GUI.command file via Python.
 
 For developers wishing to validate mainline changes, you may use this link: [GUI (Graphical Based App)](https://github.com/bridgepatcher/BridgePatcher/releases)
 
-* **Warning**:Untagged builds built from the latest commit are actively developed OpenCore Legacy Patcher T2 builds. These builds have not been tested, are not guaranteed to work, and are not guaranteed to be safe. They may have bugs that remain to be tested. Do not use untagged builds without a good reason to do so, and do not use them on your main machine. Additionally, these binaries should not be used without first consulting the [CHANGELOG](./CHANGELOG.md).
+* **Warning**:Untagged builds built from the latest commit are actively developed BridgePatcher builds. These builds have not been tested, are not guaranteed to work, and are not guaranteed to be safe. They may have bugs that remain to be tested. Do not use untagged builds without a good reason to do so, and do not use them on your main machine. Additionally, these binaries should not be used without first consulting the [CHANGELOG](./CHANGELOG.md).
 
   **Do not share _any_ links to these binaries** in forums; please link to **this document only**.
   * Additionally, do not reupload these binaries or download binaries from other sites. Using binaries from untrusted sources is a security issue, as they may have malware or exploitable vulnerabilities that are patched long time ago. 
@@ -68,27 +68,27 @@ To get started, you need to ensure you meet the minimum requirements:
 9. Once done, click on Close / Schließen
 <img width="1578" height="1120" alt="image" src="https://github.com/user-attachments/assets/a83dd6ac-2807-4d8b-b735-7f7cccfad45e" />
 
-## 3. Clone OpenCore Legacy Patcher T2 repo to your computer
+## 3. Clone the BridgePatcher repo to your computer
 1. Open the Terminal and write the following command: git clone https://github.com/bridgepatcher/BridgePatcher
 
 ## 4. Install all necessary dependencies
 All required dependencies, except OpenSSL, will be installed like this. OpenSSL will be installed during the build process.
-1. Write in the Terminal the following command: cd /Users/[yourusername]/OpenCore-Legacy-Patcher-T2, but replace [yourusername] with your own user folder name
+1. Write in the Terminal the following command: cd /Users/[yourusername]/BridgePatcher, but replace [yourusername] with your own user folder name
 2. Write in the Terminal the following command afterwards: pip3 install -r requirements.txt
 
 ## 5. Create a self signed certificate if you don't use an Apple Developer Certificate (recommended) unless you're going to build a Debug version
-1. Write the following command and hit Enter: /Users/[yourusername]/OpenCore-Legacy-Patcher-T2/ci_tooling/privileged_helper_tool/create-signing-certificate.sh, but replace [yourusername] with your user folder name
+1. Write the following command and hit Enter: /Users/[yourusername]/BridgePatcher/ci_tooling/privileged_helper_tool/create-signing-certificate.sh, but replace [yourusername] with your user folder name
 2. Follow the on-screen instructions
 
 ## 6. Create a Priveleged Helper Tool
 To prevent attackers from delivering malware using my own signature via LoTL techniques, I removed the prebuilt Priveleged Helper Tool since alpha 19.9. Now you have to build it yourself. I recommend the same for your repository: to prevent attackers from abusing your signature for executing malware as root, which is very dangerous and can take over victim's computers, I don't recommend publishing a prebuilt Priveleged Helper Tool in your repository as well.
-1. Write the following command in the Terminal: cd cd /Users/[yourusername]/OpenCore-Legacy-Patcher-T2/ci_tooling/privileged_helper_tool, but replace [yourusername] with your user folder's name
+1. Write the following command in the Terminal: cd /Users/[yourusername]/BridgePatcher/ci_tooling/privileged_helper_tool, but replace [yourusername] with your user folder's name
 2. To build a release version (recommended), write the following command in the Terminal and hit Enter: make release and hit Enter.
 3. To build a Debug version, write the following command in the Terminal and hit Enter: make debug. However, making a Debug version of the Priveleged Helper Tool as Debug is not recommended as attackers can at this point execute malicious code from any application as root.
 
 ## 7. Build the patcher
 1. Write the following command in the Terminal: cd. Just plain cd to exit the Priveleged Helper Tool directory
-2. Write the following command: python3 /Users/[yourusername]/OpenCore-Legacy-Patcher-T2/Build-Project.command , but replace [yourusernam] with your user folder's name
+2. Write the following command: python3 /Users/[yourusername]/BridgePatcher/Build-Project.command , but replace [yourusername] with your user folder's name
 3. If needed, pass the following arguments:
 --update-channel medelcartelinc if you want to set the update channel to Matteo's fork
 Else, you don't need to pass any update arguments, it will default to the official project

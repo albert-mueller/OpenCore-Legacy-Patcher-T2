@@ -53,16 +53,21 @@ jobs:
               const hasLabel = pr.labels.some(l => l.name === label);
 
               if (bad) {
-                if (!existing) {
-                  await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body:
-                    `${marker}\n👋 Hi @${pr.user.login}, thanks for the pull request!\n\n` +
+                // Greet the fork owner, not the PR author (a maintainer may open the PR from someone else's fork).
+                const body =
+                    `${marker}\n👋 Hi @${head.owner.login}, thanks for the pull request!\n\n` +
                     `Your fork is still called **\`${head.full_name}\`**. This project is now **${repo}**, ` +
                     `so please rename your fork before this PR can be merged:\n\n` +
                     `1. Open https://github.com/${head.full_name}/settings\n` +
                     `2. Under **Repository name**, enter \`${repo}\` (or anything without "OpenCore Legacy Patcher T2")\n` +
                     `3. Click **Rename**\n\n` +
                     `Your PR keeps working after the rename. This check runs again automatically within an hour, ` +
-                    `or right away when you push a new commit.` });
+                    `or right away when you push a new commit.`;
+                if (!existing) {
+                  await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
+                } else if (existing.body !== body) {
+                  // Also fixes comments posted before this change (e.g. wrong greeting).
+                  await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
                 }
                 if (!hasLabel) {
                   try {

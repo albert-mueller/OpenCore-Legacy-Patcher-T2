@@ -1,6 +1,6 @@
-# OpenCore Legacy Patcher Privileged Helper Tool
+# BridgePatcher Privileged Helper Tool
 
-`io.github.bridgepatcher.privileged-helper` is OpenCore Legacy Patcher's Privileged Helper Tool.
+`io.github.bridgepatcher.privileged-helper` is BridgePatcher's Privileged Helper Tool.
 
 The architecture is as such:
 1. The main application (BridgePatcher.app) will send arguments to the privileged helper tool to execute.
@@ -14,7 +14,7 @@ The helper tool is able to execute code as root by using the "Set UID" bit prese
 
 ## Running from source
 
-Since running OpenCore Legacy Patcher from source will lack a code signature the helper accepts, root commands
+Since running BridgePatcher from source will lack a code signature the helper accepts, root commands
 through the helper will fail. The app then falls back to asking for your administrator password.
 
 Alternatively, compile the privileged helper tool with debug:
@@ -35,7 +35,7 @@ certificate](https://developer.apple.com/help/account/create-certificates/create
 a free self signed certificate (next section). Nothing has to be changed in `main.m` for either: the helper pins
 whatever certificate it is signed with.
 
-If this is not possible, we recommend using [OpenCore Legacy Patcher's prebuilt binaries](../../SOURCE.md) instead.
+If this is not possible, we recommend using [BridgePatcher's prebuilt binaries](../../SOURCE.md) instead.
 
 
 ## Self signing the Privileged Helper Tool - preferred over make debug

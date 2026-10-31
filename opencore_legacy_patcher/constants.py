@@ -37,6 +37,9 @@ APP_INSTALL_DIRECTORY:     str = "/Library/Application Support/albert-mueller/Op
 # those installs to see the update at all.
 INSTALLER_PKG_NAME:        str = f"{APP_NAME}.pkg"
 LEGACY_INSTALLER_PKG_NAME: str = f"{LEGACY_APP_NAME}.pkg"
+UNINSTALLER_PKG_NAME:      str = f"{APP_NAME}-Uninstaller.pkg"
+# Name of the uninstaller before the rename to BridgePatcher (releases up to 4.0.0 alpha 20)
+LEGACY_UNINSTALLER_PKG_NAME: str = "OpenCore-Patcher-Uninstaller.pkg"
 
 
 class Constants:

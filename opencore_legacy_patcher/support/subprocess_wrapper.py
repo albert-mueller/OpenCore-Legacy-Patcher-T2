@@ -120,9 +120,11 @@ def _helper_path_is_safe_to_repair() -> bool:
       - it is owned by root
       - its parent directory is owned by root and is not group- or world-writable
 
-    Deliberately does NOT enforce a code-signature/Team ID check: this fork intentionally
-    runs an unsigned helper, so codesign verification would fail by design here. That means
-    these checks are a floor, not a guarantee - they stop the symlink/permission tricks a
+    Deliberately does NOT enforce a code-signature/Team ID check: this fork's helper is
+    self signed (or unsigned in DEBUG builds), never Developer ID signed, so there is no
+    fixed Team ID to compare against. The real trust check lives in the helper itself,
+    which pins callers to its own leaf certificate (ci_tooling/privileged_helper_tool/main.m).
+    These checks are a floor, not a guarantee - they stop the symlink/permission tricks a
     non-root local attacker can play, not a compromise that already has root.
 
     Returns:
