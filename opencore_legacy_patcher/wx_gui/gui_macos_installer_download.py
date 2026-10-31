@@ -221,7 +221,9 @@ class macOSInstallerDownloadFrame(wx.Frame):
                 self.list.SetItem(index, 1, item['Version'])
                 self.list.SetItem(index, 2, item['Build'])
                 self.list.SetItem(index, 3, utilities.human_fmt(item['InstallAssistant']['Size']))
-                self.list.SetItem(index, 4, item['PostDate'].strftime("%x"))
+                # products_appledb leaves PostDate as None when AppleDB has no usable
+                # "released" date, so don't call strftime() on it
+                self.list.SetItem(index, 4, item['PostDate'].strftime("%x") if item.get('PostDate') else "Unknown")
         else:
             logging.error("No installers found from AppleDB")
             wx.MessageDialog(self.frame_modal, "Failed to fetch installers from AppleDB", "Error", wx.OK | wx.ICON_ERROR).ShowModal()
