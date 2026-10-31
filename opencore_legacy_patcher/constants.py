@@ -78,7 +78,7 @@ class Constants:
         # plist can never point the updater at an arbitrary URL.
         self.update_channels: dict = {
             "official": {
-                "label": "BridgePatcher - Official (T2 - recommended)",
+                "label": "BridgePatcher - Official (recommended)",
                 "repo":  "https://github.com/bridgepatcher/BridgePatcher/",
             },
             "medelcartelinc": {
@@ -130,7 +130,7 @@ class Constants:
         self.nvme_fix_version:           str = "1.1.3"  #      NVMeFix
         self.kext_updater_version:       str = "3.8.5"  #      KextUpdater
 
-        ## BidgePatcher
+        ## Matteo (Medelcartelinc / matteoiacca)
         ## https://github.com/bridgepatcher
         self.appleans2disabler_version:  str = "1.0.0"  #      AppleANS2Disabler (T2 internal SSD)
         self.t2tahoefixup_version:       str = "1.0.19" #      T2TahoeFixup
