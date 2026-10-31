@@ -231,7 +231,7 @@ class PatcherValidation:
 
             if self.verify_unused_files:
                 self._find_unused_files()
-        except Exception as e: # <- behebt eine Sicherheitslücke, die erlaubt Angreifern, beim Fehler DoS-Angriffe zu starten
+        except Exception: # <- behebt eine Sicherheitslücke, die erlaubt Angreifern, beim Fehler DoS-Angriffe zu starten
             logging.error("There was an unexpected error while validating the root patches.")
             logging.exception("Stack Trace:")
             logging.info("Unmounting Universal-Binaries.dmg")

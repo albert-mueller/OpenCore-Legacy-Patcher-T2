@@ -156,10 +156,10 @@ class KernelCacheSupport:
             try:
                 if datetime.fromtimestamp(file.stat().st_mtime) < datetime(2021, 10, 1):
                     logging.info(f"  - Relocating {file.name} kext to {relocation_path}")
-                    if Path(relocation_path) / Path(file.name).exists():
+                    if (Path(relocation_path) / file.name).exists():
                         subprocess_wrapper.run_as_root(["/bin/rm", "-Rf", relocation_path / Path(file.name)])
                     subprocess_wrapper.run_as_root(["/bin/mv", file, relocation_path])
-            except:
+            except Exception:
                 # Some users have the most cursed /L*/E* folders
                 # ex. Symlinks pointing to symlinks pointing to dead files
                 pass

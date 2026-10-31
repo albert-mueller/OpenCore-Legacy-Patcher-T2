@@ -81,7 +81,7 @@ class AmfiConfigurationDetection:
                     amfi_value = int(amfi_value, 16)
                 else:
                     amfi_value = int(amfi_value)
-            except:
+            except Exception:
                 return
             break
 

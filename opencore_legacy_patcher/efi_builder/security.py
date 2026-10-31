@@ -259,7 +259,7 @@ class BuildSecurity:
 
                 logging.info("  > T2 iGPU configuration parameters applied successfully.")
 
-            except Exception as e:
+            except Exception:
                 logging.error(f"Whoops, injecting common framebuffer patches for {self.model} failed because of the following error:")
                 logging.exception("Stack Trace:")
                 logging.info("Please try again later.")

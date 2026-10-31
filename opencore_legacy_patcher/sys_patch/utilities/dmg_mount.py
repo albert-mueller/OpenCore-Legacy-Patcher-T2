@@ -240,7 +240,7 @@ class PatcherSupportPkgMount:
             # Unreadable (e.g. root-owned) - treat as unusable rather than assuming
             logging.error(f"- Could not inspect existing Universal-Binaries directory: {error}")
             return False
-        except Exception as e:
+        except Exception:
             logging.error("The file is unreadable due to a critical error.")
             logging.exception("Stack Trace:")
             sys.exit(3)

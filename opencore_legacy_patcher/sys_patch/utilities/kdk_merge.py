@@ -38,7 +38,7 @@ class KernelDebugKitMerge:
             if oclp_plist_data["Kernel Debug Kit Used"] == str(kdk_path):
                 logging.info("- Matching KDK determined to already be merged, skipping")
                 return True
-        except:
+        except Exception:
             pass
 
         return False

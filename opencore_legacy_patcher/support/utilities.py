@@ -525,7 +525,7 @@ def fetch_staged_update(variant: str = "Update") -> tuple[str, str]:
         return (None, None)
     try:
         update_staged = plistlib.load(open(update_config, "rb"))
-    except:
+    except Exception:
         return (None, None)
     if "update-asset-attributes" not in update_staged:
         return (None, None)

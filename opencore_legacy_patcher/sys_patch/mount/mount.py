@@ -67,7 +67,7 @@ class RootVolumeMount:
                     subprocess_wrapper.log(result)
                     sys.exit(3)
                 return "/"
-            except Exception as e:
+            except Exception:
                 logging.error("We face a critical, unexpected error mounting the root volume")
                 logging.exception("Stack Trace:")
                 sys.exit(3)
@@ -84,7 +84,7 @@ class RootVolumeMount:
                     subprocess_wrapper.log(result)
                     sys.exit(3)
                 return "/System/Volumes/Update/mnt1"
-            except Exception as e:
+            except Exception:
                 logging.error("We face an unexpected, critical error while trying to mount the root volume.")
                 logging.exception("Stack Trace:")
                 sys.exit(3)
