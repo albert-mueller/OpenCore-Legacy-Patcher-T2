@@ -39,6 +39,9 @@ FORMER_NAMES = os.environ.get("FORMER_NAMES", "").split()
 WATCH_DAYS = int(os.environ.get("WATCH_DAYS", "60"))
 # Entries not seen for this long are dropped from the list entirely
 FORGET_DAYS = int(os.environ.get("FORGET_DAYS", "365"))
+# Entries that stay taken down (🔴: deleted, blocked, domain gone, unreachable) for this many
+# days in a row are removed from the list. The delay keeps a short outage from deleting an entry.
+TAKEDOWN_DAYS = int(os.environ.get("TAKEDOWN_DAYS", "2"))
 OFFICIAL_SOURCES = os.environ.get("OFFICIAL_SOURCES", "").strip()
 PROJECT = os.environ.get("PROJECT_NAME", "OpenCore Legacy Patcher")
 # GitHub users mentioned once, in a comment when the warning issue is first created
@@ -337,6 +340,34 @@ def refresh_gone(state):
         state["repos"][r]["status"] = gone_repo_status(r)
 
 
+def taken_down(entry):
+    return str(entry.get("status") or "").startswith("🔴")
+
+
+def prune_taken_down(state):
+    """Remove entries that have been taken down for TAKEDOWN_DAYS in a row. Former official
+    addresses stay listed on purpose: anyone could take them over again."""
+    today = TODAY.isoformat()
+    cutoff = (TODAY - datetime.timedelta(days=TAKEDOWN_DAYS)).isoformat()
+    removed = []
+    for kind in ("sites", "repos"):
+        store = state[kind]
+        for key, entry in list(store.items()):
+            if entry.get("last_seen") == today or key in ts.FORMER_HOSTS or not taken_down(entry):
+                entry.pop("down_since", None)  # back online, or not fully gone: start over
+                continue
+            if entry.setdefault("down_since", today) <= cutoff:
+                del store[key]
+                removed.append(key)
+    # Watched new domains whose registration has lapsed won't come back as the same site
+    for host, entry in list(state["parked"].items()):
+        if str(entry.get("status") or "").startswith("🔴 gone"):
+            state["parked"].pop(host)
+            state["watch"].pop(host, None)
+            removed.append(host)
+    return removed
+
+
 # ------------------------------------------------------------ tracker issue --
 
 def load_state(body):
@@ -413,7 +444,9 @@ def render(state):
         "<sub>Found with automated checks: lookalike domain names, certificate-transparency logs, "
         "newly registered domains and GitHub search. **Belongs to** shows the GitHub account, or for domains the "
         "registrant (often hidden by privacy protection), registrar and hosting network from public RDAP data. "
-        "**Status** is checked on every run. Repositories are only listed if they aren't forks "
+        "**Status** is checked on every run; entries that stay taken down (🔴) for "
+        f"{TAKEDOWN_DAYS} day{'s' if TAKEDOWN_DAYS != 1 else ''} are removed automatically. "
+        "Repositories are only listed if they aren't forks "
         "and offer their own downloads or show other impersonation signals. A listing means the name "
         "imitates the project; it isn't proof that the content is malicious. Names are shown as code on "
         "purpose, so they aren't clickable.</sub>",
@@ -455,6 +488,7 @@ def main():
     new_repos = merge(state["repos"], scan_repos())
     state["parked"] = describe_parked(state["watch"])
     refresh_gone(state)
+    removed = prune_taken_down(state)
     body = render(state)
     if len(body) > 65000:
         print("::warning::Warning issue is close to GitHub's size limit; consider lowering FORGET_DAYS.")
@@ -463,7 +497,9 @@ def main():
         summary(f"- new site: `{h}` — {state['sites'][h]['title']}")
     for r in new_repos:
         summary(f"- new repository: `{r}` — {state['repos'][r]['reasons']}")
-    summary(f"\n{len(new_sites)} new sites, {len(new_repos)} new repositories.")
+    for k in removed:
+        summary(f"- removed (taken down): `{k}`")
+    summary(f"\n{len(new_sites)} new sites, {len(new_repos)} new repositories, {len(removed)} removed.")
     if DRY_RUN:
         return
 
