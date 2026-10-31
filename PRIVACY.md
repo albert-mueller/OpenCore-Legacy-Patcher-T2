@@ -1,25 +1,11 @@
 # Privacy Policy
 
-OpenCore Legacy Patcher may collect pseudo-anonymized data about the host system and the OpenCore Legacy Patcher application. This data is used to improve the project and to help diagnose issues. The data collected is as follows:
+BridgePatcher does not collect analytics, usage statistics or crash reports, and does not send any information about your Mac to Dortania, to this project or to anyone else.
 
-* System's UUID as a SHA1 hash
-  * This is used to identify the system and to prevent duplicate reports
-  * Cannot be used to identify the system without the user providing the UUID
-* Application name and version
-* System's OS version
-* System's model name, GPUs present and firmware vendor
-  * May include more hardware information in the future (ex. CPU, WiFi, etc)
-* General country code of system's reported region
-  * ex. `US`, `CA`, etc
+Dortania's OpenCore Legacy Patcher, which BridgePatcher is based on, contained an analytics and crash reporting component that could send a hashed system UUID, the app version, the macOS version, the Mac model, GPUs, firmware vendor and the country set in System Settings to an analytics server. This component has been removed from BridgePatcher entirely, together with the "Allow Reporting" setting.
 
-Identifiable data such as IP addresses, MAC addresses, serial numbers, etc. are not collected.
+Crash and error logs are only stored locally on your Mac. They are never uploaded; if you want to share one, for example in a GitHub issue, you do so yourself.
 
-In the future, crash logs may also be collected to help with diagnosing issues.
-----------
+## Network connections
 
-Users who wish to opt-out can do so either via the application's preferences or via the following command:
-```
-defaults write com.dortania.opencore-legacy-patcher DisableCrashAndAnalyticsReporting -bool true
-```
-
-To request deletion of an analytics record associated with your system, open a topic in [this project's GitHub Discussions](https://github.com/bridgepatcher/BridgePatcher/discussions). Do not post your system UUID publicly. Ask the maintainers to arrange a private way to provide the UUID, and share it only through that private channel.
+BridgePatcher still connects to the internet to do its job, for example to check for and download updates, PatcherSupportPkg, Kernel Debug Kits, Metallibs, macOS installers and the AppleDB catalog. These requests go to services such as GitHub, Apple, Dortania's Kernel Debug Kit and Metallib catalogs and AppleDB. Like any download, they reveal your IP address and the app's user agent (which contains the BridgePatcher version) to the server you download from, but no information about your system is sent along with them.

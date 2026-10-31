@@ -359,10 +359,17 @@ class CheckBinaryUpdates:
 
         # Only reached for a newer build, or for an explicitly selected channel switch
         # (behebt eine Sicherheitslücke, die erlaubt Angreifern, Downgrade-Angriffen in Hintergrund ohne das Wissen von Benutzer zu starten)
+        # BridgePatcher.pkg is the installer since the rename. Releases from before it,
+        # still reachable through a channel switch, only carry OpenCore-Patcher-T2.pkg;
+        # releases built with --legacy-installer carry both, and then the new name wins.
+        logging.info("A new version is available")
+        assets_by_name = {}
         for asset in data_set["assets"]:
-            logging.info("A new version is available")
             logging.info(f"Found asset: {asset['name']}")
-            if asset["name"] == "OpenCore-Patcher-T2.pkg":
+            assets_by_name.setdefault(asset["name"], asset)
+        for pkg_name in (constants.INSTALLER_PKG_NAME, constants.LEGACY_INSTALLER_PKG_NAME):
+            asset = assets_by_name.get(pkg_name)
+            if asset is not None:
                 self.latest_details = {
                     "Name": asset["name"],
                     "Version": latest_remote_version,
@@ -376,7 +383,7 @@ class CheckBinaryUpdates:
                 return self.latest_details
 
         if channel_switch:
-            self.last_error = f"The newest release of the {self.constants.update_channel_label} channel has no OpenCore-Patcher-T2.pkg asset."
+            self.last_error = f"The newest release of the {self.constants.update_channel_label} channel has no {constants.INSTALLER_PKG_NAME} asset."
         return None
 
     def _mark_channel_installed(self) -> None:

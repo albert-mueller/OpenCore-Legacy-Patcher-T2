@@ -1,4 +1,30 @@
 # BridgePatcher changelog / BridgePatcher-Änderungsprotokoll
+## 4.0.0.2000000 - 4.0.0 alpha 20
+This version:
+- renames OpenCore Legacy Patcher T2 to BridgePatcher. One of the reasons for this rename is that it confuses users that this is Dortania’s official project and open issues inside the wrong repository. Attackers would love this patcher to be called OpenCore Legacy Patcher T2 to exploit for impersonation and malware delivery, I already documented a case where attackers intentionally confused users that this is Dortania’s official project to deliver malware over a malvertising website. 
+- replaces Dortania’s icons with our own ones
+- now includes the license of the patcher inside the binary itself
+- fixes a bug where the bundle ID inside OpenCore-Patcher-GUI is hardcoded, so upon launch it did never trusted even the patcher's own helper tool
+- the user agent the patcher sends when downloading Kernel Debug Kits, Metallibs and the AppleDB catalog, and when fetching the release notes of an update, now ends in BridgePatcher/<version> instead of OpenCoreLegacyPatcherT2/<version>. The rest of the user agent stays the same
+- all API and link endpoints (updates, PatcherSupportPkg, Metallibs, project status, website, Help menu, OpenCore update script) now point at the renamed GitHub organization bridgepatcher
+- the app’s interface (windows, dialogs, menus, notifications) now says BridgePatcher instead of OpenCore Legacy Patcher T2
+- the app itself is now called BridgePatcher.app (executable BridgePatcher, previously OpenCore-Patcher-T2.app), also in /Applications, and the administrator password prompts say BridgePatcher. The install folder (/Library/Application Support/albert-mueller/OpenCore-Patcher-T2), the log folder and the launch service names stay the same, so settings, logs and background services carry over. When updating, the old OpenCore-Patcher-T2.app and its /Applications link are removed, and the auto patcher, macOS update and OS caching services are pointed at the new app
+- the installer is now BridgePatcher.pkg. Versions from before the rename only look for OpenCore-Patcher-T2.pkg when checking for updates, so releases can also carry OpenCore-Patcher-T2.pkg: the same installer under the old name (built with Build-Project.command --legacy-installer), which additionally keeps a link under the old app name so the updater of those versions recognises the finished update. The updater now prefers BridgePatcher.pkg and falls back to OpenCore-Patcher-T2.pkg for releases from before the rename
+- the bundle ID is now io.github.bridgepatcher.bridgepatcher (previously io.github.albert-mueller.opencore-legacy-patcher-t2) and the privileged helper is now io.github.bridgepatcher.privileged-helper. The old helper is removed when installing or uninstalling
+- also replaces the build icon and the drive icons (internal, external, SSD, SD card) with our own artwork, and replaces Apple’s System Settings icon with our own Settings icon
+- the About screen no longer loads an image from Dortania’s servers
+- removes the analytics and crash reporting inherited from Dortania’s OpenCore Legacy Patcher. The patcher no longer contains any code that sends information about your Mac (hashed system UUID, app and macOS version, Mac model, GPUs, firmware vendor and the country set in System Settings) to an analytics server, and the "Allow Reporting" setting is gone. Leftover reporting settings from older versions are removed on launch, the build scripts no longer embed an analytics key or server, and the privacy policy has been updated accordingly
+- the Help menu no longer links to the Discord server; support is now offered through GitHub Discussions and GitHub Issues of this project
+- the copyright notice now updates its end year automatically and credits Dortania and the OpenCore Legacy Patcher contributors alongside this fork
+
+In the repository:
+- the former name OpenCore Legacy Patcher T2 / OCLP-T2 is now treated as a typosquat: repositories that are not GitHub forks but still use the former name, and websites using it in their address (including <name>.github.io), are flagged. The former address oclp-t2.github.io is always marked as a typosquat, and former official addresses are only reported once they serve content again
+- forks still named OpenCore-Legacy-Patcher-T2 are asked to rename
+- the SHA256SUMS workflow now waits for BridgePatcher.pkg (or OpenCore-Patcher-T2.pkg on older releases) before hashing, and fails if an installer attached to the release is missing from SHA256SUMS
+- License Guard now detects Dortania’s OCLP icon and Apple’s System Settings icon as well as images hotlinked from Dortania’s servers, and automatically closes pull requests from forks that add license violations
+- the duplicate issue check now skips issues opened by workflow bots
+- README: removes Dortania’s logo and the Discord server, and links to GitHub Discussions for community support
+
 ## 4.0.0.1900019 - 4.0.0 alpha 19.19
 I have a critical warning to you: as of the time of writing, attackers have set up a malicious website called https://en.soydemac.com/  that tricks into that Dortania has added support for unsupported T2 Macs and tricks people into believing that this project is Dortania's official one to launch SEO poisoning attacks. Also, that website is full of fake news. Also, that webstie is also a malvertising website whose ads deliver from phishing websites to malware payloads that hijack your search engine to an attacker controlled search engine. More here: https://oclp-t2.github.io/issues/599.html on this patcher's page or https://github.com/oclp-t2/OpenCore-Legacy-Patcher-T2/issues/599 in GitHub.
 

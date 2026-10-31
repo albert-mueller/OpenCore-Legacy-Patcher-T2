@@ -21,7 +21,6 @@ from ..wx_gui import (
 )
 from ..support import (
     global_settings,
-    analytics_handler,
     subprocess_wrapper,
     kdk_handler,
     update_channel_availability,
@@ -336,17 +335,6 @@ class SettingsFrame(wx.Frame):
             "App": {
                 "General": {
                     "type": "title",
-                },
-                "Allow Reporting": {
-                    "type": "checkbox",
-                    "value": global_settings.GlobalEnviromentSettings().read_property("EnableCrashAndAnalyticsReporting"),
-                    "variable": "EnableCrashAndAnalyticsReporting",
-                    "description": [
-                        "When disabled, patcher will not",
-                        "report any info to Dortania.",
-                    ],
-                    "override_function": self._update_global_settings,
-                    "condition": not analytics_handler.ANALYTICS_SERVER and analytics_handler.SITE_KEY == None
                 },
                 "Remove Unused KDKs": {
                     "type": "checkbox",

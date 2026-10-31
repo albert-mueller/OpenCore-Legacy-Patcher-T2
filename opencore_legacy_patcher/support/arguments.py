@@ -142,7 +142,9 @@ class arguments:
             pid, _, command = line.strip().partition(" ")
             if not pid.isdigit() or int(pid) == own_pid:
                 continue
-            if "OpenCore-Patcher-T2.app/Contents/MacOS/" in command:
+            # Either name: right after an update from before the rename, a copy of
+            # the old bundle may still be running
+            if any(f"{_bundle}/Contents/MacOS/" in command for _bundle in (constants.APP_BUNDLE_NAME, constants.LEGACY_APP_BUNDLE_NAME)):
                 return True
         return False
 
@@ -218,7 +220,9 @@ class arguments:
         Fetch KDK for incoming OS
         """
         results = subprocess.run(["/bin/ps", "-ax"], stdout=subprocess.PIPE)
-        if results.stdout.decode("utf-8").count("OpenCore-Patcher-T2 --cache_os") > 1:
+        _output = results.stdout.decode("utf-8")
+        _running = sum(_output.count(f"/{_name} --cache_os") for _name in (constants.APP_EXECUTABLE_NAME, constants.LEGACY_APP_EXECUTABLE_NAME))
+        if _running > 1:
             logging.info("Another instance of OS caching is running, exiting")
             return
 

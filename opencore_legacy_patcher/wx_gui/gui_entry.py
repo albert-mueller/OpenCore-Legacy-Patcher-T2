@@ -58,17 +58,17 @@ class PatcherApp(wx.App):
         # touch a frame that's being torn down.
         gui_support.mark_app_exiting()
 
-        # Startup kicks off a couple of background threads (payload
-        # unpacking, analytics) before any window even exists, so they
-        # never check is_app_exiting(). Quitting right after launch, while
-        # one of these is still doing disk/network work, tears the process
+        # Startup kicks off a background thread (payload unpacking) before
+        # any window even exists, so it never checks is_app_exiting().
+        # Quitting right after launch, while it is still doing disk work,
+        # tears the process
         # down underneath it -- the same autorelease pool corruption
         # trigger, just from a startup thread instead of a UI one. Give
         # each a bounded window to finish rather than hanging quit forever.
         # update_thread (gui_main_menu's update check) already guards its
         # own wx.CallAfter() calls with is_app_exiting(), but it wasn't
-        # actually joined here like the other two - closing that gap too.
-        for thread_attr in ("unpack_thread", "analytics_thread", "update_thread"):
+        # actually joined here like unpack_thread - closing that gap too.
+        for thread_attr in ("unpack_thread", "update_thread"):
             thread = getattr(self.constants, thread_attr, None)
             if thread and thread.is_alive():
                 thread.join(timeout=10)

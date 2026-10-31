@@ -9,23 +9,23 @@ import json
 from pathlib import Path
 
 from opencore_legacy_patcher.volume import generate_copy_arguments
-from opencore_legacy_patcher.support import subprocess_wrapper
+from opencore_legacy_patcher import constants
+from opencore_legacy_patcher.support import subprocess_wrapper, image_handler
 
 
 class GenerateApplication:
     """
-    Generate OpenCore-Patcher-T2.app
+    Generate BridgePatcher.app
     """
 
     def __init__(self, reset_pyinstaller_cache: bool = False, git_branch: str = None,
                  git_commit_url: str = None, git_commit_date: str = None,
-                 analytics_key: str = None, analytics_endpoint: str = None,
                  update_channel: str = None) -> None:
         """
         Initialize
         """
         self._pyinstaller = [sys.executable, "-m", "PyInstaller"]
-        self._application_output = Path("./dist/OpenCore-Patcher-T2.app")
+        self._application_output = Path("./dist") / constants.APP_BUNDLE_NAME
 
         self._reset_pyinstaller_cache = reset_pyinstaller_cache
 
@@ -36,12 +36,6 @@ class GenerateApplication:
         # Default update channel baked into Info.plist ("UpdateChannel"), read by
         # support/defaults.py at launch. None keeps the app on "official".
         self._update_channel = update_channel
-
-        self._analytics_key = analytics_key
-        self._analytics_endpoint = analytics_endpoint
-
-        # Back to your original target file path
-        self._analytics_source_file = Path("./opencore_legacy_patcher/support/analytics_handler.py")
 
 
     def _generate_application(self) -> None:
@@ -58,56 +52,11 @@ class GenerateApplication:
         subprocess_wrapper.run_and_verify(_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
-    def _update_analytics_source(self, key: str, endpoint: str) -> None:
-        """
-        Safely writes specific variables into the analytics source code.
-        Uses Python representation format to eliminate code injection threats.
-        """
-        if not self._analytics_source_file.exists():
-            raise FileNotFoundError(f"Source file not found: {self._analytics_source_file}")
-
-        with open(self._analytics_source_file, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-
-        # repr() automatically wraps the string in quotes and safely escapes
-        # hazardous characters (like internal quotes, newlines, or backslashes)
-        safe_key = repr(key or "")
-        safe_endpoint = repr(endpoint or "")
-
-        for i, line in enumerate(lines):
-            if line.startswith("SITE_KEY:         str = "):
-                lines[i] = f"SITE_KEY:         str = {safe_key}\n"
-            elif line.startswith("ANALYTICS_SERVER: str = "):
-                lines[i] = f"ANALYTICS_SERVER: str = {safe_endpoint}\n"
-
-        with open(self._analytics_source_file, "w", encoding="utf-8") as f:
-            f.writelines(lines)
-
-
-    def _embed_analytics_key(self) -> None:
-        """
-        Embed analytics key safely into the script
-        """
-        if not all([self._analytics_key, self._analytics_endpoint]):
-            rich.print("[yellow]Analytics key or endpoint not provided, skipping embedding[/yellow]")
-            return
-
-        self._update_analytics_source(self._analytics_key, self._analytics_endpoint)
-
-
-    def _remove_analytics_key(self) -> None:
-        """
-        Remove analytics key safely from the script
-        """
-        if all([self._analytics_key, self._analytics_endpoint]):
-            self._update_analytics_source("", "")
-
-
     def _patch_load_command(self) -> None:
         """
         Patch LC_VERSION_MIN_MACOSX in Load Command to report 10.13.6
         """
-        _file = self._application_output / "Contents" / "MacOS" / "OpenCore-Patcher-T2"
+        _file = self._application_output / "Contents" / "MacOS" / constants.APP_EXECUTABLE_NAME
 
         _find    = b'\x00\x0D\x0A\x00' # 10.13
         _replace = b'\x06\x0D\x0A\x00' # 10.13.6
@@ -128,7 +77,7 @@ class GenerateApplication:
         """
         Patch LC_BUILD_VERSION in Load Command to report the macOS 26 SDK
         """
-        _file = self._application_output / "Contents" / "MacOS" / "OpenCore-Patcher-T2"
+        _file = self._application_output / "Contents" / "MacOS" / constants.APP_EXECUTABLE_NAME
 
         _find    = b'\x00\x01\x0C\x00'
         _replace = b'\x00\x00\x1A\x00'
@@ -241,7 +190,7 @@ class GenerateApplication:
         """
         Embed resources
 
-        - *.png  -> packed into Contents/Resources/OpenCore-Patcher-T2.assets
+        - *.png  -> packed into Contents/Resources/BridgePatcher.assets
                     (read at runtime by support/image_handler.py)
         - others -> copied as files (.icns, Assets.car). These must stay real
                     files: macOS reads Assets.car for the app icon, and the
@@ -274,7 +223,7 @@ class GenerateApplication:
         if not images:
             raise RuntimeError(f"No PNG icons found in {app_icons_dir}")
 
-        assets_file = resources_dir / "OpenCore-Patcher-T2.assets"
+        assets_file = resources_dir / image_handler.ASSETS_FILE_NAME
         with open(assets_file, "w", encoding="utf-8") as f:
             json.dump({"format": 1, "images": images}, f, separators=(",", ":"))
 
@@ -342,16 +291,14 @@ class GenerateApplication:
 
     def generate(self) -> None:
         """
-        Generate OpenCore-Patcher-T2.app
+        Generate BridgePatcher.app
         """
         about_file = None
         try:
-            self._embed_analytics_key()
             about_file = self.embed_readme()
             self._generate_application()
         finally:
-            # Always sanitizes the local source code file even if the build crashes
-            self._remove_analytics_key()
+            # Always restores the local source code file even if the build crashes
             if about_file is not None:
                 self.remove_hard_readme(about_file=about_file)
 

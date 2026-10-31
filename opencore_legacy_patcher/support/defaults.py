@@ -16,7 +16,6 @@ from . import (
     utilities,
     generate_smbios,
     global_settings,
-    analytics_handler,
     commit_info,
 )
 from ..datasets import (
@@ -134,11 +133,11 @@ class GenerateDefaults:
         if result is False:
             self.constants.should_nuke_kdks = False
 
-        # Check if the analytics data was embeded. if it wasn't, don't report. this was already setup in `analytics_handler`,
-        # but this shows it in the GUI.
-        if not analytics_handler.ANALYTICS_SERVER and analytics_handler.SITE_KEY == "":
-            logging.info("Analytics data was not embeded.")
-            global_settings.GlobalEnviromentSettings().write_property("EnableCrashAndAnalyticsReporting", False)
+        # Analytics/crash reporting inherited from Dortania has been removed. Drop the
+        # leftover settings from older builds so nothing stale stays behind.
+        for _legacy_property in ("EnableCrashAndAnalyticsReporting", "DisableCrashAndAnalyticsReporting"):
+            if global_settings.GlobalEnviromentSettings().read_property(_legacy_property) is not None:
+                global_settings.GlobalEnviromentSettings().delete_property(_legacy_property)
         if Path("~/.dortania_developer").expanduser().exists() or os.environ.get("OCLP_DEV_MODE") == "1":
             self.constants.Experimental_Features = True
         else:

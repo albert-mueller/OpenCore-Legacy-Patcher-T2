@@ -451,8 +451,8 @@ class MainFrame(wx.Frame):
         self.update_thread.daemon = True
         self.update_thread.start()
         # Also tracked on constants (not just this frame) so PatcherApp.OnExit()
-        # can join it at quit the same way it already does for unpack_thread/
-        # analytics_thread - this frame instance itself may already be gone by
+        # can join it at quit the same way it already does for unpack_thread -
+        # this frame instance itself may already be gone by
         # then (the app keeps destroying and recreating MainFrame as the user
         # navigates), but constants persists for the whole process lifetime.
         self.constants.update_thread = self.update_thread
