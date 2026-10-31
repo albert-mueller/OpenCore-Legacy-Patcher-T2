@@ -88,7 +88,7 @@ class SysPatchDisplayFrame(wx.Frame):
         """
         frame = self if not frame else frame
 
-        title_label = wx.StaticText(frame, label="Post-Install Menu", pos=(-1, 10))
+        title_label = wx.StaticText(frame, label="Root Patching Menu", pos=(-1, 10))
         title_label.SetFont(gui_support.font_factory(19, wx.FONTWEIGHT_BOLD))
         title_label.Centre(wx.HORIZONTAL)
 
