@@ -97,7 +97,7 @@ jobs:
           cat > comment.md <<MSG
           Hi, thanks for the report!
 
-          It looks like you're using a **${MODEL}**. This model is older than anything OpenCore Legacy Patcher T2 supports (the oldest supported ${MODEL%%[0-9]*} is the **${MINIMUM}**), so we unfortunately can't help with it and are closing this issue.
+          It looks like you're using a **${MODEL}**. This model is older than anything BridgePatcher supports (the oldest supported ${MODEL%%[0-9]*} is the **${MINIMUM}**), so we unfortunately can't help with it and are closing this issue.
 
           Hardware this old lacks CPU and GPU features that modern macOS requires, and it can't be patched around reliably. If you want to run current macOS with full security updates, we'd recommend getting an **Apple silicon (M-series) Mac**. Even an entry-level or refurbished M1 MacBook Air or Mac mini runs macOS 26 natively and is dramatically faster than this machine.
 

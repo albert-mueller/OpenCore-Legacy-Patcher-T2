@@ -73,22 +73,22 @@ To get started, you need to ensure you meet the minimum requirements:
 
 ## 4. Install all necessary dependencies
 All required dependencies, except OpenSSL, will be installed like this. OpenSSL will be installed during the build process.
-1. Write in the Terminal the following command: cd /Users/[yourusername]/OpenCore-Legacy-Patcher-T2, but replace [yourusername] with your own user folder name
+1. Write in the Terminal the following command: cd /Users/[yourusername]/BridgePatcher, but replace [yourusername] with your own user folder name
 2. Write in the Terminal the following command afterwards: pip3 install -r requirements.txt
 
 ## 5. Create a self signed certificate if you don't use an Apple Developer Certificate (recommended) unless you're going to build a Debug version
-1. Write the following command and hit Enter: /Users/[yourusername]/OpenCore-Legacy-Patcher-T2/ci_tooling/privileged_helper_tool/create-signing-certificate.sh, but replace [yourusername] with your user folder name
+1. Write the following command and hit Enter: /Users/[yourusername]/BridgePatcher/ci_tooling/privileged_helper_tool/create-signing-certificate.sh, but replace [yourusername] with your user folder name
 2. Follow the on-screen instructions
 
 ## 6. Create a Priveleged Helper Tool
 To prevent attackers from delivering malware using my own signature via LoTL techniques, I removed the prebuilt Priveleged Helper Tool since alpha 19.9. Now you have to build it yourself. I recommend the same for your repository: to prevent attackers from abusing your signature for executing malware as root, which is very dangerous and can take over victim's computers, I don't recommend publishing a prebuilt Priveleged Helper Tool in your repository as well.
-1. Write the following command in the Terminal: cd cd /Users/[yourusername]/OpenCore-Legacy-Patcher-T2/ci_tooling/privileged_helper_tool, but replace [yourusername] with your user folder's name
+1. Write the following command in the Terminal: cd /Users/[yourusername]/BridgePatcher/ci_tooling/privileged_helper_tool, but replace [yourusername] with your user folder's name
 2. To build a release version (recommended), write the following command in the Terminal and hit Enter: make release and hit Enter.
 3. To build a Debug version, write the following command in the Terminal and hit Enter: make debug. However, making a Debug version of the Priveleged Helper Tool as Debug is not recommended as attackers can at this point execute malicious code from any application as root.
 
 ## 7. Build the patcher
 1. Write the following command in the Terminal: cd. Just plain cd to exit the Priveleged Helper Tool directory
-2. Write the following command: python3 /Users/[yourusername]/OpenCore-Legacy-Patcher-T2/Build-Project.command , but replace [yourusernam] with your user folder's name
+2. Write the following command: python3 /Users/[yourusername]/BridgePatcher/Build-Project.command , but replace [yourusername] with your user folder's name
 3. If needed, pass the following arguments:
 --update-channel medelcartelinc if you want to set the update channel to Matteo's fork
 Else, you don't need to pass any update arguments, it will default to the official project

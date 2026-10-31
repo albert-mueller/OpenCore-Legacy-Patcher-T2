@@ -24,7 +24,7 @@ cd ~/Developer
 # Clone project
 git clone https://github.com/bridgepatcher/BridgePatcher
 # Move into Project directory
-cd ./OpenCore-Legacy-Patcher-T2
+cd ./BridgePatcher
 # Install Python dependencies used by the project
 pip3 install -r requirements.txt
 ```
@@ -65,7 +65,7 @@ The main goal of generating prebuilt binaries is to strip the requirement of a l
 # Install PyInstaller
 pip3 install pyinstaller
 # Move into project directory
-cd ~/Developer/OpenCore-Legacy-Patcher-T2/
+cd ~/Developer/BridgePatcher/
 # Create the pyinstaller based Application
 Build-Project.command
 # Open build folder

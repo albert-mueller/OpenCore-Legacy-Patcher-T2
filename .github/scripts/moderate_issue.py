@@ -179,7 +179,7 @@ def claude_verdict(text, kind, by_reporter):
         return None
     prompt = (
         f"You are a content moderator for the open-source GitHub repository {REPO} "
-        "(OpenCore Legacy Patcher T2, a tool for installing newer macOS on older Macs). "
+        "(BridgePatcher, a tool for installing newer macOS on older Macs). "
         + ("The text was written by the person who opened the issue. " if by_reporter else
            "The text was written by someone other than the person who opened the issue. ")
         + f"Classify the {kind} text below into exactly one category:\n\n"
