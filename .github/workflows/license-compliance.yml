@@ -1,0 +1,56 @@
+name: License compliance
+
+# Checks the END RESULT against Dortania's BSD 4-Clause terms:
+#   - LICENSE.txt still contains Dortania's complete license text (condition 1)
+#   - the app build still bundles LICENSE.txt (condition 2)
+#   - README.md still shows the required acknowledgement (condition 3)
+# License Guard and Attribution guard look at what a change removes; this one looks at
+# what's left, and the weekly run also notices when Dortania changes their license text.
+#
+# PRs use pull_request_target like the other guards: the check script comes from the
+# base branch, the PR's files are only read (never imported or executed).
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"   # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: license-compliance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (trusted base code)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || github.sha }}
+
+      - name: Fetch PR files (read only)
+        if: github.event_name == 'pull_request_target'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth 1 origin "+refs/pull/${PR_NUMBER}/head:refs/remotes/origin/pr-head"
+          mkdir pr
+          for f in LICENSE.txt OpenCore-Patcher-GUI.spec README.md; do
+            git show "origin/pr-head:$f" > "pr/$f" 2>/dev/null || rm -f "pr/$f"
+          done
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Check license compliance
+        run: python3 .github/scripts/check_license_compliance.py "${{ github.event_name == 'pull_request_target' && 'pr' || '.' }}"
