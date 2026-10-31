@@ -49,7 +49,7 @@ class Constants:
         self.patcher_version:                 str = "4.0.0.2000000"
         self.patcher_version_label=self.patcher_version
         self.patcher_support_pkg_version:     str = "2.11"  # PatcherSupportPkg (needs a 2.11 release built from bridgepatcher/PatcherSupportPkg master: GMA X3100 + non-metal screen saver payloads)
-        self.copyright_date:                  str = "Copyright © 2020-2026 Dortania and BridgePatcher contributors"
+        self.copyright_date:                  str = "Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors · © 2026 BridgePatcher contributors"
 
         # Application identity
         # Must NOT be "com.dortania.opencore-legacy-patcher": Launch Services
