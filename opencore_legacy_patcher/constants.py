@@ -46,7 +46,7 @@ class Constants:
         self.patcher_version:                 str = "4.0.0.2000000"
         self.patcher_version_label=self.patcher_version
         self.patcher_support_pkg_version:     str = "2.11"  # PatcherSupportPkg (needs a 2.11 release built from bridgepatcher/PatcherSupportPkg master: GMA X3100 + non-metal screen saver payloads)
-        self.copyright_date:                  str = "Copyright © 2020-2026 Dortania and OpenCore Legacy Patcher contributors"
+        self.copyright_date:                  str = "Copyright © 2020-2026 Dortania and BridgePatcher contributors"
 
         # Application identity
         # Must NOT be "com.dortania.opencore-legacy-patcher": Launch Services
@@ -75,12 +75,12 @@ class Constants:
         # plist can never point the updater at an arbitrary URL.
         self.update_channels: dict = {
             "official": {
-                "label": "Albert Müller - Official (T2 - recommended)",
+                "label": "BridgePatcher - Official (T2 - recommended)",
                 "repo":  "https://github.com/bridgepatcher/BridgePatcher/",
             },
             "medelcartelinc": {
                 "label": "Medelcartelinc (Fork)",
-                "repo":  "https://github.com/Medelcartelinc/OpenCore-Legacy-Patcher-T2/",
+                "repo":  "https://github.com/Medelcartelinc/BridgePatcher/",
             },
         }
         self.update_channel:           str = "official"  # Channel selected in the GUI
@@ -98,7 +98,7 @@ class Constants:
         self.project_status_checked:   bool = False
         self.project_eol_notice_shown: bool = False
 
-        self.custom_installer_url:            str = "https://github.com/Medelcartelinc/OpenCore-Legacy-Patcher-T2"
+        self.custom_installer_url:            str = "https://github.com/Medelcartelinc/BridgePatcher"
         self.custom_installer_version=self.patcher_version
         self.installer_pkg_url:               str = f"{self.repo_link.rstrip('/')}/releases/download/{self.patcher_version}/AutoPkg-Assets-T2.pkg"
 
@@ -118,8 +118,6 @@ class Constants:
         self.nvmefix_version:            str = "1.1.3"  #      NVMeFix
         self.applealc_version:           str = "1.9.8"  #      AppleALC
         self.restrictevents_version:     str = "1.1.7"  #      RestrictEvents (rolling - acidanthera/RestrictEvents@b70aaa4, javascriptcore branch)
-        self.t2tahoefixup_version:       str = "1.0.17" #      T2TahoeFixup
-        self.appleans2disabler_version:  str = "1.0.0"  #      AppleANS2Disabler (T2 internal SSD)
         self.featureunlock_version:      str = "1.1.8"  #      FeatureUnlock
         self.debugenhancer_version:      str = "1.1.1"  #      DebugEnhancer
         self.cpufriend_version:          str = "1.3.0"  #      CPUFriend
@@ -128,6 +126,12 @@ class Constants:
         self.cryptexfixup_version:       str = "1.0.5"  #      CryptexFixup
         self.nvme_fix_version:           str = "1.1.3"  #      NVMeFix
         self.kext_updater_version:       str = "3.8.5"  #      KextUpdater
+
+        ## BidgePatcher
+        ## https://github.com/bridgepatcher
+        self.appleans2disabler_version:  str = "1.0.0"  #      AppleANS2Disabler (T2 internal SSD)
+        self.t2tahoefixup_version:       str = "1.0.17" #      T2TahoeFixup
+        #TODO: did Metteo make the above kext? if so then his name should be here instead of BridgePatcher's
 
         ## Apple
         ## https://www.apple.com
