@@ -72,7 +72,7 @@ Build-Project.command
 open ./dist/
 ```
 
-Once done, you'll find the application generated at `./dist/BridgePatcher.app` , alongside with the pkg installers (`BridgePatcher.pkg`, the uninstaller and `AutoPkg-Assets-T2.pkg`). Pass `--legacy-installer` to `Build-Project.command` to also get `OpenCore-Patcher-T2.pkg`, the same installer under the app's former name, which versions from before the rename need to find an update:
+Once done, you'll find the application generated at `./dist/BridgePatcher.app` , alongside with the pkg installers (`BridgePatcher.pkg`, `BridgePatcher-Uninstaller.pkg` and `AutoPkg-Assets-T2.pkg`). Pass `--legacy-installer` to `Build-Project.command` to also get `OpenCore-Patcher-T2.pkg`, the same installer under the app's former name, which versions from before the rename need to find an update:
 
 <img width="1032" height="548" alt="Bildschirmfoto 2026-08-11 um 11 21 14" src="https://github.com/user-attachments/assets/6a00237a-d215-454e-8f08-8b28ede347b8" />
 

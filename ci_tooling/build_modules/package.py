@@ -105,6 +105,14 @@ class GeneratePackage:
 
 
     @property
+    def uninstaller_package(self) -> str:
+        """
+        Uninstaller package generate() builds (file name in ./dist)
+        """
+        return constants.UNINSTALLER_PKG_NAME
+
+
+    @property
     def installer_packages(self) -> list:
         """
         Installer packages generate() builds, in build order (file names in ./dist)
@@ -205,9 +213,13 @@ class GeneratePackage:
         """
         Generate the uninstaller, installer and AutoPkg-Assets packages
         """
+        # An uninstaller under its former name, left over from a build before the rename,
+        # would otherwise be hashed into certificates.txt and could end up on a release.
+        Path("./dist", constants.LEGACY_UNINSTALLER_PKG_NAME).unlink(missing_ok=True)
+
         self._build_package(
-            "OpenCore-Patcher-Uninstaller.pkg",
-            pkg_output="./dist/OpenCore-Patcher-Uninstaller.pkg",
+            constants.UNINSTALLER_PKG_NAME,
+            pkg_output=f"./dist/{constants.UNINSTALLER_PKG_NAME}",
             pkg_bundle_id="com.dortania.opencore-legacy-patcher-uninstaller",
             pkg_version=constants.Constants().patcher_version,
             pkg_background="./ci_tooling/pkg_assets/PkgBackground-Uninstaller.png",

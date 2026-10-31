@@ -18,6 +18,7 @@ This version:
 - the copyright notice now updates its end year automatically and credits Dortania and the OpenCore Legacy Patcher contributors alongside this fork
 - removes outdated, unused T2TahoeFixup versions to reduce the size of the patcher
 - the installer, uninstaller and AutoPkg-Assets packages now show BridgePatcher's own icon in their background (in the box, in the trash can and behind the badge) instead of Dortania's OpenCore Legacy Patcher icon
+- the uninstaller package is now called BridgePatcher-Uninstaller.pkg (previously OpenCore-Patcher-Uninstaller.pkg)
 - on T2 Macs, updates T2TahoeFixup.kext to 1.0.19, which additionally hooks `_namei` so that `open`, `stat` and `mmap` calls from UpdateBrainService are redirected to the shadow BuildManifest in /private/tmp, aliases the dropped models' manifests (j132ap, j174ap, j680ap and others) to j214kap in memory, and lets `image4_trust_evaluate` succeed during Stage 2 to address the MobileSoftwareUpdate Error 81 on MacBookPro15,2 and Mac mini (#639). Not yet confirmed by testers. The kext's Info.plist still reports version 1.0.18, as its version wasn't bumped in this build. Thanks @matteoiacca
 
 In the repository:
