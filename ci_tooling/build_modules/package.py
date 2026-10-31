@@ -126,7 +126,7 @@ class GeneratePackage:
 
         _welcome += "\n\nAdditionally, a shortcut for BridgePatcher will be added in the '/Applications' folder."
         _welcome += "\n\nThis package will not 'Build and Install OpenCore' or install any 'Root Patches' on your machine. If required, you can run BridgePatcher to install any patches you may need."
-        _welcome += "\n\nBefore installing the patcher, I highly recommend to open Terminal and verify the SHA256 certificates using the shasum -a 256 command with the ones in this repository."
+        _welcome += "\n\nWhen you click Install, this package checks its own SHA256 checksum against the ones published on the official release. If it doesn't match, or can't be checked, a warning appears and you can cancel the installation. You can also check it yourself in Terminal with `shasum -a 256` and compare it with SHA256SUMS on the release page."
         _welcome += f"\n\nFor more information on BridgePatcher usage, see our [documentation]({constants.Constants().guide_link}) and [GitHub repository]({constants.Constants().repo_link})."
         _welcome += "\n\nA copy of LICENSE.txt, including the upstream BSD 4-Clause terms and the additional terms for this fork, is included in the application bundle at `Contents/Resources/LICENSE.txt`."
         _welcome += "\n\n"
