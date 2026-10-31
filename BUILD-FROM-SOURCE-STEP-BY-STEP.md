@@ -1,10 +1,10 @@
 # Build from source
 
-OpenCore Legacy Patcher T2 at its core is a Python-based GUI/CLI-based application. In turn, to run the project from source, you simply need to invoke the OpenCore-Patcher-GUI.command file via Python.
+BridgePatcher at its core is a Python-based GUI/CLI-based application. In turn, to run the project from source, you simply need to invoke the OpenCore-Patcher-GUI.command file via Python.
 
 For developers wishing to validate mainline changes, you may use this link: [GUI (Graphical Based App)](https://github.com/bridgepatcher/BridgePatcher/releases)
 
-* **Warning**:Untagged builds built from the latest commit are actively developed OpenCore Legacy Patcher T2 builds. These builds have not been tested, are not guaranteed to work, and are not guaranteed to be safe. They may have bugs that remain to be tested. Do not use untagged builds without a good reason to do so, and do not use them on your main machine. Additionally, these binaries should not be used without first consulting the [CHANGELOG](./CHANGELOG.md).
+* **Warning**:Untagged builds built from the latest commit are actively developed BridgePatcher builds. These builds have not been tested, are not guaranteed to work, and are not guaranteed to be safe. They may have bugs that remain to be tested. Do not use untagged builds without a good reason to do so, and do not use them on your main machine. Additionally, these binaries should not be used without first consulting the [CHANGELOG](./CHANGELOG.md).
 
   **Do not share _any_ links to these binaries** in forums; please link to **this document only**.
   * Additionally, do not reupload these binaries or download binaries from other sites. Using binaries from untrusted sources is a security issue, as they may have malware or exploitable vulnerabilities that are patched long time ago. 
@@ -68,7 +68,7 @@ To get started, you need to ensure you meet the minimum requirements:
 9. Once done, click on Close / Schließen
 <img width="1578" height="1120" alt="image" src="https://github.com/user-attachments/assets/a83dd6ac-2807-4d8b-b735-7f7cccfad45e" />
 
-## 3. Clone OpenCore Legacy Patcher T2 repo to your computer
+## 3. Clone the BridgePatcher repo to your computer
 1. Open the Terminal and write the following command: git clone https://github.com/bridgepatcher/BridgePatcher
 
 ## 4. Install all necessary dependencies

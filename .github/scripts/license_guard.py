@@ -115,6 +115,37 @@ IMAGE_EXT = (".png", ".icns", ".jpg", ".jpeg", ".gif", ".webp", ".tif", ".tiff",
 TEXT_EXT = (".md", ".markdown", ".html", ".htm", ".js", ".jsx", ".ts", ".tsx", ".vue", ".css",
             ".scss", ".py", ".plist", ".json", ".yml", ".yaml", ".txt", ".rst")
 # Dortania's images used directly from their repo or website (e.g. the old README logo).
+# The project's former name. "OpenCore Legacy Patcher T2" / "OCLP-T2" now counts as a typosquat
+# of BridgePatcher (and of Dortania's project), so it must not appear in docs, issue forms or
+# other user-facing text any more. Case-sensitive on purpose: lowercase URLs, slugs and keys
+# (oclp-t2, OpenCore-Legacy-Patcher-T2) are literal names and never matched.
+OLD_NAME_RE = re.compile(r"(?<![\w/#.-])(?:OpenCore[ -]Legacy[ -]Patcher[ -]T2|OCLP[- ]T2)(?![\w])")
+# Lines that talk ABOUT the former name (rename notes, typosquat warnings) may name it.
+OLD_NAME_OK_RE = re.compile(r"(?i)formerly|former names?|früher|ehemals|renamed|umbenannt|typosquat|tippfehler|lookalike")
+# Dortania's app name used as the name of THIS project ("Open the OpenCore Legacy Patcher app").
+# BSD licence: the upstream name must not be used to endorse or promote the fork. Allowed only
+# where the line clearly refers to Dortania's project: copyright/credit lines, lines that name
+# Dortania, the licence's title, "based on"/"fork of" statements and the upstream credits.
+UPSTREAM_NAME_RE = re.compile(r"(?i)(?<![\w/#.-])Open\s?Core[ \t]+Legacy[ \t]+Patcher(?![\w-])")
+UPSTREAM_NAME_OK_RE = re.compile(
+    r"(?i)dortania|©|\(c\)\s*\d|copyright|contributors|mitwirkende"
+    r"|OpenCore Legacy Patcher Licen[sc]e|Lizenz von OpenCore Legacy Patcher|started OpenCore Legacy Patcher"
+    r"|\b(?:based on|fork of|forked from|derived from|basiert auf|Fork von|abgeleitet von)\b")
+# Only user-facing text is checked: docs/web files and the issue/PR forms. Python code is left out
+# on purpose - e.g. the "OpenCore Legacy Patcher" key in the system patch plist must keep that name.
+# CHANGELOG.md is history (it documents the rename itself).
+NAME_CHECK_EXT = (".md", ".markdown", ".html", ".htm", ".vue", ".mts", ".ts", ".js", ".json", ".webmanifest", ".xsl")
+NAME_CHECK_DIRS = (".github/ISSUE_TEMPLATE/",)
+NAME_CHECK_SKIP = ("CHANGELOG.md",)
+
+
+def name_check_applies(path):
+    if path in NAME_CHECK_SKIP or LICENSE_FILE_RE.search(path):
+        return False
+    return path.lower().endswith(NAME_CHECK_EXT) or path.startswith(NAME_CHECK_DIRS) or (
+        path.startswith(".github/") and path.count("/") == 1 and path.lower().endswith(".md"))
+
+
 HOTLINK_RE = re.compile(
     r"(?:raw\.githubusercontent\.com/dortania/|github\.com/dortania/[^\s\"'()<>]*/(?:raw|blob)/"
     r"|dortania\.github\.io/)[^\s\"'()<>]*\.(?:png|icns|svg|jpe?g|gif|webp)", re.I)
@@ -296,6 +327,23 @@ def scan_artwork(head, add):
             if urls:
                 add("violation", path, "Dortania artwork used from Dortania's servers",
                     [f"- {u}" for u in urls[:10]])
+            if name_check_applies(path):
+                old, upstream = [], []
+                for n, l in enumerate(text.splitlines(), 1):
+                    if OLD_NAME_RE.search(l):
+                        if not OLD_NAME_OK_RE.search(l):
+                            old.append((n, l))
+                    elif UPSTREAM_NAME_RE.search(l) and not UPSTREAM_NAME_OK_RE.search(l):
+                        upstream.append((n, l))
+                if old:
+                    add("violation", path, "Former project name (OpenCore Legacy Patcher T2 / OCLP-T2)",
+                        [f"  line {n}: {show(l)}" for n, l in old[:5]] + (["  …"] if len(old) > 5 else []) +
+                        ["  Use BridgePatcher instead; the old name is treated as a typosquat."])
+                if upstream:
+                    add("violation", path, "Dortania's app name used for this project (OpenCore Legacy Patcher)",
+                        [f"  line {n}: {show(l)}" for n, l in upstream[:5]] + (["  …"] if len(upstream) > 5 else []) +
+                        ["  Say BridgePatcher, or make clear it is Dortania's project",
+                         "  (e.g. \"Dortania's OpenCore Legacy Patcher 2.0.0\"). Copyright/credit lines are fine."])
     _save_cache(cache)
 
 

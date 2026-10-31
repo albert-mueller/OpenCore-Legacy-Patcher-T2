@@ -168,10 +168,13 @@ jobs:
             // ---- Versions from the issue form --------------------------------
             // A CLOSED issue reported again on a different patcher or macOS version is a
             // new report (e.g. a regression in a newer build), not a duplicate.
+            // heading: one form heading or a list of them (current name first, older names after)
             const formField = (body, heading) => {
+              const headings = (Array.isArray(heading) ? heading : [heading]).map(h => h.toLowerCase());
               for (const part of (body || '').split(/^###\s+/m)) {
                 const nl = part.indexOf('\n');
-                if (nl > 0 && part.slice(0, nl).toLowerCase().startsWith(heading.toLowerCase())) {
+                const title = nl > 0 ? part.slice(0, nl).toLowerCase() : '';
+                if (nl > 0 && headings.some(h => title.startsWith(h))) {
                   return part.slice(nl + 1).trim();
                 }
               }
@@ -179,7 +182,8 @@ jobs:
             };
             const VERSION_FIELDS = [
               // [form heading, label, version pattern]
-              ['OpenCore Legacy Patcher T2 version', 'OCLP-T2', /\d+\.\d+\.\d+(?:\.\d+)*/],
+              // Issues filed before the rename still use the old heading, so both are read.
+              [['BridgePatcher version', 'OpenCore Legacy Patcher T2 version'], 'BridgePatcher', /\d+\.\d+\.\d+(?:\.\d+)*/],
               ['Target macOS version',               'macOS',   /\b\d{2}(?:\.\d+)*/],
             ];
             // "4.0.0" vs "4.0.0.18001" or "26" vs "26.7.1": one is just less precise -> same.
