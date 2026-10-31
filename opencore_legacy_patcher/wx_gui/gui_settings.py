@@ -437,14 +437,14 @@ class SettingsFrame(wx.Frame):
                 "Default OpenCore Build": {
                     "type": "choice",
                     "choices": [
-                        "💬 Ask Each Time",
-                        "🟢 Standard / Safe Build",
-                        "🧪 [LEVEL-B] Experimental GPU",
-                        "🧪 [LEVEL-C] Experimental Tahoe (Native SMBIOS)",
-                        "🧪 [LEVEL-C] Experimental Spoof T2 (MacBookPro16,1)",
-                        "🧪 [LEVEL-D] All-In-One Tahoe (Wi-Fi + Audio + GPU + T1)"
+                        "Ask Each Time",
+                        "Standard / Safe Build",
+                        "[LEVEL-B] Experimental GPU",
+                        "[LEVEL-C] Experimental Tahoe (Native SMBIOS)",
+                        "[LEVEL-C] Experimental Spoof T2 (MacBookPro16,1)",
+                        "[LEVEL-D] All-In-One Tahoe (Wi-Fi + Audio + GPU + T1)"
                     ],
-                    "value": "💬 Ask Each Time",
+                    "value": "Ask Each Time",
                     "variable": "",
                     "description": [
                         "Change the OpenCore build Config that will",
@@ -542,46 +542,46 @@ Hardware Information:
 
         oc_build_box.Bind(wx.EVT_CHOICE, self.oc_build_selection)
         if self.constants.build_profile == "standard":
-            oc_build_box.SetStringSelection("🟢 Standard / Safe Build")
+            oc_build_box.SetStringSelection("Standard / Safe Build")
         elif (self.constants.build_profile is None) or (self.constants.build_profile == ""):
-            oc_build_box.SetStringSelection("💬 Ask Each Time")
+            oc_build_box.SetStringSelection("Ask Each Time")
         elif self.constants.build_profile == "test_b":
-            oc_build_box.SetStringSelection("🧪 [LEVEL-B] Experimental GPU")
+            oc_build_box.SetStringSelection("[LEVEL-B] Experimental GPU")
         elif self.constants.build_profile == "test_c":
-             oc_build_box.SetStringSelection("🧪 [LEVEL-C] Experimental Tahoe (Native SMBIOS)")
+             oc_build_box.SetStringSelection("[LEVEL-C] Experimental Tahoe (Native SMBIOS)")
         elif self.constants.build_profile == "test_c_spoofed":
-            oc_build_box.SetStringSelection("🧪 [LEVEL-C] Experimental Spoof T2 (MacBookPro16,1)")
+            oc_build_box.SetStringSelection("[LEVEL-C] Experimental Spoof T2 (MacBookPro16,1)")
         elif self.constants.build_profile == "test_d":
-            oc_build_box.SetStringSelection("🧪 [LEVEL-D] All-In-One Tahoe (Wi-Fi + Audio + GPU + T1)")
+            oc_build_box.SetStringSelection("[LEVEL-D] All-In-One Tahoe (Wi-Fi + Audio + GPU + T1)")
 
     def oc_build_selection(self, event: wx.Event) -> None:
         value = event.GetEventObject().GetStringSelection()
-        if value == "🟢 Standard / Safe Build":
+        if value == "Standard / Safe Build":
             logging.info("Updating OC build: Standard")
             self.constants.build_profile = "standard"
             global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "standard")
             return
-        elif value == "💬 Ask Each Time":
+        elif value == "Ask Each Time":
             logging.info("Updating OC build: None")
             self.constants.build_profile = ""
             global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "")
             return
-        elif value == "🧪 [LEVEL-B] Experimental GPU":
+        elif value == "[LEVEL-B] Experimental GPU":
             logging.info("Updating OC build: Level-B")
             self.constants.build_profile = "test_b"
             global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "test_b")
             return
-        elif value == "🧪 [LEVEL-C] Experimental Tahoe (Native SMBIOS)":
+        elif value == "[LEVEL-C] Experimental Tahoe (Native SMBIOS)":
             logging.info("Updating OC build: Level-C")
             self.constants.build_profile = "test_c"
             global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "test_c")
             return
-        elif value == "🧪 [LEVEL-C] Experimental Spoof T2 (MacBookPro16,1)":
+        elif value == "[LEVEL-C] Experimental Spoof T2 (MacBookPro16,1)":
             logging.info("Updating OC build: Level-C (Spoofed)")
             self.constants.build_profile = "test_c_spoofed"
             global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "test_c_spoofed")
             return
-        elif value == "🧪 [LEVEL-D] All-In-One Tahoe (Wi-Fi + Audio + GPU + T1)":
+        elif value == "[LEVEL-D] All-In-One Tahoe (Wi-Fi + Audio + GPU + T1)":
             logging.info("Updating OC build: Level-D")
             self.constants.build_profile = "test_d"
             global_settings.GlobalEnviromentSettings().write_property("GUI:oc_build", "test_d")
