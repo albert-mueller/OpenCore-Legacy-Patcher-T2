@@ -382,6 +382,8 @@ def rdap(host):
     for ev in data.get("events", []):
         if ev.get("eventAction") == "registration":
             info["registered"] = ev.get("eventDate", "")[:10]
+    info["nameservers"] = sorted({(ns.get("ldhName") or "").lower().rstrip(".")
+                                  for ns in data.get("nameservers", []) if ns.get("ldhName")})
     return info
 
 

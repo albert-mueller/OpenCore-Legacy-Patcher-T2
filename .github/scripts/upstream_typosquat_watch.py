@@ -11,6 +11,7 @@ Closing the warning issue pauses the workflow; reopening it resumes it.
 import base64
 import concurrent.futures as cf
 import datetime
+import functools
 import html
 import json
 import os
@@ -59,6 +60,9 @@ FILE_HOSTS = ("mediafire.com", "mega.nz", "mega.io", "drive.google.com", "dropbo
 # Download links in a README that lead here are fine (Apple and the official project)
 README_OK_HOSTS = ("apple.com", "dortania.github.io")
 GITHUB_HOSTS = ("github.com", "www.github.com", "raw.githubusercontent.com")
+# Abuse report forms for providers that prefer them over e-mail
+ABUSE_FORMS = {"cloudflare": "https://abuse.cloudflare.com/",
+               "github": "https://github.com/contact/report-abuse"}
 MD_LINK = re.compile(r"\[((?:[^\[\]]|\[[^\[\]]*\])*)\]\((https?://[^)\s]+)\)")
 
 
@@ -179,10 +183,24 @@ def gone_repo_status(full):
     return "status unknown"
 
 
-def network_owner(ip):
-    """Hosting provider / network that an IP address belongs to (RDAP, best effort)."""
+def _abuse_email(entities):
+    """First e-mail of an entity with the abuse role, searching nested entities too."""
+    for ent in entities or []:
+        if "abuse" in ent.get("roles", []):
+            for item in (ent.get("vcardArray") or [None, []])[1]:
+                if item and item[0] == "email" and item[3]:
+                    return str(item[3]).strip()
+        found = _abuse_email(ent.get("entities"))
+        if found:
+            return found
+    return ""
+
+
+def network_info(ip):
+    """Hosting provider / network that an IP address belongs to and its abuse e-mail
+    (RDAP, best effort)."""
     if ip not in _networks:
-        name = ""
+        name, abuse = "", ""
         try:
             data = ts.fetch_json(f"https://rdap.org/ip/{ip}")
             for ent in data.get("entities", []):
@@ -194,10 +212,68 @@ def network_owner(ip):
                 if name:
                     break
             name = name or data.get("name") or ""
+            abuse = _abuse_email(data.get("entities"))
         except Exception:
             pass
-        _networks[ip] = name.strip()
+        _networks[ip] = {"name": name.strip(), "abuse": abuse}
     return _networks[ip]
+
+
+def network_owner(ip):
+    return network_info(ip)["name"]
+
+
+@functools.lru_cache(maxsize=None)
+def domain_rdap(host):
+    return ts.rdap(host)
+
+
+def abuse_contact(name, email=""):
+    """'Name (abuse@…)', plus the provider's report form when it has one."""
+    form = next((url for key, url in ABUSE_FORMS.items() if key in (name or "").lower()), "")
+    contacts = ", ".join(c for c in (email, form) if c)
+    if not name:
+        return contacts or "—"
+    return f"{name} ({contacts})" if contacts else name
+
+
+def report_info(host, ips=None):
+    """Everything needed to report a site: its IP addresses, registrar and registration date,
+    DNS provider and hosting network, each with its abuse contact (public RDAP data)."""
+    ips = ips if ips is not None else ts.resolve(host)
+    v4 = [i for i in ips if ":" not in i]
+    v6 = [i for i in ips if ":" in i]
+    shown = v4[:4] + v6[:2]
+    info = {"ips": ", ".join(shown) + (" …" if len(ips) > len(shown) else "") or "none (no DNS)"}
+    if host.endswith(".github.io"):
+        info.update(registered="—", registrar="— (GitHub Pages)",
+                    dns="GitHub", hosting=abuse_contact("GitHub"))
+        info["dns"] = info["hosting"]
+        return {k: cell(v, 200) for k, v in info.items()}
+    reg = domain_rdap(host)
+    info["registered"] = reg.get("registered") or "—"
+    info["registrar"] = abuse_contact(reg.get("registrar") or "", reg.get("abuse") or "")
+    dns = "—"
+    nameservers = reg.get("nameservers") or []
+    if nameservers:
+        # The provider is whoever the nameservers' domain belongs to (e.g. cloudflare.com);
+        # their IP network can be someone else (a registrar's DNS hosted on Cloudflare)
+        ns_domain = ".".join(nameservers[0].split(".")[-2:])
+        brand = ns_domain.split(".")[0]
+        ns_ips = ts.resolve(nameservers[0])
+        ns_v4 = [i for i in ns_ips if ":" not in i] or ns_ips
+        net = network_info(ns_v4[0]) if ns_v4 else {"name": "", "abuse": ""}
+        if brand in re.sub(r"[^a-z0-9]", "", net["name"].lower()):
+            provider = abuse_contact(net["name"], net["abuse"])
+        elif brand in re.sub(r"[^a-z0-9]", "", (reg.get("registrar") or "").lower()):
+            provider = info["registrar"]  # the registrar runs the DNS too
+        else:
+            provider = abuse_contact(ns_domain)
+        dns = provider + " · NS " + ", ".join(nameservers[:2])
+    info["dns"] = dns
+    net = network_info((v4 or ips)[0]) if ips else {"name": "", "abuse": ""}
+    info["hosting"] = abuse_contact(net["name"], net["abuse"])
+    return {k: cell(v, 200) for k, v in info.items()}
 
 
 def domain_registered(host):
@@ -218,7 +294,7 @@ def site_owner(host, ips=None):
     the registration date and the hosting network."""
     if host.endswith(".github.io"):
         return gh_account(host[: -len(".github.io")].split(".")[-1])
-    reg = ts.rdap(host)
+    reg = domain_rdap(host)
     parts = [f"registrant {reg['registrant']}" if reg.get("registrant") else
              ("owner hidden (privacy protection)" if reg else "no registration data")]
     if reg.get("registrar"):
@@ -313,9 +389,10 @@ def scan_sites(watch):
     with cf.ThreadPoolExecutor(max_workers=4) as ex:  # RDAP servers rate-limit bursts
         owners = dict(zip(found, ex.map(lambda h: site_owner(h, found[h]["ips"] or None), found)))
         status = dict(zip(found, ex.map(lambda h: found[h]["status"] or site_status(h), found)))
+        reports = dict(zip(found, ex.map(lambda h: report_info(h, found[h]["ips"] or None), found)))
     for h, info in found.items():
         info.pop("ips", None)
-        info["owner"], info["status"] = owners[h], status[h]
+        info["owner"], info["status"], info["report"] = owners[h], status[h], reports[h]
     return found
 
 
@@ -325,7 +402,9 @@ def describe_parked(watch):
     with cf.ThreadPoolExecutor(max_workers=4) as ex:
         owners = list(ex.map(site_owner, hosts))
         status = list(ex.map(site_status, hosts))
-    return {h: {"since": watch[h], "owner": o, "status": s} for h, o, s in zip(hosts, owners, status)}
+        reports = list(ex.map(report_info, hosts))
+    return {h: {"since": watch[h], "owner": o, "status": s, "report": r}
+            for h, o, s, r in zip(hosts, owners, status, reports)}
 
 
 def refresh_gone(state):
@@ -426,6 +505,18 @@ def render(state):
                 "They're listed so you recognise them if they go live.", "",
                 "| Domain | Status | Belongs to | Noticed |", "|---|---|---|---|"]
         out += [f"| `{h}` | {e['status']} | {e['owner']} | {e['since']} |" for h, e in sorted(parked.items())]
+    to_report = {h: e["report"] for h, e in {**sites, **parked}.items() if e.get("report")}
+    if to_report:
+        out += ["", "<details><summary>Where to report these sites (IP addresses, registrar, DNS, hosting)"
+                "</summary>", "",
+                "Abuse contacts come from public RDAP records. The registrar can suspend the domain, the DNS "
+                "and hosting providers can stop serving it. Include the address and why it's a fake "
+                "(e.g. a link to this issue).", "",
+                "| Site | IP addresses | Registered | Registrar (abuse contact) | DNS provider (abuse contact) "
+                "| Hosting (abuse contact) |", "|---|---|---|---|---|---|"]
+        out += [f"| `{h}` | {r['ips']} | {r['registered']} | {r['registrar']} | {r['dns']} | {r['hosting']} |"
+                for h, r in sorted(to_report.items())]
+        out += ["", "</details>"]
     out += ["", f"### GitHub repositories ({len(repos)})"]
     if repos:
         out += ["| Repository | Status | Belongs to | Why it's listed | First seen |", "|---|---|---|---|---|"]
